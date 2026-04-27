@@ -4,9 +4,61 @@
 
 | STT | Thành viên | Vai trò | Nhiệm vụ chính |
 |-----|------------|---------|----------------|
-| 1 | ? | Backend Developer | API, Database |
-| 2 | ? | Frontend Developer | Kết nối API, Fix UI |
-| 3 | ? | Leader/Coordinator | Test, Deploy, Manage |
+| 1 | Backend Dev | Backend Developer | API, Database |
+| 2 | Frontend Dev | Frontend Developer | Kết nối API, Fix UI |
+| 3 | Leader | Leader/Coordinator | Test, Deploy, Manage |
+
+---
+
+## 📋 PHÂN CÔNG CÔNG VIỆC CHO TỪNG NGƯỜI
+
+### 👨‍💻 THÀNH VIÊN 1: BACKEND DEVELOPER
+**Nhiệm vụ chính:** Xây dựng API và kết nối Database
+
+| Task | Mô tả | File liên quan |
+|------|-------|----------------|
+| 1.0.1 | Cài đặt XAMPP (MySQL) | - |
+| 1.0.2 | Tạo database `forecastai` trong phpMyAdmin | - |
+| 1.0.3 | Import file `database.sql` vào MySQL | `backend/src/models/database.sql` |
+| 1.0.4 | Tạo file `.env` từ `.env.example` | `backend/.env` |
+| 1.1 | Test kết nối MySQL | `backend/src/models/db.js` |
+| 1.2 | Viết Auth API (Login/Logout) | `backend/src/routes/auth.js` |
+| 1.3 | Viết Products API (CRUD) | `backend/src/routes/products.js` |
+| 1.4 | Viết Sales API | `backend/src/routes/sales.js` |
+| 1.5 | Viết Purchase Orders API | `backend/src/routes/orders.js` |
+
+**Deadline:** 1 tuần
+
+---
+
+### 👨‍💻 THÀNH VIÊN 2: FRONTEND DEVELOPER
+**Nhiệm vụ chính:** Kết nối HTML với Backend API
+
+| Task | Mô tả | File liên quan |
+|------|-------|----------------|
+| 2.1 | Sửa Login gọi API Auth | `html-version/assets/js/pages/login.js` |
+| 2.2 | Sửa Products gọi API | `html-version/assets/js/pages/products.js` |
+| 2.3 | Sửa Dashboard gọi API | `html-version/assets/js/pages/dashboard.js` |
+| 2.4 | Sửa Sales Data gọi API | `html-version/assets/js/pages/sales-data.js` |
+| 2.5 | Sửa Users gọi API | `html-version/assets/js/pages/users.js` |
+| 2.6 | Xử lý Authentication (Token) | Tất cả file JS |
+
+**Deadline:** 1 tuần (sau khi Backend xong)
+
+---
+
+### 👨‍💻 THÀNH VIÊN 3: LEADER
+**Nhiệm vụ chính:** Quản lý và Deploy
+
+| Task | Mô tả | File liên quan |
+|------|-------|----------------|
+| 3.1 | Test toàn bộ hệ thống | Tất cả |
+| 3.2 | Fix bugs | - |
+| 3.3 | Deploy Backend (Render) | `backend/` |
+| 3.4 | Deploy Frontend (Netlify) | `html-version/` |
+| 3.5 | Viết README hướng dẫn | `README.md` |
+
+**Deadline:** Sau khi 2 thành viên kia xong
 
 ---
 
