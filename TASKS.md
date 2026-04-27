@@ -4,15 +4,15 @@
 
 | STT | Thành viên | Vai trò | Nhiệm vụ chính |
 |-----|------------|---------|----------------|
-| 1 | Backend Dev | Backend Developer | API, Database |
-| 2 | Frontend Dev | Frontend Developer | Kết nối API, Fix UI |
-| 3 | Leader | Leader/Coordinator | Test, Deploy, Manage |
+| 1 | Kiệt | Backend Developer | API, Database |
+| 2 | Thanh | Frontend Developer | Kết nối API, Fix UI |
+| 3 | Đại | Leader/Coordinator | Test, Deploy, Manage |
 
 ---
 
 ## 📋 PHÂN CÔNG CÔNG VIỆC CHO TỪNG NGƯỜI
 
-### 👨‍💻 THÀNH VIÊN 1: BACKEND DEVELOPER
+### 👨‍💻 Kiệt: BACKEND DEVELOPER
 **Nhiệm vụ chính:** Xây dựng API và kết nối Database
 
 | Task | Mô tả | File liên quan |
@@ -31,7 +31,7 @@
 
 ---
 
-### 👨‍💻 THÀNH VIÊN 2: FRONTEND DEVELOPER
+### 👨‍💻 Thanh: FRONTEND DEVELOPER
 **Nhiệm vụ chính:** Kết nối HTML với Backend API
 
 | Task | Mô tả | File liên quan |
