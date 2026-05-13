@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+<<<<<<< HEAD
 
 // Import các file controllers
 const apiController = require('../controllers/apiController');
@@ -22,3 +23,14 @@ router.get('/sales/summary', authMiddlware.verifyToken, require('../controllers/
 router.post('/sales', authMiddlware.verifyToken, require('../controllers/salesController').createSale);
 
 module.exports = router;
+=======
+const apiController = require('../controllers/apiController');
+
+// Define API routes
+router.get('/status', apiController.getStatus);
+
+// Example to be expanded later:
+// router.get('/products', apiController.getProducts);
+
+module.exports = router;
+>>>>>>> 2b6689b0993486384bd99b83a7878673e73a0786

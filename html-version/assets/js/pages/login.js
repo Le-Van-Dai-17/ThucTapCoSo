@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('loginForm');
 
-    // Xử lý ẩn/hiện mật khẩu
     const togglePassword = document.getElementById('togglePassword');
     const passwordInput = document.getElementById('password');
     if (togglePassword) {
@@ -11,7 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Xử lý submit form
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
