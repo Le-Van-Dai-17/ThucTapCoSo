@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ForecastAI - User Profile</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .disabled-input { background-color: #f9fafb; color: #4b5563; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans">
+    
+    <!-- Toast overlay -->
+    <div id="toast" class="fixed top-20 right-8 bg-[#10B981] text-white px-6 py-4 rounded-xl shadow-lg z-50 flex items-center gap-3 transition-all duration-300 translate-x-[150%] opacity-0">
+        <i data-lucide="check-circle" class="w-5 h-5" id="toastIcon"></i>
+        <span class="font-medium" id="toastMessage">Success</span>
+    </div>
+
+    <div class="size-full flex h-screen overflow-hidden">
+        
+
+        <!-- Main Content -->
+        <main class="ml-[240px] mt-16 flex-1 flex flex-col h-[calc(100vh-4rem)] overflow-y-auto bg-gray-50">
+            <div class="flex items-center justify-center py-12 px-8">
+                <div class="w-full max-w-2xl space-y-6">
+                    
+                    <!-- Profile Information Card -->
+                    <div class="bg-white rounded-[16px] shadow-sm border border-gray-200 p-8">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-2xl font-semibold text-gray-900">Profile Information</h2>
+                            <button id="editProfileBtn" onclick="toggleEditProfile()" class="px-4 py-2 text-sm text-[#2563EB] hover:bg-[#2563EB]/10 rounded-xl transition-colors duration-200 font-medium">
+                                Edit Profile
+                            </button>
+                        </div>
+
+                        <form id="profileForm" onsubmit="handleProfileUpdate(event)" class="space-y-5">
+                            <!-- Full Name -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                                <div class="relative">
+                                    <i data-lucide="user" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"></i>
+                                    <input type="text" id="fullName" value="John Doe" disabled class="disabled-input w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] transition-all duration-200 disabled:border-transparent" />
+                                </div>
+                            </div>
+
+                            <!-- Username -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                                <div class="relative">
+                                    <i data-lucide="user" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"></i>
+                                    <input type="text" id="username" value="johndoe" disabled class="disabled-input w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] transition-all duration-200 disabled:border-transparent" />
+                                </div>
+                            </div>
+
+                            <!-- Email -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                                <div class="relative">
+                                    <i data-lucide="mail" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"></i>
+                                    <input type="email" id="email" value="john.doe@company.com" disabled class="disabled-input w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] transition-all duration-200 disabled:border-transparent" />
+                                </div>
+                            </div>
+
+                            <!-- Role -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                                <div class="relative">
+                                    <i data-lucide="shield" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"></i>
+                                    <input type="text" value="Manager" disabled class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-gray-600 cursor-not-allowed" />
+                                </div>
+                                <p class="mt-2 text-sm text-gray-500">Your role cannot be changed. Contact an administrator for role updates.</p>
+                            </div>
+
+                            <div id="profileActions" class="flex gap-3 pt-4 hidden">
+                                <button type="submit" class="px-6 py-2.5 bg-[#2563EB] text-white rounded-xl hover:bg-[#1d4ed8] transition-colors duration-200 font-medium">
+                                    Save Changes
+                                </button>
+                                <button type="button" onclick="cancelEditProfile()" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors duration-200 font-medium">
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Change Password Card -->
+                    <div class="bg-white rounded-[16px] shadow-sm border border-gray-200 p-8">
+                        <h2 class="text-2xl font-semibold text-gray-900 mb-6">Change Password</h2>
+
+                        <form id="passwordForm" onsubmit="handlePasswordChange(event)" class="space-y-5">
+                            <!-- Current Password -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
+                                <div class="relative">
+                                    <input type="password" id="currentPassword" required class="w-full px-4 pr-12 py-2.5 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] transition-all duration-200" placeholder="Enter current password" />
+                                    <button type="button" onclick="togglePasswordVisibility('currentPassword', 'eyeCurrent')" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                                        <i data-lucide="eye" id="eyeCurrent" class="w-5 h-5"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- New Password -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                                <div class="relative">
+                                    <input type="password" id="newPassword" required class="w-full px-4 pr-12 py-2.5 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] transition-all duration-200" placeholder="Enter new password" />
+                                    <button type="button" onclick="togglePasswordVisibility('newPassword', 'eyeNew')" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                                        <i data-lucide="eye" id="eyeNew" class="w-5 h-5"></i>
+                                    </button>
+                                </div>
+                                <p class="mt-2 text-sm text-gray-500">Password must be at least 8 characters long</p>
+                            </div>
+
+                            <!-- Confirm New Password -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                                <div class="relative">
+                                    <input type="password" id="confirmPassword" required class="w-full px-4 pr-12 py-2.5 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] transition-all duration-200" placeholder="Confirm new password" />
+                                    <button type="button" onclick="togglePasswordVisibility('confirmPassword', 'eyeConfirm')" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                                        <i data-lucide="eye" id="eyeConfirm" class="w-5 h-5"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="pt-4">
+                                <button type="submit" class="px-6 py-2.5 bg-[#2563EB] text-white rounded-xl hover:bg-[#1d4ed8] transition-colors duration-200 font-medium">
+                                    Update Password
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../assets/js/pages/profile.js"></script>
+    <script src="../assets/js/components/layout.js"></script>
+</body>
+</html>
