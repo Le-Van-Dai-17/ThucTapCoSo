@@ -23,4 +23,6 @@ router.post('/sales/create', authMiddlware.verifyToken, require('../controllers/
 
 router.post('/purchases/create', authMiddlware.verifyToken, require('../controllers/purchaseController').createPurchase);
 router.get('/purchases/list', authMiddlware.verifyToken, require('../controllers/purchaseController').getPurchases);
+router.get('/purchases/detail/:id', authMiddlware.verifyToken, require('../controllers/purchaseController').getPurchasesDetail);
+
 module.exports = router;

@@ -50,3 +50,19 @@ exports.getPurchases = async (req, res) => {
         });
     }
 };
+
+exports.getPurchasesDetail = async (req, res) => {
+     try {
+        const { id } = req.params;
+        const [details] = await pool.query(
+            'SELECT pod.*, p.name AS product_name FROM purchase_order_details pod JOIN products p ON pod.product_id = p.id WHERE pod.order_id = ?', [id]
+        );
+        res.status(200).json({ success: true, data: details });
+    } catch (error) {
+        console.error('Error fetching purchase details:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi lấy chi tiết đơn nhập hàng'
+        });
+    }
+};
