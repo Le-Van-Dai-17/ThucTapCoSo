@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-<<<<<<< HEAD
 
 // Import các file controllers
 const apiController = require('../controllers/apiController');
@@ -13,24 +12,15 @@ router.post('/auth/register', authController.register);
 router.post('/auth/login', authController.login);
 router.post('/auth/logout', authMiddlware.verifyToken, authController.logout);
 
-router.get('/products', authMiddlware.verifyToken, require('../controllers/productController').getAllProducts);
-router.get('/products/:id', authMiddlware.verifyToken, require('../controllers/productController').getProductById);
-router.post('/products', authMiddlware.verifyToken, require('../controllers/productController').createProduct);
-router.put('/products/:id', authMiddlware.verifyToken, require('../controllers/productController').updateProduct);
-router.delete('/products/:id', authMiddlware.verifyToken, require('../controllers/productController').deleteProduct);
+router.get('/products/list', authMiddlware.verifyToken, require('../controllers/productController').getAllProducts);
+router.get('/products/get/:id', authMiddlware.verifyToken, require('../controllers/productController').getProductById);
+router.post('/products/create', authMiddlware.verifyToken, require('../controllers/productController').createProduct);
+router.put('/products/update/:id', authMiddlware.verifyToken, require('../controllers/productController').updateProduct);
+router.delete('/products/delete/:id', authMiddlware.verifyToken, require('../controllers/productController').deleteProduct);
 
-router.get('/sales/summary', authMiddlware.verifyToken, require('../controllers/salesController').getSalesSummary);
-router.post('/sales', authMiddlware.verifyToken, require('../controllers/salesController').createSale);
+router.get('/sales/list', authMiddlware.verifyToken, require('../controllers/salesController').getSalesSummary);
+router.post('/sales/create', authMiddlware.verifyToken, require('../controllers/salesController').createSale);
 
+router.post('/purchases/create', authMiddlware.verifyToken, require('../controllers/purchaseController').createPurchase);
+router.get('/purchases/list', authMiddlware.verifyToken, require('../controllers/purchaseController').getPurchases);
 module.exports = router;
-=======
-const apiController = require('../controllers/apiController');
-
-// Define API routes
-router.get('/status', apiController.getStatus);
-
-// Example to be expanded later:
-// router.get('/products', apiController.getProducts);
-
-module.exports = router;
->>>>>>> 2b6689b0993486384bd99b83a7878673e73a0786
