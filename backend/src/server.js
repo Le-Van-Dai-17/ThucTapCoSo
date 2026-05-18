@@ -2,6 +2,9 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
+// Import kết nối Database
+const { testConnection } = require('./db'); 
+
 // Import routes
 const apiRoutes = require('./routes/api');
 
@@ -22,7 +25,10 @@ app.get('/', (req, res) => {
 
 // Start Server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV}`);
+    
+    // Gọi hàm test kết nối DB khi khởi động
+    await testConnection();
 });

@@ -1,5 +1,3 @@
-// API Controller to handle logic
-
 exports.getStatus = (req, res) => {
     res.status(200).json({
         success: true,

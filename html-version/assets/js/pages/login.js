@@ -1,32 +1,16 @@
-// Initialize Icons
-lucide.createIcons();
+document.addEventListener('DOMContentLoaded', () => {
+    const loginForm = document.getElementById('loginForm');
 
-// Mock data fallback (dùng khi backend chưa chạy)
-const MOCK_USERS = [
-    { id: 1, username: 'admin', password: '123456', full_name: 'Admin User', role: 'admin', email: 'admin@forecastai.com' },
-    { id: 2, username: 'manager', password: '123456', full_name: 'Manager User', role: 'manager', email: 'manager@forecastai.com' },
-    { id: 3, username: 'staff', password: '123456', full_name: 'Staff User', role: 'staff', email: 'staff@forecastai.com' }
-];
-
-// Toggle Password Visibility
-const togglePassword = document.getElementById('togglePassword');
-const passwordInput = document.getElementById('password');
-
-let isPasswordVisible = false;
-
-togglePassword.addEventListener('click', () => {
-    isPasswordVisible = !isPasswordVisible;
-    if (isPasswordVisible) {
-        passwordInput.type = 'text';
-        togglePassword.innerHTML = '<i data-lucide="eye-off" class="w-5 h-5"></i>';
-    } else {
-        passwordInput.type = 'password';
-        togglePassword.innerHTML = '<i data-lucide="eye" class="w-5 h-5"></i>';
+    const togglePassword = document.getElementById('togglePassword');
+    const passwordInput = document.getElementById('password');
+    if (togglePassword) {
+        togglePassword.addEventListener('click', () => {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+        });
     }
-    // Re-render the specific icon
-    lucide.createIcons();
-});
 
+<<<<<<< HEAD
 // Nếu đã đăng nhập thì redirect luôn
 if (typeof Auth !== 'undefined' && Auth.isLoggedIn()) {
     window.location.href = 'dashboard.html';
@@ -88,3 +72,47 @@ function showLoginError(box, msg) {
     }
 }
 
+=======
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = passwordInput.value;
+            const submitBtn = loginForm.querySelector('button[type="submit"]');
+
+            submitBtn.innerText = 'Đang đăng nhập...';
+            submitBtn.disabled = true;
+
+            try {
+                // Gọi API Login của Backend
+                const response = await fetch('http://localhost:5000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Lưu Token vào LocalStorage để các trang khác dùng
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+
+                    alert('Đăng nhập thành công!');
+                    // Chuyển hướng sang trang Dashboard
+                    window.location.href = 'dashboard.html';
+                } else {
+                    alert(data.message || 'Sai tài khoản hoặc mật khẩu!');
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Không thể kết nối đến Server Backend!');
+            } finally {
+                submitBtn.innerText = 'Sign In';
+                submitBtn.disabled = false;
+            }
+        });
+    }
+});
+>>>>>>> 24fae3245b738e971a8ef78643e47f2605bd78ac
