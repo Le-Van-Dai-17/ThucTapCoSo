@@ -1,32 +1,36 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const loginForm = document.getElementById('loginForm');
+lucide.createIcons();
 
-    const togglePassword = document.getElementById('togglePassword');
-    const passwordInput = document.getElementById('password');
-    if (togglePassword) {
-        togglePassword.addEventListener('click', () => {
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordInput.setAttribute('type', type);
-        });
-    }
-
-<<<<<<< HEAD
-// Nếu đã đăng nhập thì redirect luôn
+// Đã đăng nhập rồi → không cần vào đây nữa
 if (typeof Auth !== 'undefined' && Auth.isLoggedIn()) {
     window.location.href = 'dashboard.html';
 }
 
-// Handle Login Submission
+// Toggle hiện/ẩn mật khẩu
+const togglePassword = document.getElementById('togglePassword');
+const passwordInput  = document.getElementById('password');
+if (togglePassword && passwordInput) {
+    togglePassword.addEventListener('click', () => {
+        const isText = passwordInput.type === 'text';
+        passwordInput.type = isText ? 'password' : 'text';
+        togglePassword.innerHTML = `<i data-lucide="${isText ? 'eye' : 'eye-off'}" class="w-5 h-5"></i>`;
+        lucide.createIcons();
+    });
+}
+
+// Xử lý submit form login
 document.getElementById('loginForm').addEventListener('submit', async function (e) {
     e.preventDefault();
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
-    const submitBtn = document.getElementById('submitBtn');
-    const errorBox = document.getElementById('errorMessage');
 
-    if (errorBox) {
-        errorBox.classList.add('hidden');
-        errorBox.textContent = '';
+    const username  = document.getElementById('username').value.trim();
+    const password  = document.getElementById('password').value;
+    const submitBtn = document.getElementById('submitBtn');
+    const errorBox  = document.getElementById('errorMessage');
+
+    if (errorBox) { errorBox.classList.add('hidden'); errorBox.textContent = ''; }
+
+    if (!username || !password) {
+        showLoginError(errorBox, 'Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.');
+        return;
     }
 
     // Loading state
@@ -39,27 +43,27 @@ document.getElementById('loginForm').addEventListener('submit', async function (
 
     try {
         const result = await API.auth.login(username, password);
-        Auth.setToken(result.token);
-        Auth.setUser(result.user);
-        window.location.href = 'dashboard.html';
+
+        // result = { success: true, token, user: { id, username, role, ... } }
+        if (result && result.success) {
+            Auth.setToken(result.token);
+            Auth.setUser(result.user);
+            window.location.href = 'dashboard.html';
+        } else {
+            // Server trả 200 nhưng success: false (hiếm)
+            showLoginError(errorBox, result?.message || 'Đăng nhập thất bại.');
+        }
+
     } catch (err) {
         if (err.message === 'BACKEND_OFFLINE') {
-            // Fallback: kiểm tra mock user
-            const found = MOCK_USERS.find(u => u.username === username && u.password === password);
-            if (found) {
-                Auth.setToken('mock_token_' + Date.now());
-                Auth.setUser({ id: found.id, username: found.username, full_name: found.full_name, role: found.role });
-                window.location.href = 'dashboard.html';
-                return;
-            } else {
-                showLoginError(errorBox, 'Sai tên đăng nhập hoặc mật khẩu.');
-            }
+            showLoginError(errorBox, '⚠️ Không kết nối được server. Hãy chắc Kiệt đã chạy: cd backend → npm run dev');
         } else {
-            showLoginError(errorBox, err.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
+            // Sai mật khẩu → server trả 401 → apiFetch throw message từ server
+            showLoginError(errorBox, err.message || 'Sai tên đăng nhập hoặc mật khẩu.');
         }
     } finally {
         submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Đăng nhập';
+        submitBtn.innerHTML = 'Sign In';
     }
 });
 
@@ -71,48 +75,3 @@ function showLoginError(box, msg) {
         alert(msg);
     }
 }
-
-=======
-    if (loginForm) {
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const username = document.getElementById('username').value;
-            const password = passwordInput.value;
-            const submitBtn = loginForm.querySelector('button[type="submit"]');
-
-            submitBtn.innerText = 'Đang đăng nhập...';
-            submitBtn.disabled = true;
-
-            try {
-                // Gọi API Login của Backend
-                const response = await fetch('http://localhost:5000/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-
-                const data = await response.json();
-
-                if (response.ok && data.success) {
-                    // Lưu Token vào LocalStorage để các trang khác dùng
-                    localStorage.setItem('token', data.token);
-                    localStorage.setItem('user', JSON.stringify(data.user));
-
-                    alert('Đăng nhập thành công!');
-                    // Chuyển hướng sang trang Dashboard
-                    window.location.href = 'dashboard.html';
-                } else {
-                    alert(data.message || 'Sai tài khoản hoặc mật khẩu!');
-                }
-            } catch (error) {
-                console.error(error);
-                alert('Không thể kết nối đến Server Backend!');
-            } finally {
-                submitBtn.innerText = 'Sign In';
-                submitBtn.disabled = false;
-            }
-        });
-    }
-});
->>>>>>> 24fae3245b738e971a8ef78643e47f2605bd78ac

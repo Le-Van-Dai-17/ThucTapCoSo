@@ -6,6 +6,12 @@ const apiController = require('../controllers/apiController');
 const authController = require('../controllers/authController');
 const authMiddlware = require('../middleware/authMiddleware');
 
+// Phần Thanh thêm 
+const userController = require('../controllers/userController');
+const forecastController = require('../controllers/forecastController');
+router.get('/users/list', userController.getAllUsers);
+router.get('/forecast/latest', forecastController.getLatestForecast);
+
 // Khai báo các API
 router.get('/status', apiController.getStatus);
 router.post('/auth/register', authController.register);
