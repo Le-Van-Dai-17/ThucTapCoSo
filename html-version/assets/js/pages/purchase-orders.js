@@ -1,10 +1,3 @@
-// ============================================================
-// FILE: html-version/assets/js/pages/purchase-orders.js
-// Task FE-08: Kết nối Purchase Orders với Backend API thật
-// API: GET /api/purchases/list | GET /api/purchases/detail/:id
-//      POST /api/purchases/create
-// ============================================================
-
 lucide.createIcons();
 if (typeof Auth !== 'undefined') Auth.requireAuth();
 
@@ -13,7 +6,7 @@ let isUsingMock = false;
 
 // Mock fallback khi backend offline
 const MOCK_ORDERS = [
-    { id: 1, order_number: "PO-2024-001", supplier_name: "TechSupply Inc.",     created_at: "2024-03-20", status: "received", total_amount: 15420 },
+    { id: 1, order_number: "PO-2024-001", supplier_name: "TechSupply Inc.",    created_at: "2024-03-20", status: "received", total_amount: 15420 },
     { id: 2, order_number: "PO-2024-002", supplier_name: "Global Electronics",  created_at: "2024-03-22", status: "ordered",  total_amount: 28350 },
     { id: 3, order_number: "PO-2024-003", supplier_name: "Accessory Warehouse", created_at: "2024-03-23", status: "pending",  total_amount: 12600 },
     { id: 4, order_number: "PO-2024-004", supplier_name: "Premium Parts Ltd.Thanh",  created_at: "2024-03-24", status: "pending",  total_amount: 45200 },
@@ -122,6 +115,13 @@ function renderTable() {
                     <button onclick="viewDetail(${order.id})" class="p-2 text-gray-600 hover:text-[#2563EB] hover:bg-blue-50 rounded-lg transition-all" title="View Details">
                         <i data-lucide="eye" class="w-4 h-4"></i>
                     </button>
+                    
+                    ${order.status !== 'completed' && order.status !== 'received' ? `
+                    <button onclick="confirmReceiving(${order.id})" class="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all" title="Confirm Receive (Import Stock)">
+                        <i data-lucide="check-square" class="w-4 h-4"></i>
+                    </button>
+                    ` : ''}
+
                     ${canEdit ? `<button onclick="editOrder(${order.id})" class="p-2 text-gray-600 hover:text-[#2563EB] hover:bg-blue-50 rounded-lg transition-all" title="Edit">
                         <i data-lucide="edit" class="w-4 h-4"></i>
                     </button>` : ''}
@@ -208,10 +208,33 @@ window.editOrder = function (id) {
 // ============================================================
 // CREATE PO — POST /api/purchases/create
 // ============================================================
-window.openCreatePOModal = function () {
+window.openCreatePOModal = async function () {
     document.getElementById('createPOForm').reset();
     const errEl = document.getElementById('createPOError');
     if (errEl) errEl.classList.add('hidden');
+    
+    window.currentOrderItems = [];
+    document.getElementById('poItemsListUI').innerHTML = '<li class="py-2 text-gray-400 italic">No products selected yet.</li>';
+    document.getElementById('poTotalAmount').value = "0.00";
+
+    // NẠP DỮ LIỆU VÀO ĐẦU THẺ DATALIST ĐỂ GỢI Ý
+    const datalist = document.getElementById('productsDatalist');
+    if (datalist) {
+        datalist.innerHTML = '';
+        try {
+            const result = await API.products.getAll();
+            window.dbProductsList = result.data || result; // Lưu lại danh sách sản phẩm gốc để lát nữa check ID
+            
+            window.dbProductsList.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.name; // Khi gõ tên, trình duyệt sẽ gợi ý theo tên sản phẩm
+                datalist.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Lỗi tải danh sách gợi ý sản phẩm:', error);
+        }
+    }
+
     const modal = document.getElementById('createPOModal');
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -272,6 +295,125 @@ function formatDate(str) {
 
 // Event listener
 if (statusFilter) statusFilter.addEventListener('change', renderTable);
+
+// ============================================================
+// SỰ KIỆN XÁC NHẬN NHẬP HÀNG CHUẨN ĐỒNG BỘ
+// ============================================================
+window.confirmReceiving = async function(id) {
+    if (!confirm('Bạn có chắc chắn muốn xác nhận đã nhận đơn hàng này? Hệ thống sẽ cập nhật trạng thái và cộng dồn số lượng vào kho tồn của sản phẩm.')) return;
+    
+    try {
+        // SỬA TẠI ĐÂY: Gọi trực tiếp đường dẫn API chuẩn của Backend (Cổng 5000) mà ta đã cấu hình
+        const response = await fetch(`http://localhost:5000/api/purchases/receive/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+                // Nếu Kiệt có bắt đăng nhập dùng Token thì mở dòng dưới ra:
+                // 'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        }).then(res => res.json());
+        
+        // Kiểm tra kết quả trả về từ Backend
+        if (response.success) {
+            if (typeof showToast === 'function') {
+                showToast('Xác nhận nhập kho và cập nhật số tồn sản phẩm thành công!', 'success');
+            } else {
+                alert('Xác nhận nhập kho và cập nhật số tồn sản phẩm thành công!');
+            }
+            
+            // Tải lại dữ liệu bảng động ngay lập tức
+            await loadOrders(); 
+        } else {
+            alert('Lỗi từ hệ thống: ' + response.message);
+        }
+    } catch (error) {
+        console.error('Lỗi khi gọi API nhận hàng:', error);
+        alert('Không thể kết nối đến máy chủ Backend: ' + error.message);
+    }
+};
+
+// Biến toàn cục lưu danh sách sản phẩm được chọn tạm thời trên giao diện
+window.currentOrderItems = [];
+
+document.getElementById('addPOItemBtn')?.addEventListener('click', function() {
+    const nameInput = document.getElementById('poItemProductName');
+    const qtyInput = document.getElementById('poItemQty');
+    
+    const productName = nameInput.value.trim();
+    const quantity = parseInt(qtyInput.value) || 0;
+    
+    if (!productName || quantity <= 0) {
+        alert('Vui lòng nhập tên sản phẩm hợp lệ và số lượng lớn hơn 0!');
+        return;
+    }
+
+    // Kiểm tra xem tên vừa nhập đã tồn tại trong DB chưa
+    const existingProd = window.dbProductsList ? window.dbProductsList.find(p => p.name.toLowerCase() === productName.toLowerCase()) : null;
+    
+    let itemData = {
+        product_name: productName,
+        quantity: quantity,
+        unit_price: existingProd ? parseFloat(existingProd.selling_price || 0) : 10.00 // Nếu mới tinh thì mặc định tạm $10 hoặc cho nhập giá
+    };
+
+    if (existingProd) {
+        itemData.product_id = existingProd.id; // Sản phẩm cũ có ID thật
+    } else {
+        itemData.product_id = null; // Sản phẩm mới tinh chưa có ID
+        itemData.is_new_product = true; // Đánh dấu để Backend biết đường xử lý tự tạo sản phẩm mới
+    }
+
+    // Đẩy vào mảng tạm
+    window.currentOrderItems.push(itemData);
+
+    // Cập nhật lên giao diện cho người dùng nhìn thấy
+    renderSelectedItemsUI();
+
+    // Reset ô nhập để người dùng gõ tiếp sản phẩm thứ 2
+    nameInput.value = '';
+    qtyInput.value = '1';
+});
+
+// Hàm vẽ danh sách sản phẩm tạm thời lên giao diện
+function renderSelectedItemsUI() {
+    const ul = document.getElementById('poItemsListUI');
+    if (!ul) return;
+    
+    if (window.currentOrderItems.length === 0) {
+        ul.innerHTML = '<li class="py-2 text-gray-400 italic">No products selected yet.</li>';
+        document.getElementById('poTotalAmount').value = "0.00";
+        return;
+    }
+
+    let totalOrderAmount = 0;
+    ul.innerHTML = window.currentOrderItems.map((item, index) => {
+        const itemTotal = item.quantity * item.unit_price;
+        totalOrderAmount += itemTotal;
+        
+        return `
+            <li class="flex justify-between items-center py-2 border-b border-gray-100">
+                <div>
+                    <span class="font-medium">${item.product_name}</span>
+                    ${item.is_new_product ? `<span class="ml-1 text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-bold">NEW</span>` : ''}
+                    <span class="text-gray-400 block text-[11px]">Qty: ${item.quantity} x $${item.unit_price.toFixed(2)}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="font-semibold">$${itemTotal.toFixed(2)}</span>
+                    <button type="button" onclick="removeSelectedItem(${index})" class="text-red-500 hover:text-red-700 font-bold px-1">✕</button>
+                </div>
+            </li>
+        `;
+    }).join('');
+
+    // Cập nhật tổng số tiền tự động vào ô Total Amount
+    document.getElementById('poTotalAmount').value = totalOrderAmount.toFixed(2);
+}
+
+// Hàm xóa sản phẩm khỏi danh sách chọn tạm thời
+window.removeSelectedItem = function(index) {
+    window.currentOrderItems.splice(index, 1);
+    renderSelectedItemsUI();
+};
 
 // Khởi động
 loadOrders();

@@ -204,12 +204,10 @@ function handleExport() {
 // Event listeners
 if (startDateInput) startDateInput.addEventListener('change', renderUI);
 if (endDateInput)   endDateInput.addEventListener('change', renderUI);
-if (productFilter)  productFilter.addEventListener('change', renderUI);
-if (exportBtn)      exportBtn.addEventListener('click', handleExport);
+if (productFilter)   productFilter.addEventListener('change', renderUI);
+if (exportBtn)       exportBtn.addEventListener('click', handleExport);
 
-// ============================================================
 // FE-05: ADD SALE MODAL
-// ============================================================
 let productsList = []; // cache danh sách sản phẩm cho dropdown
 
 window.openAddSaleModal = async function () {
@@ -297,7 +295,7 @@ document.getElementById('addSaleForm')?.addEventListener('submit', async functio
         closeAddSaleModal();
         productsList = []; // reset cache để load lại stock mới nhất lần sau
         await loadSalesData();
-        showToast('✅ Sale recorded successfully!', 'success');
+        showToast('Sale recorded successfully!', 'success');
     } catch (err) {
         if (errEl) { errEl.textContent = err.message || 'Failed to add sale.'; errEl.classList.remove('hidden'); }
     } finally {
@@ -305,6 +303,47 @@ document.getElementById('addSaleForm')?.addEventListener('submit', async functio
         btn.textContent = 'Add Sale';
     }
 });
+
+// TASK FE-06: SỰ KIỆN IMPORT CSV KẾT NỐI DATABASE THẬT
+window.handleImportCSV = async function(event) {
+    if (event) event.preventDefault();
+    
+    // Tìm thẻ input chọn file CSV trên giao diện HTML
+    const fileInput = document.getElementById('csvFileInput');
+    if (!fileInput || fileInput.files.length === 0) {
+        alert('Vui lòng chọn một file dữ liệu định dạng .csv trước khi bấm Import!');
+        return;
+    }
+
+    const file = fileInput.files[0];
+    const importBtn = document.getElementById('importCSVBtn');
+    
+    if (importBtn) {
+        importBtn.disabled = true;
+        importBtn.textContent = 'Importing...';
+    }
+
+    try {
+        // Gọi hàm API truyền file thật từ file api.js mà ta đã chuẩn bị
+        const response = await API.sales.importCSV(file);
+        
+        if (response.success) {
+            alert('✅ ' + response.message);
+            // Cập nhật lại bảng dữ liệu động lập tức
+            await loadSalesData();
+        } else {
+            alert('Lỗi khi import file: ' + response.message);
+        }
+    } catch (error) {
+        console.error('Lỗi kết nối API Import:', error);
+        alert('Không thể kết nối đến máy chủ: ' + error.message);
+    } finally {
+        if (importBtn) {
+            importBtn.disabled = false;
+            importBtn.textContent = 'Import CSV';
+        }
+    }
+};
 
 // Khởi động
 loadSalesData();

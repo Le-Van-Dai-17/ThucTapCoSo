@@ -88,13 +88,30 @@ const API = {
 
     sales: {
         async getAll()     { return apiFetch('/sales/list'); },
-        async create(data) { return apiFetch('/sales/create', { method: 'POST', body: JSON.stringify(data) }); }
+        async create(data) { return apiFetch('/sales/create', { method: 'POST', body: JSON.stringify(data) }); },
+        // THÊM CHỨC NĂNG IMPORT FILE THẬT:
+        async importCSV(file) {
+            const formData = new FormData();
+            formData.append('file', file); // Đút file vào FormData để truyền đi
+
+            // Gọi apiFetch nhưng không dùng JSON.stringify, trình duyệt tự xử lý Header multipart/form-data
+            const res = await fetch(`${API_BASE_URL}/sales/import`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${Auth.getToken()}` // Giữ bảo mật Token của Thanh
+                },
+                body: formData
+            });
+            return res.json();
+        }   
+    
     },
 
     orders: {
         async getAll()      { return apiFetch('/purchases/list'); },
         async getDetail(id) { return apiFetch(`/purchases/detail/${id}`); },
-        async create(data)  { return apiFetch('/purchases/create', { method: 'POST', body: JSON.stringify(data) }); }
+        async create(data)  { return apiFetch('/purchases/create', { method: 'POST', body: JSON.stringify(data) }); },
+        async receive(id)   { return apiFetch(`/purchases/receive/${id}`, { method: 'PUT' }); }
     },
 
     users: {

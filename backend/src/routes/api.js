@@ -6,14 +6,21 @@ const apiController = require('../controllers/apiController');
 const authController = require('../controllers/authController');
 const authMiddlware = require('../middleware/authMiddleware');
 
-// Phần Thanh thêm 
+// ==========================================
+// PHẦN THANH THÊM 
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
+
 const userController = require('../controllers/userController');
 const forecastController = require('../controllers/forecastController');
+
 router.get('/users/list', userController.getAllUsers);
 router.get('/forecast/latest', forecastController.getLatestForecast);
 router.post('/users/create', userController.createUser);
 router.put('/users/update/:id', userController.updateUser);
 router.delete('/users/delete/:id', userController.deleteUser);
+router.put('/purchases/receive/:id', require('../controllers/purchaseController').receiveOrder);
+// ==========================================
 
 // Khai báo các API
 router.get('/status', apiController.getStatus);
@@ -29,6 +36,11 @@ router.delete('/products/delete/:id', authMiddlware.verifyToken, require('../con
 
 router.get('/sales/list', authMiddlware.verifyToken, require('../controllers/salesController').getSalesSummary);
 router.post('/sales/create', authMiddlware.verifyToken, require('../controllers/salesController').createSale);
+
+// ==========================================
+// PHẦN THANH THÊM
+router.post('/sales/import', upload.single('file'), require('../controllers/salesController').importSalesCSV);
+// ==========================================
 
 router.post('/purchases/create', authMiddlware.verifyToken, require('../controllers/purchaseController').createPurchase);
 router.get('/purchases/list', authMiddlware.verifyToken, require('../controllers/purchaseController').getPurchases);

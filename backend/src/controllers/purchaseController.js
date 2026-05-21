@@ -66,3 +66,58 @@ exports.getPurchasesDetail = async (req, res) => {
         });
     }
 };
+
+exports.receiveOrder = async (req, res) => {
+  const { id } = req.params; // ID của đơn hàng cần xác nhận
+  const connection = await pool.getConnection();
+  
+  try {
+    await connection.beginTransaction();
+
+    // 1. Kiểm tra đơn hàng có tồn tại và đang ở trạng thái xử lý không
+    const [orders] = await connection.query('SELECT * FROM purchase_orders WHERE id = ?', [id]);
+    if (orders.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Không tìm thấy đơn nhập hàng này' });
+    }
+
+    const order = orders[0];
+    if (order.status === 'completed') {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: 'Đơn hàng này đã được nhập kho từ trước' });
+    }
+
+    // 2. Cập nhật trạng thái của đơn hàng chính sang 'completed'
+    await connection.query(
+      'UPDATE purchase_orders SET status = ? WHERE id = ?',
+      ['completed', id]
+    );
+
+    // 3. Lấy toàn bộ danh sách sản phẩm thuộc đơn hàng này từ bảng chi tiết (giống hàm getPurchasesDetail của bạn)
+    const [details] = await connection.query(
+      'SELECT product_id, quantity FROM purchase_order_details WHERE order_id = ?',
+      [id]
+    );
+
+    // 4. Chạy vòng lặp cộng số lượng nhập vào kho tồn hiện tại của từng sản phẩm
+    for (const item of details) {
+      const { product_id, quantity } = item;
+      await connection.query(
+        'UPDATE products SET current_stock = current_stock + ? WHERE id = ?',
+        [quantity, product_id]
+      );
+    }
+
+    await connection.commit();
+    res.status(200).json({ success: true, message: 'Xác nhận nhập hàng và cập nhật tồn kho thành công' });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error receiving purchase:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi xử lý xác nhận nhập kho'
+    });
+  } finally {
+    connection.release();
+  }
+};
