@@ -11,6 +11,7 @@
 // ============================================================
 
 const { pool } = require('../db');
+const { logAction } = require('./activityLogController');
 
 exports.getLatestForecast = async (req, res) => {
     try {
@@ -108,7 +109,6 @@ exports.getLatestForecast = async (req, res) => {
         }));
 
         res.status(200).json({ success: true, data: forecastData });
-
     } catch (error) {
         console.error('Lỗi tính toán dự báo:', error);
         res.status(500).json({ success: false, message: 'Lỗi server khi tính toán dự báo' });
@@ -132,7 +132,14 @@ exports.getForecastByProduct = async (req, res) => {
             GROUP BY month_key, month_label
             ORDER BY month_key ASC
         `, [productId]);
-
+        // Ghi log hành động
+        await logAction(req.user.id,
+            'VIEW_FORECAST_DETAIL',
+            `Xem chi tiết dự báo cho sản phẩm ID: ${productId}`,
+            'products',
+            productId,
+            req.ip
+        );
         res.status(200).json({ success: true, data: rows });
 
     } catch (error) {

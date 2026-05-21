@@ -1,4 +1,5 @@
 const { pool } = require('../db');
+const { logAction } = require('./activityLogController');
 
 exports.createPurchase = async (req, res) => {
   const connection = await pool.getConnection();
@@ -25,6 +26,14 @@ exports.createPurchase = async (req, res) => {
       }
     }
     await connection.commit();
+    // Ghi log hành động
+    await logAction(req.user.id,
+        'CREATE_PURCHASE',
+        `Tạo đơn nhập hàng: ${order_number} từ nhà cung cấp: ${supplier_name}`,
+        'purchase_orders',
+        result.insertId,
+        req.ip
+    );
     res.status(201).json({ success: true, message: 'Nhập hàng thành công' });
   } catch (error) {
     await connection.rollback();
@@ -109,6 +118,14 @@ exports.receiveOrder = async (req, res) => {
     }
 
     await connection.commit();
+    // Ghi log hành động
+    await logAction(req.user.id,
+        'RECEIVE_PURCHASE',
+        `Xác nhận nhập hàng ID: ${id}`,
+        'purchase_orders',
+        id,
+        req.ip
+    );
     res.status(200).json({ success: true, message: 'Xác nhận nhập hàng và cập nhật tồn kho thành công' });
   } catch (error) {
     await connection.rollback();

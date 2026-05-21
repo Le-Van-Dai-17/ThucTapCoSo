@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../db'); 
+const { logAction } = require('./activityLogController');
 
 exports.register = async (req, res) => {
     try {
@@ -10,14 +11,12 @@ exports.register = async (req, res) => {
             'SELECT * FROM users WHERE username = ? OR email = ?',
             [username, email]
         );
-        
         if (existingUsers.length > 0) {
             return res.status(400).json({
                 success: false,
                 message: 'Username hoặc Email đã tồn tại'
             });
         }
-
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -26,7 +25,14 @@ exports.register = async (req, res) => {
             'INSERT INTO users (username, password, email, full_name, role) VALUES (?, ?, ?, ?, ?)',
             [username, hashedPassword, email, full_name, userRole]
         );
-
+        // Ghi log hành động đăng ký thành công
+        await logAction(result.insertId,
+            'REGISTER_SUCCESS',
+            `User registered successfully: ${username}`,
+            'users',
+            result.insertId,
+            req.ip
+        );
         res.status(201).json({
             success: true,
             message: 'Đăng ký thành công!'
@@ -51,7 +57,6 @@ exports.login = async (req, res) => {
                 message: 'Sai tài khoản hoặc mật khẩu'
             });
         }
-
         const user = users[0];
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
@@ -60,7 +65,6 @@ exports.login = async (req, res) => {
                 message: 'Sai tài khoản hoặc mật khẩu'
             });
         }
-
         const secretKey = process.env.JWT_SECRET;
         
         if (!secretKey) {
@@ -72,7 +76,13 @@ exports.login = async (req, res) => {
             secretKey, 
             { expiresIn: '1d' }
         );
-
+        // Ghi log hành động đăng nhập thành công
+        await logAction(user.id,
+            'LOGIN_SUCCESS',
+            `User logged in successfully: ${username}`,
+            'users',
+            user.id,
+            req.ip);
         delete user.password;
         res.status(200).json({
             success: true,
@@ -90,9 +100,16 @@ exports.login = async (req, res) => {
 };
 
 
-exports.logout = (req, res) => {
-    res.status(200).json({ 
-        success: true, 
-        message: 'Đăng xuất thành công. Vui lòng xóa token ở Client!' 
+exports.logout = async (req, res) => {
+    // Ghi log hành động đăng xuất
+    await logAction(req.user.id,
+        'LOGOUT',
+        `User logged out: ${req.user.username}`,
+        'users',
+        req.user.id,
+        req.ip);
+    res.status(200).json({
+        success: true,
+        message: 'Đăng xuất thành công. Vui lòng xóa token ở Client!'
     });
 };

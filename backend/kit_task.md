@@ -1,75 +1,152 @@
-# 🚀 Backend API - Hệ thống Quản lý Bán hàng & Tồn kho
+🚀 ForecastAI - Backend System (RESTful API)
 
-Dự án xây dựng hệ thống RESTful API cho ứng dụng quản lý sản phẩm và dữ liệu bán hàng, sử dụng kiến trúc Node.js, Express và cơ sở dữ liệu MySQL.
+Hệ thống RESTful API cho ứng dụng Quản lý Bán hàng, Tồn kho và Dự báo nhu cầu. Backend sử dụng Node.js + Express và MySQL.
 
-## 🛠 Công nghệ sử dụng
-- **Runtime:** Node.js
-- **Framework:** Express.js
-- **Database:** MySQL (Sử dụng thư viện `mysql2` với Promise)
-- **Bảo mật:** JSON Web Token (JWT)
+## 🛠 Công nghệ chính
 
-## ⚙️ Hướng dẫn cài đặt
+| Thành phần | Công nghệ |
+|------------|-----------|
+| Runtime | Node.js |
+| Framework | Express.js (v4) |
+| Database | MySQL 8.0+ (mysql2) |
+| Bảo mật | bcrypt, JWT |
+| Upload file | multer |
 
-### Bước 1: Cài đặt thư viện
-Clone dự án về máy và chạy lệnh sau để cài đặt các thư viện cần thiết (`express`, `mysql2`, `dotenv`, `jsonwebtoken`,...):
+## 🛡 Tính năng chính
+
+- Xác thực JWT với middleware `authMiddleware`
+- Truyền dữ liệu an toàn và kiểm tra cấu hình môi trường
+- Hỗ trợ transaction MySQL cho các thao tác quan trọng
+- Import dữ liệu CSV hàng loạt
+- Activity log chi tiết
+- Báo cáo Dashboard nhanh bằng query tổng hợp
+
+## 📚 Danh sách API (Endpoints)
+
+⚠️ Lưu ý: Tất cả API ngoài Auth đều cần header `Authorization: Bearer <JWT_TOKEN>`.
+
+### 1. Hệ thống & Xác thực (Auth)
+
+| Method | Endpoint | Mô tả | Quyền truy cập |
+|--------|----------|-------|----------------|
+| GET | `/api/status` | Kiểm tra server | Public |
+| POST | `/api/auth/register` | Đăng ký tài khoản | Public |
+| POST | `/api/auth/login` | Đăng nhập và nhận JWT | Public |
+| POST | `/api/auth/logout` | Đăng xuất | Người dùng |
+
+### 2. Quản lý Thành viên (Users)
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/users/list` | Lấy danh sách người dùng (ẩn mật khẩu) |
+| POST | `/api/users/create` | Tạo tài khoản nhân viên mới |
+| PUT | `/api/users/update/:id` | Cập nhật role / status |
+| DELETE | `/api/users/delete/:id` | Xóa tài khoản |
+
+### 3. Quản lý Sản phẩm (Products)
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/products/list` | Lấy danh sách sản phẩm |
+| GET | `/api/products/get/:id` | Xem chi tiết sản phẩm |
+| POST | `/api/products/create` | Tạo sản phẩm mới |
+| PUT | `/api/products/update/:id` | Cập nhật sản phẩm |
+| DELETE | `/api/products/delete/:id` | Xóa sản phẩm |
+
+### 4. Dữ liệu Bán hàng (Sales)
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/sales/list` | Lấy lịch sử bán hàng |
+| POST | `/api/sales/create` | Tạo đơn bán hàng (trừ kho) |
+| POST | `/api/sales/import` | Import đơn bán hàng từ CSV |
+
+### 5. Đơn Nhập hàng & Kho (Purchase Orders)
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/purchases/list` | Lấy danh sách đơn nhập |
+| GET | `/api/purchases/detail/:id` | Xem chi tiết đơn nhập |
+| POST | `/api/purchases/create` | Tạo đơn nhập mới |
+| PUT | `/api/purchases/receive/:id` | Xác nhận nhập kho và cập nhật tồn |
+
+### 6. Thống kê & Báo cáo (Reports)
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/reports/sales-summary` | Tổng đơn, tổng số lượng, tổng doanh thu |
+| GET | `/api/reports/top-products` | Top 5 sản phẩm bán chạy |
+| GET | `/api/reports/category-sales` | Doanh thu theo danh mục |
+| GET | `/api/reports/inventory-status` | Tình trạng tồn kho |
+
+### 7. Nhật ký hoạt động (Activity Logs)
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/activity-logs/list` | Lấy 100 bản ghi hoạt động gần nhất |
+
+### 8. Dự báo thông minh (AI Forecast)
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/forecast/latest` | Dự báo nhập hàng theo xu hướng 6 tháng |
+
+## ⚙️ Hướng dẫn khởi chạy nhanh
+
+1. Cài môi trường: Node.js v16+ và MySQL.
+2. Chạy lệnh cài thư viện:
+
 ```bash
 npm install
-Bước 2: Cấu hình Database
-Khởi động MySQL (XAMPP hoặc MySQL Installer).
+```
 
-Tạo database tên forecastai (hoặc tên tương ứng) trong phpMyAdmin.
+3. Tạo cơ sở dữ liệu và import file SQL.
+4. Tạo file `.env` với cấu hình:
 
-Import file dữ liệu SQL vào database vừa tạo.
-
-Bước 3: Cấu hình Biến môi trường
-Tạo một file .env ở thư mục gốc của dự án và thêm các thông số sau:
-
-Đoạn mã
+```env
 PORT=5000
 NODE_ENV=development
-JWT_SECRET=dien_khoa_bi_mat_cua_ban_vao_day
-Bước 4: Khởi động Server
-Bash
+JWT_SECRET=dien_khoa_bi_mat_jwt_viet_lien_khong_dau
+```
+
+5. Chạy ứng dụng:
+
+```bash
 npm run dev
-Server sẽ chạy tại địa chỉ: http://localhost:5000
+```
 
-📚 Danh sách API (Endpoints)
-1. Xác thực (Authentication)
-POST /api/auth/login: Đăng nhập hệ thống & Nhận Token.
+6. Mở `http://localhost:5000`.
 
-POST /api/auth/logout: Đăng xuất (Client tự xử lý xóa token).
+---
 
-2. Quản lý Sản phẩm (Products API)
-(⚠️ Yêu cầu: Header Authorization: Bearer <token>)
-
-GET /api/products/list: Lấy danh sách tất cả sản phẩm.
-
-GET /api/products/get/:id: Lấy chi tiết 1 sản phẩm.
-
-POST /api/products/create: Thêm sản phẩm mới.
-
-PUT /api/products/update/:id: Cập nhật thông tin sản phẩm.
-
-DELETE /api/products/delete/:id: Xóa sản phẩm.
-
-3. Dữ liệu Bán hàng (Sales Data API)
-(⚠️ Yêu cầu: Header Authorization: Bearer <token>)
-
-GET /api/sales/list: Lấy lịch sử bán hàng (Sử dụng JOIN để hiển thị kèm tên sản phẩm).
-
-POST /api/sales: Tạo đơn bán hàng mới.
-
-4. Bán hàng (Purchase Order API)
-
-GET /api/purchase/list: Lấy lịch sử nhập hàng
-
-POST /api/purchase/create: Tạo order nhập hàng
-
-GET /api/purchase/detail/:id: Xem chi tiết món hàng
-
-🛡 Cơ chế Bảo mật & Logic cốt lõi
-JWT Authentication (authMiddleware): Đảm bảo an toàn cho các API thao tác dữ liệu. Hệ thống yêu cầu xác thực chặt chẽ, kiểm tra chữ ký và hạn sử dụng của Token trước khi cho phép truy cập. Có cơ chế chặn khởi động nếu thiếu cấu hình Secret Key.
+Bản quyền: Team ForecastAI - Học viện Công nghệ Bưu chính Viễn thông (PTIT).
 
 
-MySQL Transactions (salesController): API tạo đơn bán hàng được xử lý qua 2 bước đồng bộ (Ghi nhận lịch sử + Trừ số lượng tồn kho). Áp dụng lệnh beginTransaction, commit và rollback để đảm bảo tính toàn vẹn dữ liệu (Data Integrity) 100%, chống sai lệch khi có lỗi bất ngờ xảy ra.
+Chạy thuật toán lấy xu hướng bán hàng 6 tháng để dự báo sản lượng cần nhập tiếp theo
 
+⚙️ Hướng dẫn khởi chạy nhanh
+
+Cài đặt môi trường: Đảm bảo máy đã cài đặt Node.js v16+ và cơ sở dữ liệu MySQL.
+
+Cài đặt thư viện: Thực hiện lệnh sau tại thư mục gốc của dự án:
+
+npm install
+
+
+Cấu hình cơ sở dữ liệu: Khởi động MySQL, tạo cơ sở dữ liệu và import file dữ liệu SQL cấu trúc bảng tương ứng.
+
+Thiết lập biến môi trường: Tạo file .env ở thư mục gốc với nội dung cấu hình sau:
+
+PORT=5000
+NODE_ENV=development
+JWT_SECRET=dien_khoa_bi_mat_jwt_viet_lien_khong_dau
+
+
+Chạy ứng dụng: Thực thi lệnh:
+
+npm run dev
+
+
+Hệ thống sẽ hoạt động tại địa chỉ: http://localhost:5000.
+
+Bản quyền dự án thuộc về Team ForecastAI - Học viện Công nghệ Bưu chính Viễn thông (PTIT).

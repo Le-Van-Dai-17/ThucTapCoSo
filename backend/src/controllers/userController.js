@@ -1,6 +1,6 @@
 const { pool } = require('../db');
 const bcrypt = require('bcryptjs'); // Dùng thư viện mã hóa mật khẩu giống Kiệt
-
+const { logAction } = require('./activityLogController');
 // 1. Lấy danh sách Users
 exports.getAllUsers = async (req, res) => {
     try {
@@ -24,11 +24,17 @@ exports.createUser = async (req, res) => {
         const userRole = role || 'staff';
         const status = 'active'; // Mặc định khi tạo mới là active
 
-        await pool.query(
+        const [result] = await pool.query(
             'INSERT INTO users (username, full_name, email, password, role, status) VALUES (?, ?, ?, ?, ?, ?)',
             [username, full_name, email, hashedPassword, userRole, status]
         );
-
+    await logAction(req.user.id,
+        'CREATE_USER',
+        `Tạo người dùng mới: ${username}`,
+        'users',
+        result.insertId,
+        req.ip
+    );
         res.status(201).json({ success: true, message: 'Tạo tài khoản thành công!' });
     } catch (error) {
         console.error('Lỗi Backend createUser:', error);
@@ -56,6 +62,14 @@ exports.updateUser = async (req, res) => {
         const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
         
         await pool.query(query, values);
+    // Ghi log hành động
+    await logAction(req.user.id,
+        'UPDATE_USER',
+        `Cập nhật người dùng ID: ${id}`,
+        'users',
+        id,
+        req.ip
+    );
         res.json({ success: true, message: 'Cập nhật thành công!' });
     } catch (error) {
         console.error('Lỗi Backend updateUser:', error);
@@ -68,6 +82,14 @@ exports.deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
         await pool.query('DELETE FROM users WHERE id = ?', [id]);
+    // Ghi log hành động
+    await logAction(req.user.id,
+        'DELETE_USER',
+        `Xóa người dùng ID: ${id}`,
+        'users',
+        id,
+        req.ip
+    );
         res.json({ success: true, message: 'Xóa tài khoản thành công!' });
     } catch (error) {
         console.error('Lỗi Backend deleteUser:', error);

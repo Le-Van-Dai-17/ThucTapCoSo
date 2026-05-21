@@ -1,4 +1,5 @@
 const { pool } = require('../db');
+const { logAction } = require('./activityLogController');
 
 exports.getAllProducts = async (req, res) => {
     try {
@@ -42,6 +43,12 @@ exports.getProductById = async (req, res) => {
 exports.createProduct = async (req, res) => {
     try {
         const { name, sku, category, description, selling_price, cost_price, current_stock, min_stock, status } = req.body;
+        if (!name || !sku || !selling_price || !cost_price) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Vui lòng điền đầy đủ các thông tin bắt buộc: Tên, SKU, Giá mua, Giá bán!' 
+            });
+        }
         const [result] = await pool.query(
             'INSERT INTO products (name, sku, category, description, selling_price, cost_price, current_stock, min_stock, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [name, sku, category, description, selling_price, cost_price, current_stock, min_stock, status]
@@ -50,6 +57,14 @@ exports.createProduct = async (req, res) => {
             success: true,
             message: 'Sản phẩm đã được tạo thành công'
         });
+        // Ghi log hành động
+        await logAction(req.user.id,
+            'CREATE_PRODUCT',
+            `Tạo sản phẩm: ${name}`,
+            'products',
+            result.insertId,
+            req.ip
+        );
     } catch (error) {
         console.error('Error creating product:', error);
         res.status(500).json({
@@ -71,6 +86,14 @@ exports.updateProduct = async (req, res) => {
             success: true,
             message: 'Sản phẩm đã được cập nhật thành công'
         });
+        // Ghi log hành động
+        await logAction(req.user.id,
+            'UPDATE_PRODUCT',
+            `Cập nhật sản phẩm ID: ${id}`,
+            'products',
+            id,
+            req.ip
+        );
     } catch (error) {
         console.error('Error updating product:', error);
         res.status(500).json({
@@ -88,6 +111,14 @@ exports.deleteProduct = async (req, res) => {
             success: true,
             message: 'Sản phẩm đã được xóa thành công'
         });
+        // Ghi log hành động
+        await logAction(req.user.id,
+            'DELETE_PRODUCT',
+            `Xóa sản phẩm ID: ${id}`,
+            'products',
+            id,
+            req.ip
+        );
     } catch (error) {
         console.error('Error deleting product:', error);
         res.status(500).json({
