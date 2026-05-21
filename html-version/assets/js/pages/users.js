@@ -278,21 +278,26 @@ window.handleAddSubmit = async function (e) {
     const payload = { username: uname, full_name: fname, email, password, role: role.toLowerCase() };
 
     try {
-        let newUser;
         if (!isUsingMock) {
-            const result = await API.users.create(payload);
-            newUser = result.data || result;
-            newUser.role = capitalizeFirst(newUser.role);
-        } else {
-            newUser = { id: Date.now(), username: uname, full_name: fname, email, role, status: 'active', created_at: new Date().toISOString() };
+            await API.users.create(payload); // POST /api/users/create
         }
+        // Build newUser từ form data (không dùng result.data vì BE chỉ trả { success, message })
+        const newUser = {
+            id: Date.now(),
+            username: uname,
+            full_name: fname,
+            email,
+            role: capitalizeFirst(role),
+            status: 'active',
+            created_at: new Date().toISOString()
+        };
         users.push(newUser);
         renderTable();
         formatStats();
-        showToast(`Đã tạo tài khoản ${uname} thành công!`, 'success');
+        showToast(`Created account ${uname} successfully!`, 'success');
         closeAddModal();
     } catch (err) {
-        showToast('Tạo tài khoản thất bại: ' + err.message, 'error');
+        showToast('Failed to create user: ' + err.message, 'error');
     }
 };
 

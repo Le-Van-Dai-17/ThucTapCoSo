@@ -12,10 +12,16 @@ const Auth = {
         localStorage.removeItem('forecastai_token');
         localStorage.removeItem('forecastai_user');
     },
+    logout(e) {
+        if (e) e.preventDefault();
+        this.clear();
+        window.location.href = 'login.html';
+    },  
+
     isLoggedIn()  { return !!this.getToken(); },
     requireAuth() {
         if (!this.isLoggedIn()) {
-            window.location.href = '/pages/login.html';
+            window.location.href = 'login.html';
             return false;
         }
         return true;
@@ -37,7 +43,7 @@ async function apiFetch(endpoint, options = {}, skipAuthRedirect = false) {
         // Token hết hạn → về login (nhưng KHÔNG làm vậy ở trang login)
         if ((res.status === 401 || res.status === 403) && !skipAuthRedirect) {
             Auth.clear();
-            window.location.href = '/pages/login.html';
+            window.location.href = 'login.html';
             return null;
         }
 
@@ -68,7 +74,7 @@ const API = {
         async logout() {
             try { await apiFetch('/auth/logout', { method: 'POST' }); } catch {}
             Auth.clear();
-            window.location.href = '/pages/login.html';
+            window.location.href = 'login.html';
         }
     },
 
@@ -91,14 +97,14 @@ const API = {
         async create(data)  { return apiFetch('/purchases/create', { method: 'POST', body: JSON.stringify(data) }); }
     },
 
-   users: {
+    users: {
         async getAll() { 
             const res = await apiFetch('/users/list');
             return res.data;
         },
-        async create(data)   { throw new Error('BACKEND_OFFLINE'); },
-        async update(id, d)  { throw new Error('BACKEND_OFFLINE'); },
-        async delete(id)     { throw new Error('BACKEND_OFFLINE'); }
+        async create(data)   { return apiFetch('/users/create',       { method: 'POST',   body: JSON.stringify(data) }); },
+        async update(id, d)  { return apiFetch(`/users/update/${id}`, { method: 'PUT',    body: JSON.stringify(d) }); },
+        async delete(id)     { return apiFetch(`/users/delete/${id}`, { method: 'DELETE' }); }
     },
 
     forecast: {

@@ -50,3 +50,10 @@ exports.createSale = async (req, res) => {
         connection.release();
     }
 };
+exports.importSalesCSV = async (req, res) => {
+    // Tạm thời trả về thành công để Frontend của bạn test giao diện loading/thành công
+    return res.status(200).json({ 
+        success: true, 
+        message: "Đã giả lập nhận file CSV và import thành công 50 dòng sales!" 
+    });
+};

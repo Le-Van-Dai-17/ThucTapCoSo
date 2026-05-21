@@ -207,5 +207,104 @@ if (endDateInput)   endDateInput.addEventListener('change', renderUI);
 if (productFilter)  productFilter.addEventListener('change', renderUI);
 if (exportBtn)      exportBtn.addEventListener('click', handleExport);
 
+// ============================================================
+// FE-05: ADD SALE MODAL
+// ============================================================
+let productsList = []; // cache danh sách sản phẩm cho dropdown
+
+window.openAddSaleModal = async function () {
+    const errEl = document.getElementById('addSaleError');
+    if (errEl) errEl.classList.add('hidden');
+    document.getElementById('addSaleForm').reset();
+
+    // Set ngày mặc định = hôm nay
+    document.getElementById('saleDate').value = new Date().toISOString().split('T')[0];
+
+    // Load danh sách sản phẩm vào dropdown (chỉ load 1 lần)
+    const select = document.getElementById('saleProductId');
+    if (productsList.length === 0) {
+        try {
+            const result = await API.products.getAll();
+            productsList = result.data || result;
+        } catch (e) { productsList = []; }
+    }
+    // Clear và điền lại options
+    select.innerHTML = '<option value="">-- Select product --</option>';
+    productsList.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.name} (Stock: ${p.current_stock})`;
+        opt.dataset.price = p.selling_price;
+        select.appendChild(opt);
+    });
+
+    const modal = document.getElementById('addSaleModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    lucide.createIcons();
+};
+
+window.closeAddSaleModal = function () {
+    const modal = document.getElementById('addSaleModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+};
+
+// Tự động tính Total Amount khi thay đổi qty hoặc unit price
+document.getElementById('saleQty')?.addEventListener('input', calcTotal);
+document.getElementById('saleUnitPrice')?.addEventListener('input', calcTotal);
+document.getElementById('saleProductId')?.addEventListener('change', function () {
+    const opt = this.options[this.selectedIndex];
+    if (opt.dataset.price) {
+        document.getElementById('saleUnitPrice').value = opt.dataset.price;
+        calcTotal();
+    }
+});
+
+function calcTotal() {
+    const qty   = parseFloat(document.getElementById('saleQty')?.value) || 0;
+    const price = parseFloat(document.getElementById('saleUnitPrice')?.value) || 0;
+    const total = document.getElementById('saleTotalAmount');
+    if (total) total.value = (qty * price).toFixed(2);
+}
+
+document.getElementById('addSaleForm')?.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const btn   = document.getElementById('addSaleBtn');
+    const errEl = document.getElementById('addSaleError');
+    if (errEl) errEl.classList.add('hidden');
+
+    const qty   = parseInt(document.getElementById('saleQty').value) || 0;
+    const price = parseFloat(document.getElementById('saleUnitPrice').value) || 0;
+
+    const payload = {
+        product_id:   parseInt(document.getElementById('saleProductId').value),
+        sale_date:    document.getElementById('saleDate').value,
+        quantity:     qty,
+        unit_price:   price,
+        total_amount: parseFloat((qty * price).toFixed(2)),
+    };
+
+    if (!payload.product_id || !payload.sale_date || qty <= 0 || price <= 0) {
+        if (errEl) { errEl.textContent = 'Please fill in all required fields.'; errEl.classList.remove('hidden'); }
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Adding...';
+    try {
+        await API.sales.create(payload); // POST /api/sales/create
+        closeAddSaleModal();
+        productsList = []; // reset cache để load lại stock mới nhất lần sau
+        await loadSalesData();
+        showToast('✅ Sale recorded successfully!', 'success');
+    } catch (err) {
+        if (errEl) { errEl.textContent = err.message || 'Failed to add sale.'; errEl.classList.remove('hidden'); }
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Add Sale';
+    }
+});
+
 // Khởi động
 loadSalesData();

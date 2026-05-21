@@ -11,6 +11,9 @@ const userController = require('../controllers/userController');
 const forecastController = require('../controllers/forecastController');
 router.get('/users/list', userController.getAllUsers);
 router.get('/forecast/latest', forecastController.getLatestForecast);
+router.post('/users/create', userController.createUser);
+router.put('/users/update/:id', userController.updateUser);
+router.delete('/users/delete/:id', userController.deleteUser);
 
 // Khai báo các API
 router.get('/status', apiController.getStatus);

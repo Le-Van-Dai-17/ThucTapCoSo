@@ -1,3 +1,16 @@
+// Lấy thông tin tài khoản đang đăng nhập từ LocalStorage thông qua Auth
+const currentUser = (typeof Auth !== 'undefined') ? Auth.getUser() : null;
+const displayName = currentUser ? (currentUser.full_name || currentUser.username) : 'John Doe';
+const displayRole = currentUser ? currentUser.role : 'Guest';
+
+// Hàm tự động lấy chữ cái đầu làm Avatar (ví dụ: Thanh Truong -> TT)
+const initials = displayName
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .substring(0, 2)
+    .toUpperCase();
+    
 const layoutHtml = `<!-- Sidebar -->
         <aside class="fixed left-0 top-0 h-screen w-[240px] bg-white border-r border-gray-200 shadow-sm z-30 flex flex-col">
             <div class="p-6">
@@ -54,12 +67,12 @@ const layoutHtml = `<!-- Sidebar -->
 
             <div class="p-4 border-t border-gray-200 shrink-0">
                 <a href="profile.html" class="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-100 transition-colors duration-200">
-                    <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                        <span class="text-sm font-medium">JD</span>
+                    <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+                        <span class="text-sm font-medium">${initials}</span>
                     </div>
                     <div class="flex-1">
-                        <div class="text-sm font-medium">John Doe</div>
-                        <div class="text-xs text-gray-500">Manager</div>
+                        <div class="text-sm font-medium text-gray-900">${displayName}</div>
+                        <div class="text-xs text-gray-500 capitalize">${displayRole}</div>
                     </div>
                 </a>
             </div>
@@ -84,8 +97,7 @@ const layoutHtml = `<!-- Sidebar -->
                         <i data-lucide="bell" class="w-5 h-5 text-gray-600"></i>
                         <span class="absolute top-1 right-1 w-2 h-2 bg-[#F59E0B] rounded-full"></span>
                     </button>
-                    <!-- Log out button -->
-                    <a href="login.html" class="text-sm text-gray-500 hover:text-gray-900 px-2 py-1 flex items-center gap-1">
+                    <a href="#" onclick="Auth.logout(event)" class="text-sm text-gray-500 hover:text-gray-900 px-2 py-1 flex items-center gap-1">
                         <i data-lucide="log-out" class="w-4 h-4"></i> Logout
                     </a>
                 </div>
