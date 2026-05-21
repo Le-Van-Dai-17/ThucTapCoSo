@@ -42,24 +42,34 @@ POST /api/auth/logout: Đăng xuất (Client tự xử lý xóa token).
 2. Quản lý Sản phẩm (Products API)
 (⚠️ Yêu cầu: Header Authorization: Bearer <token>)
 
-GET /api/products: Lấy danh sách tất cả sản phẩm.
+GET /api/products/list: Lấy danh sách tất cả sản phẩm.
 
-GET /api/products/:id: Lấy chi tiết 1 sản phẩm.
+GET /api/products/get/:id: Lấy chi tiết 1 sản phẩm.
 
-POST /api/products: Thêm sản phẩm mới.
+POST /api/products/create: Thêm sản phẩm mới.
 
-PUT /api/products/:id: Cập nhật thông tin sản phẩm.
+PUT /api/products/update/:id: Cập nhật thông tin sản phẩm.
 
-DELETE /api/products/:id: Xóa sản phẩm.
+DELETE /api/products/delete/:id: Xóa sản phẩm.
 
 3. Dữ liệu Bán hàng (Sales Data API)
 (⚠️ Yêu cầu: Header Authorization: Bearer <token>)
 
-GET /api/sales/summary: Lấy lịch sử bán hàng (Sử dụng JOIN để hiển thị kèm tên sản phẩm).
+GET /api/sales/list: Lấy lịch sử bán hàng (Sử dụng JOIN để hiển thị kèm tên sản phẩm).
 
 POST /api/sales: Tạo đơn bán hàng mới.
+
+4. Bán hàng (Purchase Order API)
+
+GET /api/purchase/list: Lấy lịch sử nhập hàng
+
+POST /api/purchase/create: Tạo order nhập hàng
+
+GET /api/purchase/detail/:id: Xem chi tiết món hàng
 
 🛡 Cơ chế Bảo mật & Logic cốt lõi
 JWT Authentication (authMiddleware): Đảm bảo an toàn cho các API thao tác dữ liệu. Hệ thống yêu cầu xác thực chặt chẽ, kiểm tra chữ ký và hạn sử dụng của Token trước khi cho phép truy cập. Có cơ chế chặn khởi động nếu thiếu cấu hình Secret Key.
 
+
 MySQL Transactions (salesController): API tạo đơn bán hàng được xử lý qua 2 bước đồng bộ (Ghi nhận lịch sử + Trừ số lượng tồn kho). Áp dụng lệnh beginTransaction, commit và rollback để đảm bảo tính toàn vẹn dữ liệu (Data Integrity) 100%, chống sai lệch khi có lỗi bất ngờ xảy ra.
+
