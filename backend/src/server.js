@@ -18,6 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api', apiRoutes);
 
+
 // Basic root route
 app.get('/', (req, res) => {
     res.json({ message: 'Welcome to ForecastAI Backend API' });

@@ -2,11 +2,11 @@ require('dotenv').config();
 const mysql = require('mysql2/promise');
 
 const dbConfig = {
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 3306,
+    host: process.env.DB_HOST || '127.0.0.1',
+    port: process.env.DB_PORT || 3307,
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'forecastai',
+    database: process.env.DB_NAME || 'forecastai_v3',
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0

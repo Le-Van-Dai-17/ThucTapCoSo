@@ -1,22 +1,10 @@
 lucide.createIcons();
-
 if (typeof Auth !== 'undefined') Auth.requireAuth();
-
-// Mock data fallback
-const MOCK_USERS = [
-    { id: 1, username: "admin001", full_name: "John Anderson", email: "john.anderson@company.com", role: "Admin", status: "active", created_at: "2023-01-15" },
-    { id: 2, username: "manager001", full_name: "Sarah Johnson", email: "sarah.johnson@company.com", role: "Manager", status: "active", created_at: "2023-03-20" },
-    { id: 3, username: "staff001", full_name: "Michael Chen", email: "michael.chen@company.com", role: "Staff", status: "active", created_at: "2023-05-10" },
-    { id: 4, username: "manager002", full_name: "Emily Rodriguez", email: "emily.rodriguez@company.com", role: "Manager", status: "active", created_at: "2023-06-12" },
-    { id: 5, username: "staff002", full_name: "David Kim", email: "david.kim@company.com", role: "Staff", status: "active", created_at: "2023-07-22" },
-    { id: 6, username: "staff003", full_name: "Jennifer Martinez", email: "jennifer.martinez@company.com", role: "Staff", status: "inactive", created_at: "2023-08-15" },
-    { id: 7, username: "manager003", full_name: "Robert Taylor", email: "robert.taylor@company.com", role: "Manager", status: "active", created_at: "2023-09-05" },
-    { id: 8, username: "staff004", full_name: "Lisa Wang", email: "lisa.wang@company.com", role: "Staff", status: "active", created_at: "2023-10-18" },
-];
 
 let users = [];
 let isUsingMock = false;
 let userToDeleteId = null;
+let editingUserId = null;
 
 const searchInput = document.getElementById('searchInput');
 const roleFilter = document.getElementById('roleFilter');
@@ -30,6 +18,7 @@ const deleteModal = document.getElementById('deleteModal');
 
 // Load users từ API
 async function loadUsers() {
+    if (tableBody) showLoading('tableBody', 'Loading users...');
     try {
         const result = await API.users.getAll();
         users = (result.data || result).map(u => ({
@@ -43,9 +32,9 @@ async function loadUsers() {
         }));
         isUsingMock = false;
     } catch (err) {
-        console.warn('[Users] Dùng mock data:', err.message);
-        users = [...MOCK_USERS];
-        isUsingMock = true;
+        console.warn('[Users] Failed to load users:', err.message);
+        users = [];
+        showToast('Failed to load users from server.', 'error');
     }
     renderTable();
     formatStats();
@@ -54,6 +43,11 @@ async function loadUsers() {
 function capitalizeFirst(str) {
     if (!str) return '';
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+function getInitials(name) {
+    if (!name) return '?';
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 }
 
 // Helpers
@@ -77,19 +71,19 @@ function formatStats() {
     const managers = users.filter(u => u.role === 'Manager').length;
 
     statsContainer.innerHTML = `
-        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200">
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
             <div class="text-sm font-medium text-gray-500 mb-1">Total Users</div>
             <div class="text-2xl font-semibold text-gray-900">${total}</div>
         </div>
-        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200">
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
             <div class="text-sm font-medium text-gray-500 mb-1">Active Users</div>
             <div class="text-2xl font-semibold text-[#10B981]">${active}</div>
         </div>
-        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200">
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
             <div class="text-sm font-medium text-gray-500 mb-1">Admins</div>
             <div class="text-2xl font-semibold text-red-600">${admins}</div>
         </div>
-        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200">
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
             <div class="text-sm font-medium text-gray-500 mb-1">Managers</div>
             <div class="text-2xl font-semibold text-[#2563EB]">${managers}</div>
         </div>`;
@@ -114,9 +108,10 @@ function renderTable() {
         if (emptyState) emptyState.classList.remove('hidden');
     } else {
         if (emptyState) emptyState.classList.add('hidden');
-        filtered.forEach(user => {
+        filtered.forEach((user, idx) => {
             const tr = document.createElement('tr');
-            tr.className = 'hover:bg-gray-50 transition-colors duration-150';
+            const bgClass = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50';
+            tr.className = `hover:bg-gray-50 transition-colors duration-150 ${bgClass}`;
 
             const roleOptions = ['Admin', 'Manager', 'Staff'].map(r =>
                 `<option value="${r}" ${user.role === r ? 'selected' : ''}>${r}</option>`
@@ -126,9 +121,20 @@ function renderTable() {
             const isAct = user.status === 'active';
             const toggleBg = isAct ? 'bg-[#10B981]' : 'bg-gray-300';
             const toggleThumb = isAct ? 'translate-x-6' : 'translate-x-1';
+            
+            const initials = getInitials(user.full_name || user.username);
+            const avatarColors = ['bg-blue-100 text-blue-600', 'bg-green-100 text-green-600', 'bg-purple-100 text-purple-600', 'bg-orange-100 text-orange-600', 'bg-pink-100 text-pink-600'];
+            const avatarColor = avatarColors[(user.id || 0) % avatarColors.length];
 
             tr.innerHTML = `
-                <td class="px-6 py-4"><span class="font-mono text-sm font-medium text-gray-900">${user.username}</span></td>
+                <td class="px-6 py-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${avatarColor}">
+                            ${initials}
+                        </div>
+                        <span class="font-mono text-sm font-medium text-gray-900">${user.username}</span>
+                    </div>
+                </td>
                 <td class="px-6 py-4"><span class="text-sm font-medium text-gray-900">${user.full_name}</span></td>
                 <td class="px-6 py-4"><span class="text-sm text-gray-600">${user.email}</span></td>
                 <td class="px-6 py-4">
@@ -155,9 +161,13 @@ function renderTable() {
                     </div>
                 </td>
                 <td class="px-6 py-4">
-                    <div class="flex items-center justify-center">
+                    <div class="flex items-center justify-center gap-2">
+                        <button onclick="openEditModal(${user.id})"
+                            class="p-2 text-orange-500 hover:bg-orange-50 rounded-lg transition-all duration-150" title="Edit Profile">
+                            <i data-lucide="edit" class="w-4 h-4"></i>
+                        </button>
                         <button onclick="prepareDelete(${user.id})"
-                            class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-150">
+                            class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-150" title="Delete User">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
                     </div>
@@ -175,9 +185,7 @@ window.toggleStatus = async function (id) {
     const newStatus = user.status === 'active' ? 'inactive' : 'active';
 
     try {
-        if (!isUsingMock) {
-            await API.users.update(id, { status: newStatus });
-        }
+        await API.users.update(id, { status: newStatus });
         user.status = newStatus;
         renderTable();
         formatStats();
@@ -193,15 +201,15 @@ window.changeRole = async function (id, newRole) {
     if (!user) return;
 
     try {
-        if (!isUsingMock) {
-            await API.users.update(id, { role: newRole.toLowerCase() });
-        }
+        await API.users.update(id, { role: newRole.toLowerCase() });
         user.role = newRole;
         renderTable();
         formatStats();
         showToast(`Đã đổi quyền ${user.username} thành ${newRole}.`, 'success');
     } catch (err) {
         showToast('Đổi quyền thất bại: ' + err.message, 'error');
+        // revert select
+        renderTable();
     }
 };
 
@@ -224,31 +232,66 @@ window.confirmDeleteUser = async function () {
     if (!userToDeleteId) return;
     const user = users.find(u => u.id === userToDeleteId);
     try {
-        if (!isUsingMock) {
-            await API.users.delete(userToDeleteId);
-        }
-        users = users.filter(u => u.id !== userToDeleteId);
-        renderTable();
-        formatStats();
+        await API.users.delete(userToDeleteId);
         showToast(`Đã xoá tài khoản ${user?.username || ''}.`, 'success');
+        closeDeleteModal();
+        await loadUsers(); // Sync
     } catch (err) {
         showToast('Xoá thất bại: ' + err.message, 'error');
     }
-    closeDeleteModal();
 };
 
-// Add modal
+// ==========================================
+// ADD / EDIT MODAL
+// ==========================================
 window.openAddModal = function () {
-    openModal(addModalOverlay, addModal);
+    editingUserId = null;
+    document.getElementById('modalTitle').textContent = 'Add New User';
+    document.getElementById('modalSubmitBtn').textContent = 'Create User';
+    
+    const unameInput = document.getElementById('addUsername');
+    unameInput.disabled = false;
+    document.getElementById('addPassword').required = true;
+    
+    const form = document.getElementById('addForm');
+    if(form) form.reset();
     updateRadioStyles();
+    
+    openModal(addModalOverlay, addModal);
 };
+
+window.openEditModal = function (id) {
+    const user = users.find(u => u.id === id);
+    if (!user) return;
+    
+    editingUserId = id;
+    document.getElementById('modalTitle').textContent = 'Edit User Profile';
+    document.getElementById('modalSubmitBtn').textContent = 'Save Changes';
+    
+    const unameInput = document.getElementById('addUsername');
+    unameInput.value = user.username;
+    unameInput.disabled = true; // Lock username when editing
+    
+    document.getElementById('addFullName').value = user.full_name;
+    document.getElementById('addEmail').value = user.email;
+    
+    const pwdInput = document.getElementById('addPassword');
+    pwdInput.value = '';
+    pwdInput.required = false; // password is optional when editing
+    
+    // Select radio
+    document.querySelectorAll('input[name="addRole"]').forEach(r => {
+        if(r.value.toLowerCase() === user.role.toLowerCase()) {
+            r.checked = true;
+        }
+    });
+    updateRadioStyles();
+    
+    openModal(addModalOverlay, addModal);
+};
+
 window.closeAddModal = function () {
     closeModal(addModalOverlay, addModal);
-    setTimeout(() => {
-        const form = document.getElementById('addForm');
-        if (form) form.reset();
-        updateRadioStyles();
-    }, 200);
 };
 
 window.updateRadioStyles = function () {
@@ -267,37 +310,41 @@ window.updateRadioStyles = function () {
 
 window.handleAddSubmit = async function (e) {
     e.preventDefault();
-    const uname = document.getElementById('addUsername').value.trim();
     const fname = document.getElementById('addFullName').value.trim();
     const email = document.getElementById('addEmail').value.trim();
-    const password = document.getElementById('addPassword')?.value || '123456';
+    const password = document.getElementById('addPassword')?.value;
     const roleEl = document.querySelector('input[name="addRole"]:checked');
     if (!roleEl) return;
-    const role = roleEl.value;
-
-    const payload = { username: uname, full_name: fname, email, password, role: role.toLowerCase() };
+    const role = roleEl.value.toLowerCase();
+    
+    const btn = document.getElementById('modalSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
 
     try {
-        if (!isUsingMock) {
-            await API.users.create(payload); // POST /api/users/create
+        if (editingUserId) {
+            // Edit User
+            const payload = { full_name: fname, email, role };
+            if (password && password.trim() !== '') {
+                payload.password = password;
+            }
+            await API.users.update(editingUserId, payload);
+            showToast('User profile updated successfully!', 'success');
+        } else {
+            // Add User
+            const uname = document.getElementById('addUsername').value.trim();
+            const payload = { username: uname, full_name: fname, email, password: password || '123456', role };
+            await API.users.create(payload);
+            showToast(`Created account ${uname} successfully!`, 'success');
         }
-        // Build newUser từ form data (không dùng result.data vì BE chỉ trả { success, message })
-        const newUser = {
-            id: Date.now(),
-            username: uname,
-            full_name: fname,
-            email,
-            role: capitalizeFirst(role),
-            status: 'active',
-            created_at: new Date().toISOString()
-        };
-        users.push(newUser);
-        renderTable();
-        formatStats();
-        showToast(`Created account ${uname} successfully!`, 'success');
+        
         closeAddModal();
+        await loadUsers(); // Refresh the table completely to sync with DB
     } catch (err) {
-        showToast('Failed to create user: ' + err.message, 'error');
+        showToast('Operation failed: ' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = editingUserId ? 'Save Changes' : 'Create User';
     }
 };
 

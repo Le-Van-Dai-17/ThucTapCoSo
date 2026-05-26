@@ -1,33 +1,21 @@
 lucide.createIcons();
 
-const mockActivities = [
-    { id: 1, user: "John Anderson", userId: 1, action: "Created new product", tableAffected: "products", timestamp: new Date("2026-03-28T10:15:30"), ipAddress: "192.168.1.105" },
-    { id: 2, user: "Sarah Johnson", userId: 2, action: "Updated purchase order PO-2024-0245", tableAffected: "purchase_orders", timestamp: new Date("2026-03-28T10:12:45"), ipAddress: "192.168.1.112" },
-    { id: 3, user: "Michael Chen", userId: 3, action: "Deleted user account", tableAffected: "users", timestamp: new Date("2026-03-28T10:08:22"), ipAddress: "192.168.1.89" },
-    { id: 4, user: "John Anderson", userId: 1, action: "Imported sales data (250 records)", tableAffected: "sales_data", timestamp: new Date("2026-03-28T09:55:18"), ipAddress: "192.168.1.105" },
-    { id: 5, user: "Emily Rodriguez", userId: 4, action: "Updated product SKU-1234 inventory", tableAffected: "inventory", timestamp: new Date("2026-03-28T09:45:33"), ipAddress: "192.168.1.98" },
-    { id: 6, user: "David Kim", userId: 5, action: "Created purchase order PO-2024-0246", tableAffected: "purchase_orders", timestamp: new Date("2026-03-28T09:30:12"), ipAddress: "192.168.1.142" },
-    { id: 7, user: "Sarah Johnson", userId: 2, action: "Generated forecast report", tableAffected: "reports", timestamp: new Date("2026-03-28T09:15:48"), ipAddress: "192.168.1.112" },
-    { id: 8, user: "John Anderson", userId: 1, action: "Modified user permissions", tableAffected: "users", timestamp: new Date("2026-03-28T09:05:27"), ipAddress: "192.168.1.105" },
-    { id: 9, user: "Robert Taylor", userId: 7, action: "Received inventory for PO-2024-0243", tableAffected: "inventory", timestamp: new Date("2026-03-28T08:50:15"), ipAddress: "192.168.1.67" },
-    { id: 10, user: "Lisa Wang", userId: 8, action: "Updated product pricing", tableAffected: "products", timestamp: new Date("2026-03-28T08:35:44"), ipAddress: "192.168.1.156" },
-    { id: 11, user: "Michael Chen", userId: 3, action: "Exported sales data report", tableAffected: "sales_data", timestamp: new Date("2026-03-28T08:20:31"), ipAddress: "192.168.1.89" },
-    { id: 12, user: "Emily Rodriguez", userId: 4, action: "Deleted product SKU-9999", tableAffected: "products", timestamp: new Date("2026-03-28T08:05:19"), ipAddress: "192.168.1.98" },
-    { id: 13, user: "John Anderson", userId: 1, action: "Created new user account", tableAffected: "users", timestamp: new Date("2026-03-27T16:45:52"), ipAddress: "192.168.1.105" },
-    { id: 14, user: "Sarah Johnson", userId: 2, action: "Updated forecast parameters", tableAffected: "forecasts", timestamp: new Date("2026-03-27T15:30:28"), ipAddress: "192.168.1.112" },
-    { id: 15, user: "David Kim", userId: 5, action: "Approved purchase order PO-2024-0244", tableAffected: "purchase_orders", timestamp: new Date("2026-03-27T14:15:37"), ipAddress: "192.168.1.142" },
-];
+// ===============================
+// STATE
+// ===============================
+let activities = [];
+let uniqueUsers = [];
 
-const uniqueUsers = Array.from(new Set(mockActivities.map(a => a.user))).sort();
-
-// State
 let selectedUser = "All Users";
 let selectedDateRange = "All Time";
 let isUserFilterOpen = false;
 let isDateFilterOpen = false;
 
-// Elements
+// ===============================
+// ELEMENTS
+// ===============================
 const searchInput = document.getElementById('searchInput');
+
 const userFilterMenu = document.getElementById('userFilterMenu');
 const userFilterIcon = document.getElementById('userFilterIcon');
 const userFilterText = document.getElementById('userFilterText');
@@ -41,213 +29,617 @@ const tableBody = document.getElementById('tableBody');
 const emptyState = document.getElementById('emptyState');
 const paginationInfo = document.getElementById('paginationInfo');
 
+const totalActivitiesEl = document.getElementById('totalActivities');
+const filteredResultsEl = document.getElementById('filteredResults');
+const showTotalEl = document.getElementById('showTotal');
+const totalMaxEl = document.getElementById('totalMax');
+const lastUpdatedEl = document.getElementById('lastUpdated');
+
+// ===============================
+// CONFIG
+// ===============================
+
+const ACTIVITY_API_BASE_URL =
+    typeof API_BASE_URL !== 'undefined'
+        ? API_BASE_URL
+        : 'http://localhost:5000/api';
+
+function getToken() {
+    return (
+        localStorage.getItem('forecastai_token') ||
+        localStorage.getItem('token') ||
+        localStorage.getItem('authToken') ||
+        localStorage.getItem('accessToken') ||
+        sessionStorage.getItem('forecastai_token') ||
+        sessionStorage.getItem('token') ||
+        sessionStorage.getItem('authToken') ||
+        sessionStorage.getItem('accessToken') ||
+        ''
+    );
+}
+
+// ===============================
+// HELPERS
+// ===============================
+
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+
+    return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+}
+
+function normalizeActionText(action) {
+    if (!action) return 'Unknown action';
+
+    const map = {
+        CREATE_USER: 'Tạo người dùng',
+        UPDATE_USER: 'Cập nhật người dùng',
+        DELETE_USER: 'Xóa / vô hiệu hóa người dùng',
+
+        LOGIN_SUCCESS: 'Đăng nhập thành công',
+
+        CREATE_PRODUCT: 'Tạo sản phẩm',
+        UPDATE_PRODUCT: 'Cập nhật sản phẩm',
+        DELETE_PRODUCT: 'Ngừng kinh doanh sản phẩm',
+
+        CREATE_SALE: 'Tạo dữ liệu bán hàng',
+        IMPORT_SALES_CSV: 'Import dữ liệu bán hàng CSV',
+        IMPORT_SALES_DATA: 'Import dữ liệu bán hàng',
+
+        RUN_FORECAST: 'Chạy dự báo',
+
+        CREATE_PURCHASE: 'Tạo đơn nhập hàng',
+        CREATE_PURCHASE_ORDER: 'Tạo đơn nhập hàng',
+        UPDATE_PURCHASE: 'Cập nhật đơn nhập hàng',
+        UPDATE_PURCHASE_ORDER: 'Cập nhật đơn nhập hàng',
+        DELETE_PURCHASE: 'Xóa đơn nhập hàng',
+        DELETE_PURCHASE_ORDER: 'Xóa đơn nhập hàng',
+        RECEIVE_PURCHASE: 'Xác nhận nhập kho',
+        RECEIVE_PURCHASE_ORDER: 'Xác nhận nhập kho',
+
+        VIEW_FORECAST_DETAIL: 'Xem chi tiết dự báo'
+    };
+
+    return map[action] || action;
+}
+
 function getActionColor(action) {
-    const l = action.toLowerCase();
-    if (l.includes("created") || l.includes("imported")) return "text-[#10B981]";
-    if (l.includes("deleted")) return "text-red-600";
-    if (l.includes("updated") || l.includes("modified")) return "text-[#F59E0B]";
-    return "text-[#2563EB]";
+    const l = String(action || '').toLowerCase();
+
+    if (
+        l.includes('create') ||
+        l.includes('tạo') ||
+        l.includes('import') ||
+        l.includes('run_forecast') ||
+        l.includes('chạy')
+    ) {
+        return 'text-[#10B981]';
+    }
+
+    if (
+        l.includes('delete') ||
+        l.includes('xóa') ||
+        l.includes('ngừng')
+    ) {
+        return 'text-red-600';
+    }
+
+    if (
+        l.includes('update') ||
+        l.includes('cập nhật') ||
+        l.includes('modified')
+    ) {
+        return 'text-[#F59E0B]';
+    }
+
+    return 'text-[#2563EB]';
 }
 
 function getTableBadgeColor(table) {
+    const key = String(table || '').toLowerCase();
+
     const colors = {
-        users: "bg-purple-100 text-purple-700",
-        products: "bg-blue-100 text-blue-700",
-        inventory: "bg-green-100 text-green-700",
-        purchase_orders: "bg-orange-100 text-orange-700",
-        sales_data: "bg-pink-100 text-pink-700",
-        forecasts: "bg-indigo-100 text-indigo-700",
-        reports: "bg-teal-100 text-teal-700",
+        users: 'bg-purple-100 text-purple-700',
+        products: 'bg-blue-100 text-blue-700',
+        inventory: 'bg-green-100 text-green-700',
+        purchase_orders: 'bg-orange-100 text-orange-700',
+        sales_transactions: 'bg-pink-100 text-pink-700',
+        sale_details: 'bg-pink-100 text-pink-700',
+        demand_forecasts: 'bg-indigo-100 text-indigo-700',
+        forecasts: 'bg-indigo-100 text-indigo-700',
+        reports: 'bg-teal-100 text-teal-700',
+        system: 'bg-gray-100 text-gray-700'
     };
-    return colors[table] || "bg-gray-100 text-gray-700";
+
+    return colors[key] || 'bg-gray-100 text-gray-700';
 }
 
 function formatDateFull(date) {
-    return date.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+        return 'N/A';
+    }
+
+    return date.toLocaleDateString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
 }
 
 function formatTime(date) {
-    return date.toLocaleTimeString("en-US", { hour12: false });
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+        return 'N/A';
+    }
+
+    return date.toLocaleTimeString('vi-VN', {
+        hour12: false
+    });
 }
+
+function getInitials(name) {
+    if (!name) return '?';
+
+    const words = String(name).trim().split(/\s+/);
+
+    if (words.length === 1) {
+        return words[0].slice(0, 2).toUpperCase();
+    }
+
+    return words
+        .slice(0, 2)
+        .map(word => word[0])
+        .join('')
+        .toUpperCase();
+}
+
+// ===============================
+// LOAD DATA
+// ===============================
+
+async function fetchActivityLogs() {
+    /*
+        Ưu tiên dùng API object nếu dự án của bạn đã có file api.js frontend.
+        Nếu không có, tự fetch trực tiếp từ backend.
+    */
+    if (
+        window.API &&
+        window.API.activityLogs &&
+        typeof window.API.activityLogs.getAll === 'function'
+    ) {
+        const result = await window.API.activityLogs.getAll();
+
+        /*
+            Có dự án trả thẳng array.
+            Có dự án trả object: { success: true, data: [...] }.
+            Xử lý cả hai kiểu.
+        */
+        if (Array.isArray(result)) {
+            return result;
+        }
+
+        if (Array.isArray(result?.data)) {
+            return result.data;
+        }
+
+        return [];
+    }
+
+    const token = getToken();
+
+    const response = await fetch(`${ACTIVITY_API_BASE_URL}/activity-logs/list`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || result.success === false) {
+        throw new Error(result.message || 'Không thể tải nhật ký hoạt động');
+    }
+
+    return Array.isArray(result.data) ? result.data : [];
+}
+
+function normalizeLog(log) {
+    const user =
+        log.full_name ||
+        log.username ||
+        (log.user_id ? `User #${log.user_id}` : 'System');
+
+    const rawAction = log.action || 'UNKNOWN_ACTION';
+    const description = log.description || normalizeActionText(rawAction);
+
+    const tableAffected =
+        log.entity_type ||
+        log.table_name ||
+        log.tableAffected ||
+        'system';
+
+    const createdAt =
+        log.created_at ||
+        log.timestamp ||
+        log.createdAt ||
+        new Date();
+
+    return {
+        id: log.log_id || log.id,
+        user,
+        userId: log.user_id || null,
+        action: description,
+        rawAction,
+        tableAffected,
+        timestamp: new Date(createdAt),
+        ipAddress: log.ip_address || 'N/A'
+    };
+}
+
+async function loadActivityLogs() {
+    try {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="5" class="px-6 py-10 text-center text-gray-500">
+                    Đang tải nhật ký hoạt động...
+                </td>
+            </tr>
+        `;
+
+        if (emptyState) {
+            emptyState.classList.add('hidden');
+        }
+
+        if (paginationInfo) {
+            paginationInfo.classList.add('hidden');
+        }
+
+        const logs = await fetchActivityLogs();
+
+        activities = logs.map(normalizeLog);
+
+        initFilters();
+        renderData();
+
+    } catch (error) {
+        console.error('Lỗi tải Activity Log:', error);
+
+        activities = [];
+
+        if (totalActivitiesEl) totalActivitiesEl.textContent = '0';
+        if (filteredResultsEl) filteredResultsEl.textContent = '0';
+
+        if (emptyState) {
+            emptyState.classList.add('hidden');
+        }
+
+        if (paginationInfo) {
+            paginationInfo.classList.add('hidden');
+        }
+
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="5" class="px-6 py-10 text-center text-red-500">
+                    Không thể tải nhật ký hoạt động từ backend.
+                    <br>
+                    <span class="text-xs text-gray-500">
+                        ${escapeHtml(error.message)}
+                    </span>
+                </td>
+            </tr>
+        `;
+    }
+}
+
+// ===============================
+// FILTERS
+// ===============================
 
 function initFilters() {
-    let opts = `<button onclick="selectUserFilter('All Users')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm bg-[#2563EB]/10 text-[#2563EB] font-medium border-none outline-none">All Users</button>`;
-    uniqueUsers.forEach(u => {
-        opts += `<button onclick="selectUserFilter('${u}')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm text-gray-700 border-none outline-none">${u}</button>`;
+    uniqueUsers = Array.from(new Set(activities.map(a => a.user))).sort();
+
+    let opts = `
+        <button 
+            onclick="selectUserFilter('All Users')" 
+            class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm bg-[#2563EB]/10 text-[#2563EB] font-medium border-none outline-none">
+            All Users
+        </button>
+    `;
+
+    uniqueUsers.forEach(user => {
+        opts += `
+            <button 
+                onclick="selectUserFilter('${escapeHtml(user)}')" 
+                class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm text-gray-700 border-none outline-none">
+                ${escapeHtml(user)}
+            </button>
+        `;
     });
-    userFilterOptions.innerHTML = opts;
+
+    if (userFilterOptions) {
+        userFilterOptions.innerHTML = opts;
+    }
 }
 
-window.toggleUserFilter = function() {
+window.toggleUserFilter = function () {
     isUserFilterOpen = !isUserFilterOpen;
     isDateFilterOpen = false;
     updateMenus();
-}
+};
 
-window.toggleDateFilter = function() {
+window.toggleDateFilter = function () {
     isDateFilterOpen = !isDateFilterOpen;
     isUserFilterOpen = false;
     updateMenus();
-}
+};
 
-window.selectUserFilter = function(user) {
+window.selectUserFilter = function (user) {
     selectedUser = user;
     userFilterText.textContent = user;
+
     isUserFilterOpen = false;
+
     updateMenus();
     updateUserOptionsVisual();
     renderData();
-}
+};
 
-window.selectDateFilter = function(range) {
+window.selectDateFilter = function (range) {
     selectedDateRange = range;
     dateFilterText.textContent = range;
+
     isDateFilterOpen = false;
+
     updateMenus();
     updateDateOptionsVisual();
     renderData();
-}
+};
 
 function updateMenus() {
-    if (isUserFilterOpen) {
-        userFilterMenu.classList.remove('hidden');
-        userFilterIcon.classList.add('rotate-180');
-    } else {
-        userFilterMenu.classList.add('hidden');
-        userFilterIcon.classList.remove('rotate-180');
+    if (userFilterMenu && userFilterIcon) {
+        if (isUserFilterOpen) {
+            userFilterMenu.classList.remove('hidden');
+            userFilterIcon.classList.add('rotate-180');
+        } else {
+            userFilterMenu.classList.add('hidden');
+            userFilterIcon.classList.remove('rotate-180');
+        }
     }
 
-    if (isDateFilterOpen) {
-        dateFilterMenu.classList.remove('hidden');
-        dateFilterIcon.classList.add('rotate-180');
-    } else {
-        dateFilterMenu.classList.add('hidden');
-        dateFilterIcon.classList.remove('rotate-180');
+    if (dateFilterMenu && dateFilterIcon) {
+        if (isDateFilterOpen) {
+            dateFilterMenu.classList.remove('hidden');
+            dateFilterIcon.classList.add('rotate-180');
+        } else {
+            dateFilterMenu.classList.add('hidden');
+            dateFilterIcon.classList.remove('rotate-180');
+        }
     }
 }
 
 function updateUserOptionsVisual() {
-    const btns = userFilterOptions.querySelectorAll('button');
-    btns.forEach(b => {
-        if (b.textContent === selectedUser) {
-            b.className = "w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm bg-[#2563EB]/10 text-[#2563EB] font-medium border-none outline-none";
+    if (!userFilterOptions) return;
+
+    const buttons = userFilterOptions.querySelectorAll('button');
+
+    buttons.forEach(button => {
+        if (button.textContent.trim() === selectedUser) {
+            button.className = 'w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm bg-[#2563EB]/10 text-[#2563EB] font-medium border-none outline-none';
         } else {
-            b.className = "w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm text-gray-700 border-none outline-none";
+            button.className = 'w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm text-gray-700 border-none outline-none';
         }
     });
 }
 
 function updateDateOptionsVisual() {
-    const btns = dateFilterMenu.querySelectorAll('button');
-    btns.forEach(b => {
-        if (b.textContent === selectedDateRange) {
-            b.className = "w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm bg-[#2563EB]/10 text-[#2563EB] font-medium border-none outline-none";
+    if (!dateFilterMenu) return;
+
+    const buttons = dateFilterMenu.querySelectorAll('button');
+
+    buttons.forEach(button => {
+        if (button.textContent.trim() === selectedDateRange) {
+            button.className = 'w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm bg-[#2563EB]/10 text-[#2563EB] font-medium border-none outline-none';
         } else {
-            b.className = "w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm text-gray-700 border-none outline-none";
+            button.className = 'w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm text-gray-700 border-none outline-none';
         }
     });
 }
 
+// ===============================
+// RENDER
+// ===============================
+
 function renderData() {
-    const q = searchInput.value.toLowerCase();
-    
-    const filtered = mockActivities.filter(a => {
-        const matchesSearch = 
-            a.user.toLowerCase().includes(q) || 
-            a.action.toLowerCase().includes(q) || 
-            a.tableAffected.toLowerCase().includes(q) || 
-            a.ipAddress.includes(q);
-            
-        const matchesUser = selectedUser === "All Users" || a.user === selectedUser;
+    const query = (searchInput?.value || '').toLowerCase();
+
+    const filtered = activities.filter(activity => {
+        const matchesSearch =
+            String(activity.user).toLowerCase().includes(query) ||
+            String(activity.action).toLowerCase().includes(query) ||
+            String(activity.rawAction).toLowerCase().includes(query) ||
+            String(activity.tableAffected).toLowerCase().includes(query) ||
+            String(activity.ipAddress).toLowerCase().includes(query);
+
+        const matchesUser =
+            selectedUser === 'All Users' ||
+            activity.user === selectedUser;
 
         let matchesDate = true;
-        const now = new Date();
-        const aDate = a.timestamp;
 
-        if (selectedDateRange === "Today") {
-            matchesDate = aDate.toDateString() === now.toDateString();
-        } else if (selectedDateRange === "Last 7 Days") {
-            const minDate = new Date(now.getTime() - 7*24*60*60*1000);
-            matchesDate = aDate >= minDate;
-        } else if (selectedDateRange === "Last 30 Days") {
-            const minDate = new Date(now.getTime() - 30*24*60*60*1000);
-            matchesDate = aDate >= minDate;
+        const now = new Date();
+        const activityDate = activity.timestamp;
+
+        if (selectedDateRange === 'Today') {
+            matchesDate = activityDate.toDateString() === now.toDateString();
+        } else if (selectedDateRange === 'Last 7 Days') {
+            const minDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            matchesDate = activityDate >= minDate;
+        } else if (selectedDateRange === 'Last 30 Days') {
+            const minDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            matchesDate = activityDate >= minDate;
         }
 
         return matchesSearch && matchesUser && matchesDate;
     });
 
-    document.getElementById('totalActivities').textContent = mockActivities.length;
-    document.getElementById('filteredResults').textContent = filtered.length;
+    if (totalActivitiesEl) {
+        totalActivitiesEl.textContent = activities.length;
+    }
+
+    if (filteredResultsEl) {
+        filteredResultsEl.textContent = filtered.length;
+    }
 
     tableBody.innerHTML = '';
-    
+
     if (filtered.length === 0) {
-        emptyState.classList.remove('hidden');
-        paginationInfo.classList.add('hidden');
-    } else {
+        if (emptyState) {
+            emptyState.classList.remove('hidden');
+        }
+
+        if (paginationInfo) {
+            paginationInfo.classList.add('hidden');
+        }
+
+        return;
+    }
+
+    if (emptyState) {
         emptyState.classList.add('hidden');
+    }
+
+    if (paginationInfo) {
         paginationInfo.classList.remove('hidden');
-        
-        filtered.forEach(a => {
-            const tr = document.createElement('tr');
-            tr.className = "hover:bg-gray-50 transition-colors duration-150";
+    }
 
-            const initials = a.user.split(" ").map(n => n[0]).join("");
-            const actColor = getActionColor(a.action);
-            const badgeColor = getTableBadgeColor(a.tableAffected);
+    filtered.forEach(activity => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50 transition-colors duration-150';
 
-            tr.innerHTML = `
-                <td class="px-6 py-4">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-[#2563EB] to-[#1d4ed8] flex items-center justify-center text-white text-xs font-semibold shrink-0">
-                            ${initials}
+        const initials = getInitials(activity.user);
+        const actionColor = getActionColor(activity.rawAction + ' ' + activity.action);
+        const badgeColor = getTableBadgeColor(activity.tableAffected);
+
+        tr.innerHTML = `
+            <td class="px-6 py-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-[#2563EB] to-[#1d4ed8] flex items-center justify-center text-white text-xs font-semibold shrink-0">
+                        ${escapeHtml(initials)}
+                    </div>
+                    <div>
+                        <div class="text-sm font-medium text-gray-900">
+                            ${escapeHtml(activity.user)}
                         </div>
-                        <span class="text-sm font-medium text-gray-900">${a.user}</span>
+                        ${activity.userId ? `
+                            <div class="text-xs text-gray-500">
+                                ID: ${escapeHtml(activity.userId)}
+                            </div>
+                        ` : ''}
                     </div>
-                </td>
-                <td class="px-6 py-4">
-                    <span class="text-sm font-medium ${actColor}">${a.action}</span>
-                </td>
-                <td class="px-6 py-4">
-                    <div class="flex justify-center">
-                        <span class="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold ${badgeColor}">
-                            ${a.tableAffected}
-                        </span>
-                    </div>
-                </td>
-                <td class="px-6 py-4">
-                    <div class="text-sm font-mono text-gray-900">${formatDateFull(a.timestamp)}</div>
-                    <div class="text-xs font-mono text-gray-500 mt-0.5">${formatTime(a.timestamp)}</div>
-                </td>
-                <td class="px-6 py-4">
-                    <span class="text-sm font-mono text-gray-600 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg">
-                        ${a.ipAddress}
-                    </span>
-                </td>
-            `;
-            tableBody.appendChild(tr);
-        });
+                </div>
+            </td>
 
-        document.getElementById('showTotal').textContent = filtered.length;
-        document.getElementById('totalMax').textContent = mockActivities.length;
-        document.getElementById('lastUpdated').textContent = "Last updated: " + formatTime(new Date());
+            <td class="px-6 py-4">
+                <div class="text-sm font-medium ${actionColor}">
+                    ${escapeHtml(activity.action)}
+                </div>
+                <div class="text-xs text-gray-500 mt-0.5">
+                    ${escapeHtml(activity.rawAction)}
+                </div>
+            </td>
+
+            <td class="px-6 py-4">
+                <div class="flex justify-center">
+                    <span class="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold ${badgeColor}">
+                        ${escapeHtml(activity.tableAffected)}
+                    </span>
+                </div>
+            </td>
+
+            <td class="px-6 py-4">
+                <div class="text-sm font-mono text-gray-900">
+                    ${formatDateFull(activity.timestamp)}
+                </div>
+                <div class="text-xs font-mono text-gray-500 mt-0.5">
+                    ${formatTime(activity.timestamp)}
+                </div>
+            </td>
+
+            <td class="px-6 py-4">
+                <span class="text-sm font-mono text-gray-600 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg">
+                    ${escapeHtml(activity.ipAddress)}
+                </span>
+            </td>
+        `;
+
+        tableBody.appendChild(tr);
+    });
+
+    if (showTotalEl) {
+        showTotalEl.textContent = filtered.length;
+    }
+
+    if (totalMaxEl) {
+        totalMaxEl.textContent = activities.length;
+    }
+
+    if (lastUpdatedEl) {
+        lastUpdatedEl.textContent = 'Last updated: ' + formatTime(new Date());
     }
 }
 
-searchInput.addEventListener('input', renderData);
+// ===============================
+// EVENTS
+// ===============================
 
-// Close dropdowns on outside click
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('#userFilterBtn') && !e.target.closest('#userFilterMenu')) {
+if (searchInput) {
+    searchInput.addEventListener('input', renderData);
+}
+
+document.addEventListener('click', event => {
+    if (
+        !event.target.closest('#userFilterBtn') &&
+        !event.target.closest('#userFilterMenu')
+    ) {
         isUserFilterOpen = false;
         updateMenus();
     }
-    if (!e.target.closest('#dateFilterBtn') && !e.target.closest('#dateFilterMenu')) {
+
+    if (
+        !event.target.closest('#dateFilterBtn') &&
+        !event.target.closest('#dateFilterMenu')
+    ) {
         isDateFilterOpen = false;
         updateMenus();
     }
 });
 
-initFilters();
-renderData();
+// ===============================
+// INIT
+// ===============================
+
+
+window.Auth = window.Auth || {
+    logout: function () {
+        localStorage.removeItem('forecastai_token');
+        localStorage.removeItem('forecastai_user');
+
+        localStorage.removeItem('token');
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
+        localStorage.removeItem('currentUser');
+
+        sessionStorage.removeItem('forecastai_token');
+        sessionStorage.removeItem('forecastai_user');
+
+        window.location.href = '../index.html';
+    }
+};
+
+loadActivityLogs();

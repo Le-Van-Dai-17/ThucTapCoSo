@@ -34,10 +34,10 @@
                                 <option value="90">Last 90 Days</option>
                             </select>
                         </div>
-                        <button onclick="alert('Exporting to Excel...')" class="px-4 py-2 bg-[#10B981] hover:bg-[#059669] text-white rounded-xl transition-all duration-200 text-sm font-medium flex items-center gap-2">
+                        <button onclick="exportReportExcel()" class="px-4 py-2 bg-[#10B981] hover:bg-[#059669] text-white rounded-xl transition-all duration-200 text-sm font-medium flex items-center gap-2">
                             <i data-lucide="download" class="w-4 h-4"></i> Excel
                         </button>
-                        <button onclick="alert('Exporting to PDF...')" class="px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl transition-all duration-200 text-sm font-medium flex items-center gap-2">
+                        <button onclick="exportReportPDF()" class="px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl transition-all duration-200 text-sm font-medium flex items-center gap-2">
                             <i data-lucide="download" class="w-4 h-4"></i> PDF
                         </button>
                     </div>
@@ -246,6 +246,55 @@
     </div>
 
     <!-- Scripts -->
+     <script>
+        async function downloadReportFile(url, filename) {
+            const token = localStorage.getItem('forecastai_token');
+
+            if (!token) {
+                alert('Bạn chưa đăng nhập hoặc token đã hết hạn.');
+                return;
+            }
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                alert('Xuất file thất bại. Vui lòng kiểm tra backend.');
+                return;
+            }
+
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+
+            a.remove();
+            window.URL.revokeObjectURL(downloadUrl);
+        }
+
+        function exportReportExcel() {
+            downloadReportFile(
+                `${API_BASE_URL}/reports/export/excel`,
+                'forecastai_report.xlsx'
+            );
+        }
+
+        function exportReportPDF() {
+            downloadReportFile(
+                `${API_BASE_URL}/reports/export/pdf`,
+                'forecastai_report.pdf'
+            );
+        }
+    </script>
+    <script src="../assets/js/api.js"></script>
     <script src="../assets/js/pages/reports.js"></script>
     <script src="../assets/js/components/layout.js"></script>
 </body>

@@ -34,7 +34,7 @@ async function loadForecastData() {
         const result = await API.forecast.getLatest();
 
         // Map field — hỗ trợ cả snake_case (từ DB) lẫn camelCase (dự phòng)
-        forecastData = (result.data || []).map(item => ({
+        forecastData = (result || []).map(item => ({
             id:              item.id,
             name:            item.name || item.product_name || 'Unknown',
             category:        item.category || 'General',

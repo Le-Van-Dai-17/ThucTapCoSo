@@ -111,6 +111,8 @@ const API = {
         async getAll()      { return apiFetch('/purchases/list'); },
         async getDetail(id) { return apiFetch(`/purchases/detail/${id}`); },
         async create(data)  { return apiFetch('/purchases/create', { method: 'POST', body: JSON.stringify(data) }); },
+        async update(id, data) { return apiFetch(`/purchases/update/${id}`, { method: 'PUT', body: JSON.stringify(data) }); },
+        async delete(id)    { return apiFetch(`/purchases/delete/${id}`, { method: 'DELETE' }); },
         async receive(id)   { return apiFetch(`/purchases/receive/${id}`, { method: 'PUT' }); }
     },
 
@@ -130,6 +132,20 @@ const API = {
             return res.data;
         },
         async getByProduct(prodId) { throw new Error('BACKEND_OFFLINE'); }
+    },
+
+    activityLogs: {
+        async getAll() {
+            const res = await apiFetch('/activity-logs/list');
+            return res.data;
+        }
+    },
+
+    reports: {
+        async getInventoryStatus() {
+            const res = await apiFetch('/reports/inventory-status');
+            return res.data;
+        }
     }
 };
 
