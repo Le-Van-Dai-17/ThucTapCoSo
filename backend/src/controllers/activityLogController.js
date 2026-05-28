@@ -1,4 +1,5 @@
 const { pool } = require('../db');
+const { clampInteger } = require('../utils/controllerUtils');
 
 /**
  * Ghi nhật ký hoạt động của người dùng.
@@ -65,14 +66,12 @@ exports.logAction = async (
  */
 exports.getLogs = async (req, res) => {
     try {
-        const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-        const limit = Math.min(
-            Math.max(parseInt(req.query.limit, 10) || 100, 1),
-            200
-        );
+        const page = clampInteger(req.query.page, 1, 1, 100000);
+        const limit = clampInteger(req.query.limit, 100, 1, 200);
         const offset = (page - 1) * limit;
 
         const { action, user_id, keyword } = req.query;
+        const keywordValue = keyword ? String(keyword).trim().slice(0, 100) : '';
 
         const where = [];
         const values = [];
@@ -87,7 +86,7 @@ exports.getLogs = async (req, res) => {
             values.push(user_id);
         }
 
-        if (keyword) {
+        if (keywordValue) {
             where.push(`
                 (
                     a.action LIKE ?
@@ -98,7 +97,7 @@ exports.getLogs = async (req, res) => {
                 )
             `);
 
-            const likeKeyword = `%${keyword}%`;
+            const likeKeyword = `%${keywordValue}%`;
 
             values.push(
                 likeKeyword,

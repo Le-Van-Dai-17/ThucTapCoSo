@@ -1,12 +1,10 @@
 const { pool } = require('../db');
 const bcrypt = require('bcryptjs');
-const { logAction } = require('./activityLogController');
+const { getActorId, isAdmin, safeLogAction } = require('../utils/controllerUtils');
 
 // Lấy ID người đang đăng nhập từ token.
 // Tùy auth middleware cũ của bạn đang gắn req.user.id hay req.user.user_id,
 // hàm này giúp controller không bị lỗi khi chuyển sang database_v3.
-const getActorId = (req) => req.user?.user_id || req.user?.id || null;
-
 const normalizeRoleName = (role) => {
     if (!role) return 'Staff';
 
@@ -136,6 +134,13 @@ exports.createUser = async (req, res) => {
             });
         }
 
+        if (password !== undefined && String(password).length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: 'Password must be at least 6 characters'
+            });
+        }
+
         await connection.beginTransaction();
 
         const roleId = await getRoleId(connection, role || 'Staff');
@@ -172,7 +177,7 @@ exports.createUser = async (req, res) => {
 
         await connection.commit();
 
-        await logAction(
+        await safeLogAction(
             getActorId(req),
             'CREATE_USER',
             `Tạo người dùng mới: ${username}`,
@@ -219,6 +224,8 @@ exports.updateUser = async (req, res) => {
 
     try {
         const { id } = req.params;
+        const actorId = getActorId(req);
+        const actorIsAdmin = isAdmin(req);
 
         const {
             username,
@@ -230,6 +237,32 @@ exports.updateUser = async (req, res) => {
             status,
             is_active
         } = req.body;
+
+        if (!actorIsAdmin && Number(actorId) !== Number(id)) {
+            return res.status(403).json({
+                success: false,
+                message: 'You can only update your own account'
+            });
+        }
+
+        if (!actorIsAdmin && (
+            username !== undefined ||
+            role !== undefined ||
+            status !== undefined ||
+            is_active !== undefined
+        )) {
+            return res.status(403).json({
+                success: false,
+                message: 'Only admins can update username, role, or account status'
+            });
+        }
+
+        if (password !== undefined && String(password).trim() !== '' && String(password).length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: 'Password must be at least 6 characters'
+            });
+        }
 
         await connection.beginTransaction();
 
@@ -320,8 +353,8 @@ exports.updateUser = async (req, res) => {
 
         await connection.commit();
 
-        await logAction(
-            getActorId(req),
+        await safeLogAction(
+            actorId,
             'UPDATE_USER',
             `Cập nhật người dùng ID: ${id}`,
             'users',
@@ -361,6 +394,21 @@ exports.updateUser = async (req, res) => {
 exports.deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
+        const actorId = getActorId(req);
+
+        if (!isAdmin(req)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Only admins can delete users'
+            });
+        }
+
+        if (Number(actorId) === Number(id)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Admins cannot delete their own account'
+            });
+        }
 
         /*
             Với database_v3, nhiều bảng khác có thể tham chiếu users.user_id.
@@ -389,8 +437,8 @@ exports.deleteUser = async (req, res) => {
             });
         }
 
-        await logAction(
-            getActorId(req),
+        await safeLogAction(
+            actorId,
             'DELETE_USER',
             `Vô hiệu hóa người dùng ID: ${id}`,
             'users',

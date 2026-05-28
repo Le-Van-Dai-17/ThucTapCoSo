@@ -1,26 +1,9 @@
 const { pool } = require('../db');
-const { logAction } = require('./activityLogController');
-const getActorId = (req) => req.user?.user_id || req.user?.id || null;
-
-/**
- * Ghi log nhưng không để lỗi log làm hỏng chức năng chính.
- */
-const safeLogAction = async (userId, action, description, entityType, entityId, ipAddress) => {
-    try {
-        if (!userId) return;
-
-        await logAction(
-            userId,
-            action,
-            description,
-            entityType,
-            entityId,
-            ipAddress
-        );
-    } catch (error) {
-        console.error('Lỗi ghi activity log:', error.message);
-    }
-};
+const {
+    getActorId,
+    parseNonNegativeNumber,
+    safeLogAction
+} = require('../utils/controllerUtils');
 
 /**
  * Chuyển status frontend gửi lên thành is_discontinued trong database.
@@ -223,35 +206,38 @@ exports.createProduct = async (req, res) => {
             is_discontinued
         } = req.body;
 
-        if (!name || !sku) {
+        const productName = String(name || '').trim();
+        const skuValue = String(sku || '').trim();
+
+        if (!productName || !skuValue) {
             return res.status(400).json({
                 success: false,
                 message: 'Vui lòng nhập tên sản phẩm và SKU'
             });
         }
 
-        const sellingPrice = Number(selling_price || 0);
-        const costPrice = Number(cost_price || 0);
-        const currentStock = Number(current_stock || 0);
-        const minStockLevel = Number(min_stock_level || min_stock || 10);
+        const sellingPrice = parseNonNegativeNumber(selling_price, 'selling_price');
+        const costPrice = parseNonNegativeNumber(cost_price, 'cost_price');
+        const currentStock = parseNonNegativeNumber(current_stock, 'current_stock');
+        const minStockLevel = parseNonNegativeNumber(min_stock_level ?? min_stock, 'min_stock_level', 10);
         const maxStockLevel = max_stock_level === '' || max_stock_level == null
             ? null
-            : Number(max_stock_level);
+            : parseNonNegativeNumber(max_stock_level, 'max_stock_level');
 
-        if (sellingPrice < 0 || costPrice < 0 || currentStock < 0 || minStockLevel < 0) {
+        if (maxStockLevel !== null && maxStockLevel < minStockLevel) {
             return res.status(400).json({
                 success: false,
-                message: 'Giá và số lượng tồn kho không được âm'
+                message: 'max_stock_level must be greater than or equal to min_stock_level'
             });
         }
 
         const [existingSku] = await pool.query(
             'SELECT product_id FROM products WHERE sku = ? LIMIT 1',
-            [sku]
+            [skuValue]
         );
 
         if (existingSku.length > 0) {
-            return res.status(400).json({
+            return res.status(409).json({
                 success: false,
                 message: 'SKU đã tồn tại'
             });
@@ -277,8 +263,8 @@ exports.createProduct = async (req, res) => {
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
-            sku,
-            name,
+            skuValue,
+            productName,
             resolvedCategoryId,
             supplier_id || null,
             unit || 'pcs',
@@ -293,7 +279,7 @@ exports.createProduct = async (req, res) => {
         await safeLogAction(
             getActorId(req),
             'CREATE_PRODUCT',
-            `Tạo sản phẩm: ${name}`,
+            `Created product: ${productName}`,
             'products',
             result.insertId,
             req.ip
@@ -310,9 +296,9 @@ exports.createProduct = async (req, res) => {
     } catch (error) {
         console.error('Error creating product:', error);
 
-        res.status(500).json({
+        res.status(error.statusCode || 500).json({
             success: false,
-            message: 'Lỗi server khi tạo sản phẩm'
+            message: error.statusCode ? error.message : 'Lỗi server khi tạo sản phẩm'
         });
     }
 };
@@ -354,7 +340,10 @@ exports.updateProduct = async (req, res) => {
             });
         }
 
-        if (!name || !sku) {
+        const productName = String(name || '').trim();
+        const skuValue = String(sku || '').trim();
+
+        if (!productName || !skuValue) {
             return res.status(400).json({
                 success: false,
                 message: 'Vui lòng nhập tên sản phẩm và SKU'
@@ -363,28 +352,28 @@ exports.updateProduct = async (req, res) => {
 
         const [existingSku] = await pool.query(
             'SELECT product_id FROM products WHERE sku = ? AND product_id <> ? LIMIT 1',
-            [sku, id]
+            [skuValue, id]
         );
 
         if (existingSku.length > 0) {
-            return res.status(400).json({
+            return res.status(409).json({
                 success: false,
                 message: 'SKU đã tồn tại ở sản phẩm khác'
             });
         }
 
-        const sellingPrice = Number(selling_price || 0);
-        const costPrice = Number(cost_price || 0);
-        const currentStock = Number(current_stock || 0);
-        const minStockLevel = Number(min_stock_level || min_stock || 10);
+        const sellingPrice = parseNonNegativeNumber(selling_price, 'selling_price');
+        const costPrice = parseNonNegativeNumber(cost_price, 'cost_price');
+        const currentStock = parseNonNegativeNumber(current_stock, 'current_stock');
+        const minStockLevel = parseNonNegativeNumber(min_stock_level ?? min_stock, 'min_stock_level', 10);
         const maxStockLevel = max_stock_level === '' || max_stock_level == null
             ? null
-            : Number(max_stock_level);
+            : parseNonNegativeNumber(max_stock_level, 'max_stock_level');
 
-        if (sellingPrice < 0 || costPrice < 0 || currentStock < 0 || minStockLevel < 0) {
+        if (maxStockLevel !== null && maxStockLevel < minStockLevel) {
             return res.status(400).json({
                 success: false,
-                message: 'Giá và số lượng tồn kho không được âm'
+                message: 'max_stock_level must be greater than or equal to min_stock_level'
             });
         }
 
@@ -407,8 +396,8 @@ exports.updateProduct = async (req, res) => {
                 is_discontinued = ?
             WHERE product_id = ?
         `, [
-            sku,
-            name,
+            skuValue,
+            productName,
             resolvedCategoryId,
             supplier_id || null,
             unit || 'pcs',
@@ -438,9 +427,9 @@ exports.updateProduct = async (req, res) => {
     } catch (error) {
         console.error('Error updating product:', error);
 
-        res.status(500).json({
+        res.status(error.statusCode || 500).json({
             success: false,
-            message: 'Lỗi server khi cập nhật sản phẩm'
+            message: error.statusCode ? error.message : 'Lỗi server khi cập nhật sản phẩm'
         });
     }
 };

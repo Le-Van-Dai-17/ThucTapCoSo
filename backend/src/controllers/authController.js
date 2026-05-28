@@ -1,55 +1,131 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../db'); 
-const { logAction } = require('./activityLogController');
+const { safeLogAction } = require('../utils/controllerUtils');
 
+// Task BE-02: Vá lỗi hàm đăng ký - Đồng bộ cấu trúc tách bảng của DB v3
 exports.register = async (req, res) => {
-    try {
-        const { username, password, email, full_name, role } = req.body;
+    const connection = await pool.getConnection();
+    let transactionStarted = false;
 
-        const [existingUsers] = await pool.query(
-            'SELECT * FROM users WHERE username = ? OR email = ?',
-            [username, email]
-        );
-        if (existingUsers.length > 0) {
+    try {
+        const { username, password, email, full_name } = req.body;
+        const usernameValue = String(username || '').trim();
+        const emailValue = email ? String(email).trim().toLowerCase() : null;
+        const fullNameValue = String(full_name || '').trim();
+
+        if (!usernameValue || !password || !fullNameValue) {
             return res.status(400).json({
                 success: false,
-                message: 'Username hoặc Email đã tồn tại'
+                message: 'Vui lòng điền đầy đủ các thông tin bắt buộc: Tài khoản, Mật khẩu và Họ tên!'
             });
         }
+
+        if (String(password).length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: 'Password must be at least 6 characters'
+            });
+        }
+
+        await connection.beginTransaction();
+        transactionStarted = true;
+
+        // 1. Kiểm tra xem tài khoản đăng nhập hoặc email đã tồn tại hay chưa
+        const [existingUsers] = await connection.query(
+            `
+            SELECT u.user_id 
+            FROM users u
+            LEFT JOIN user_credentials uc ON u.user_id = uc.user_id
+            WHERE uc.username = ? OR u.email = ?
+            LIMIT 1
+            `,
+            [usernameValue, emailValue || '']
+        );
+
+        if (existingUsers.length > 0) {
+            await connection.rollback();
+            return res.status(400).json({
+                success: false,
+                message: 'Tên tài khoản hoặc Email này đã tồn tại trên hệ thống'
+            });
+        }
+
+        // 2. Lấy mã vai trò mặc định cho tài khoản tự đăng ký (Mặc định: Staff - ID: 3)
+        const [roleRows] = await connection.query('SELECT role_id FROM roles WHERE LOWER(role_name) = ? LIMIT 1', ['staff']);
+        const roleId = roleRows[0]?.role_id || 3;
+
+        // 3. Chèn hồ sơ cá nhân vào bảng users
+        const [userResult] = await connection.query(
+            `
+            INSERT INTO users (full_name, email, phone, role_id, is_active) 
+            VALUES (?, ?, NULL, ?, TRUE)
+            `,
+            [fullNameValue, emailValue, roleId]
+        );
+        const userId = userResult.insertId;
+
+        // 4. Mã hóa bảo mật mật khẩu và chèn vào bảng user_credentials
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
-
-        const userRole = role || 'staff';
-        const [result] = await pool.query(
-            'INSERT INTO users (username, password, email, full_name, role) VALUES (?, ?, ?, ?, ?)',
-            [username, hashedPassword, email, full_name, userRole]
+        await connection.query(
+            `
+            INSERT INTO user_credentials (user_id, username, password_hash) 
+            VALUES (?, ?, ?)
+            `,
+            [userId, usernameValue, hashedPassword]
         );
-        // Ghi log hành động đăng ký thành công
-        await logAction(result.insertId,
+
+        await connection.commit();
+        transactionStarted = false;
+
+        await safeLogAction(
+            userId,
             'REGISTER_SUCCESS',
-            `User registered successfully: ${username}`,
+            `User registered successfully: ${usernameValue}`,
             'users',
-            result.insertId,
+            userId,
             req.ip
         );
+
         res.status(201).json({
             success: true,
-            message: 'Đăng ký thành công!'
+            message: 'Đăng ký tài khoản thành công!'
         });
     }
     catch (error) {
-        console.error(error);
+        if (transactionStarted) {
+            await connection.rollback();
+        }
+        console.error('Lỗi khi đăng ký tài khoản:', error);
+
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({
+                success: false,
+                message: 'Username or email already exists'
+            });
+        }
+
         res.status(500).json({
             success: false,
-            message: 'Lỗi server'
+            message: 'Lỗi server khi đăng ký tài khoản'
         });
+    } finally {
+        connection.release();
     }
 };
 
 exports.login = async (req, res) => {
     try {
         const { username, password } = req.body;
+        const usernameValue = String(username || '').trim();
+
+        if (!usernameValue || !password) {
+            return res.status(400).json({
+                success: false,
+                message: 'Username and password are required'
+            });
+        }
 
         const [users] = await pool.query(
             `
@@ -68,7 +144,7 @@ exports.login = async (req, res) => {
             WHERE uc.username = ?
             LIMIT 1
             `,
-            [username]
+            [usernameValue]
         );
 
         if (users.length === 0) {
@@ -121,10 +197,10 @@ exports.login = async (req, res) => {
             { expiresIn: '1d' }
         );
 
-        await logAction(
+        await safeLogAction(
             user.user_id,
             'LOGIN_SUCCESS',
-            `User logged in successfully: ${username}`,
+            `User logged in successfully: ${usernameValue}`,
             'users',
             user.user_id,
             req.ip
@@ -145,17 +221,23 @@ exports.login = async (req, res) => {
     }
 };
 
-
 exports.logout = async (req, res) => {
-    // Ghi log hành động đăng xuất
-    await logAction(req.user.id,
-        'LOGOUT',
-        `User logged out: ${req.user.username}`,
-        'users',
-        req.user.id,
-        req.ip);
-    res.status(200).json({
-        success: true,
-        message: 'Đăng xuất thành công. Vui lòng xóa token ở Client!'
-    });
+    try {
+        const actorId = req.user?.user_id || req.user?.id || null;
+        await safeLogAction(
+            actorId,
+            'LOGOUT',
+            `User logged out: ${req.user?.username}`,
+            'users',
+            actorId,
+            req.ip
+        );
+        res.status(200).json({
+            success: true,
+            message: 'Đăng xuất thành công. Vui lòng xóa token ở Client!'
+        });
+    } catch (error) {
+        console.error('Lỗi khi đăng xuất:', error);
+        res.status(500).json({ success: false, message: 'Lỗi server' });
+    }
 };
