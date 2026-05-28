@@ -1,7 +1,10 @@
 const { pool } = require('../db');
-const { logAction } = require('./activityLogController');
-
-const getActorId = (req) => req.user?.user_id || req.user?.id || null;
+const {
+  getActorId,
+  parseNonNegativeNumber,
+  parsePositiveNumber,
+  safeLogAction
+} = require('../utils/controllerUtils');
 
 const normalizeStatus = (status) => {
   if (!status) return 'Draft';
@@ -98,7 +101,7 @@ const validateItems = (items) => {
       0
     );
 
-    if (!productId || orderedQuantity <= 0) {
+    if (!productId || !Number.isFinite(orderedQuantity) || orderedQuantity <= 0) {
       const error = new Error('Mỗi sản phẩm phải có product_id và số lượng hợp lệ');
       error.statusCode = 400;
       throw error;
@@ -112,32 +115,32 @@ const insertPoItems = async (connection, poId, items) => {
   for (const item of items) {
     const productId = item.product_id || item.id;
 
-    const orderedQuantity = Number(
+    const orderedQuantity = parsePositiveNumber(
       item.ordered_quantity ??
       item.quantity ??
-      item.forecasted_quantity ??
-      0
+      item.forecasted_quantity,
+      'ordered_quantity'
     );
 
-    const forecastedQuantity = Number(
+    const forecastedQuantity = parseNonNegativeNumber(
       item.forecasted_quantity ??
       item.predicted_quantity ??
-      orderedQuantity
+      orderedQuantity,
+      'forecasted_quantity'
     );
 
-    const receivedQuantity = Number(item.received_quantity ?? 0);
+    const receivedQuantity = parseNonNegativeNumber(item.received_quantity, 'received_quantity');
 
-    const unitCost = Number(
+    const unitCost = parseNonNegativeNumber(
       item.unit_cost ??
       item.unit_price ??
-      item.cost_price ??
-      0
+      item.cost_price,
+      'unit_cost'
     );
 
-    const lineTotal = Number(
-      item.line_total ??
-      orderedQuantity * unitCost
-    );
+    const lineTotal = item.line_total === undefined || item.line_total === null || item.line_total === ''
+      ? orderedQuantity * unitCost
+      : parseNonNegativeNumber(item.line_total, 'line_total');
 
     const forecastId = item.forecast_id || null;
 
@@ -240,7 +243,7 @@ exports.createPurchase = async (req, res) => {
 
     await connection.commit();
 
-    await logAction(
+    await safeLogAction(
       createdBy,
       'CREATE_PURCHASE_ORDER',
       `Tạo đơn nhập hàng ${poCode}`,
@@ -501,7 +504,7 @@ exports.receiveOrder = async (req, res) => {
 
     await connection.commit();
 
-    await logAction(
+    await safeLogAction(
       getActorId(req),
       'RECEIVE_PURCHASE_ORDER',
       `Xác nhận nhập hàng ID: ${id}`,
@@ -642,7 +645,7 @@ exports.updatePurchase = async (req, res) => {
 
     await connection.commit();
 
-    await logAction(
+    await safeLogAction(
       getActorId(req),
       'UPDATE_PURCHASE_ORDER',
       `Cập nhật đơn nhập hàng ID: ${id}`,
@@ -732,7 +735,7 @@ exports.deletePurchase = async (req, res) => {
 
     await connection.commit();
 
-    await logAction(
+    await safeLogAction(
       getActorId(req),
       'DELETE_PURCHASE_ORDER',
       `Xóa đơn nhập hàng ID: ${id}`,

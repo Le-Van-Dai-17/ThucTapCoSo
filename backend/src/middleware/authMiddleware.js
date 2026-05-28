@@ -32,3 +32,25 @@ exports.verifyToken = (req, res, next) => {
             message: 'Token không hợp lệ hoặc đã hết hạn!' });
     }
 };
+
+// Middleware kiểm tra quyền hạn (Task BE-03)
+exports.requireRole = (...allowedRoles) => {
+    return (req, res, next) => {
+        if (!req.user) {
+            return res.status(401).json({ success: false, message: 'Yêu cầu đăng nhập trước!' });
+        }
+        
+        // So khớp vai trò giải mã từ Token với danh sách quyền cho phép
+        const hasPermission = allowedRoles.some(role => 
+            String(role).toLowerCase() === String(req.user.role).toLowerCase()
+        );
+
+        if (!hasPermission) {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Bạn không có quyền thực hiện hành động này!' 
+            });
+        }
+        next();
+    };
+};

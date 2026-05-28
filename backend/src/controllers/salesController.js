@@ -1,40 +1,12 @@
 const { pool } = require('../db');
 const fs = require('fs');
-const { logAction } = require('./activityLogController');
-
-/**
- * Lấy ID người đang đăng nhập.
- * Hỗ trợ cả auth middleware cũ: req.user.id
- * và database_v3: req.user.user_id
- */
-const getActorId = (req) => req.user?.user_id || req.user?.id || null;
-
-/**
- * Ghi log an toàn: nếu log lỗi thì không làm hỏng chức năng chính.
- */
-const safeLogAction = async (
-    userId,
-    action,
-    description,
-    entityType,
-    entityId,
-    ipAddress
-) => {
-    try {
-        if (!userId) return;
-
-        await logAction(
-            userId,
-            action,
-            description,
-            entityType,
-            entityId,
-            ipAddress
-        );
-    } catch (error) {
-        console.error('Lỗi ghi activity log:', error.message);
-    }
-};
+const path = require('path');
+const {
+    getActorId,
+    parseNonNegativeNumber,
+    parsePositiveNumber,
+    safeLogAction
+} = require('../utils/controllerUtils');
 
 /**
  * Sinh mã giao dịch duy nhất cho sales_transactions.transaction_code.
@@ -164,6 +136,39 @@ const insertSaleDetail = async (
     return detailResult;
 };
 
+const parseCsvRow = (line) => {
+    const values = [];
+    let current = '';
+    let insideQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        const nextChar = line[i + 1];
+
+        if (char === '"' && insideQuotes && nextChar === '"') {
+            current += '"';
+            i++;
+            continue;
+        }
+
+        if (char === '"') {
+            insideQuotes = !insideQuotes;
+            continue;
+        }
+
+        if (char === ',' && !insideQuotes) {
+            values.push(current.trim());
+            current = '';
+            continue;
+        }
+
+        current += char;
+    }
+
+    values.push(current.trim());
+    return values;
+};
+
 /**
  * GET /api/sales
  * Lấy danh sách dữ liệu bán hàng.
@@ -267,34 +272,20 @@ exports.createSale = async (req, res) => {
             });
         }
 
-        const qty = Number(quantity);
-        const price = Number(unit_price ?? selling_price ?? 0);
-        const discountAmount = Number(discount_amount || 0);
-        const lineTotal = total_amount
-            ? Number(total_amount)
+        const qty = parsePositiveNumber(quantity, 'quantity');
+        const price = parseNonNegativeNumber(unit_price ?? selling_price, 'unit_price');
+        const discountAmount = parseNonNegativeNumber(discount_amount, 'discount_amount');
+        const lineTotal = total_amount !== undefined && total_amount !== null && total_amount !== ''
+            ? parseNonNegativeNumber(total_amount, 'total_amount')
             : qty * price;
 
         const transactionTotalAmount = Math.max(lineTotal - discountAmount, 0);
         const saleDate = sale_date || transaction_date || new Date();
 
-        if (!qty || Number.isNaN(qty) || qty <= 0) {
+        if (discountAmount > lineTotal) {
             return res.status(400).json({
                 success: false,
-                message: 'Số lượng bán phải lớn hơn 0'
-            });
-        }
-
-        if (Number.isNaN(price) || price < 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Đơn giá không hợp lệ'
-            });
-        }
-
-        if (Number.isNaN(discountAmount) || discountAmount < 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Giảm giá không hợp lệ'
+                message: 'discount_amount cannot be greater than total_amount'
             });
         }
 
@@ -412,9 +403,9 @@ exports.createSale = async (req, res) => {
 
         console.error('Error creating sale:', error);
 
-        res.status(500).json({
+        res.status(error.statusCode || 500).json({
             success: false,
-            message: 'Lỗi server khi tạo doanh số bán hàng'
+            message: error.statusCode ? error.message : 'Lỗi server khi tạo doanh số bán hàng'
         });
     } finally {
         connection.release();
@@ -449,6 +440,26 @@ exports.importSalesCSV = async (req, res) => {
     const connection = await pool.getConnection();
 
     try {
+        const originalName = req.file.originalname || '';
+        const extension = path.extname(originalName).toLowerCase();
+        const allowedMimeTypes = [
+            'text/csv',
+            'application/csv',
+            'application/vnd.ms-excel',
+            'text/plain'
+        ];
+
+        if (extension !== '.csv' && !allowedMimeTypes.includes(req.file.mimetype)) {
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+
+            return res.status(400).json({
+                success: false,
+                message: 'File import phải có định dạng CSV'
+            });
+        }
+
         const fileContent = fs.readFileSync(filePath, 'utf8');
 
         const lines = fileContent
@@ -467,8 +478,30 @@ exports.importSalesCSV = async (req, res) => {
             });
         }
 
+        const headers = parseCsvRow(lines[0]).map(header => header.toLowerCase());
+        const requiredColumns = ['sale_date', 'product_id', 'quantity', 'unit_price'];
+        const missingColumns = requiredColumns.filter(column => !headers.includes(column));
+
+        if (missingColumns.length > 0) {
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+
+            return res.status(400).json({
+                success: false,
+                message: `File CSV thiếu cột bắt buộc: ${missingColumns.join(', ')}`,
+                requiredColumns
+            });
+        }
+
+        const getColumnValue = (values, columnName) => {
+            const index = headers.indexOf(columnName);
+            return index >= 0 ? values[index] : undefined;
+        };
+
         await connection.beginTransaction();
 
+        const totalRows = lines.length - 1;
         let insertedCount = 0;
         let skippedCount = 0;
         const errors = [];
@@ -482,21 +515,19 @@ exports.importSalesCSV = async (req, res) => {
                 Ví dụ hợp lệ:
                 2026-05-01,1,5,10000
             */
-            const values = line.split(',').map(v => v.trim());
+            const values = parseCsvRow(line);
 
-            if (values.length < 4) {
+            if (values.length < headers.length) {
                 skippedCount++;
-                errors.push(`Dòng ${i + 1}: thiếu cột dữ liệu`);
+                errors.push(`Dòng ${i + 1}: thiếu dữ liệu theo header CSV`);
                 continue;
             }
 
-            const [
-                saleDate,
-                productIdentifier,
-                quantityRaw,
-                unitPriceRaw,
-                discountRaw
-            ] = values;
+            const saleDate = getColumnValue(values, 'sale_date');
+            const productIdentifier = getColumnValue(values, 'product_id') || getColumnValue(values, 'sku');
+            const quantityRaw = getColumnValue(values, 'quantity');
+            const unitPriceRaw = getColumnValue(values, 'unit_price');
+            const discountRaw = getColumnValue(values, 'discount_amount');
 
             const qty = Number(quantityRaw);
             const price = Number(unitPriceRaw);
@@ -616,7 +647,7 @@ exports.importSalesCSV = async (req, res) => {
 
         await safeLogAction(
             getActorId(req),
-            'IMPORT_SALES_CSV',
+            'IMPORT_SALES',
             `Import file CSV doanh số bán hàng: ${insertedCount} dòng thành công, ${skippedCount} dòng bỏ qua.`,
             'sales_transactions',
             null,
@@ -626,6 +657,9 @@ exports.importSalesCSV = async (req, res) => {
         res.status(200).json({
             success: true,
             message: `Import dữ liệu thành công! Đã nạp ${insertedCount} dòng, bỏ qua ${skippedCount} dòng.`,
+            totalRows,
+            importedRows: insertedCount,
+            errorRows: skippedCount,
             insertedCount,
             skippedCount,
             errors

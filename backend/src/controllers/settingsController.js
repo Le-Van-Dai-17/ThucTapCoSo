@@ -1,31 +1,5 @@
 const { pool } = require('../db');
-const { logAction } = require('./activityLogController');
-
-const getActorId = (req) => req.user?.user_id || req.user?.id || null;
-
-const safeLogAction = async (
-    userId,
-    action,
-    description,
-    entityType,
-    entityId,
-    ipAddress
-) => {
-    try {
-        if (!userId) return;
-
-        await logAction(
-            userId,
-            action,
-            description,
-            entityType,
-            entityId,
-            ipAddress
-        );
-    } catch (error) {
-        console.error('Lỗi ghi activity log:', error.message);
-    }
-};
+const { getActorId, safeLogAction } = require('../utils/controllerUtils');
 
 const defaultSettings = {
     defaultTimePeriod: {
@@ -140,7 +114,15 @@ const normalizeSettingValue = (value, type) => {
     }
 
     if (type === 'number') {
-        return String(Number(value));
+        const numberValue = Number(value);
+
+        if (!Number.isFinite(numberValue)) {
+            const error = new Error('Numeric setting value is invalid');
+            error.statusCode = 400;
+            throw error;
+        }
+
+        return String(numberValue);
     }
 
     if (type === 'json') {
@@ -236,6 +218,17 @@ exports.updateSettings = async (req, res) => {
 
         await ensureDefaultSettings(connection);
 
+        const validKeys = Object.keys(settings).filter(key => defaultSettings[key]);
+
+        if (validKeys.length === 0) {
+            await connection.rollback();
+
+            return res.status(400).json({
+                success: false,
+                message: 'No valid settings were provided'
+            });
+        }
+
         for (const [key, value] of Object.entries(settings)) {
             const defaultSetting = defaultSettings[key];
 
@@ -272,7 +265,7 @@ exports.updateSettings = async (req, res) => {
 
         await safeLogAction(
             actorId,
-            'UPDATE_SYSTEM_SETTINGS',
+            'UPDATE_SETTINGS',
             'Cập nhật cấu hình hệ thống',
             'system_settings',
             null,
@@ -288,9 +281,9 @@ exports.updateSettings = async (req, res) => {
 
         console.error('Lỗi cập nhật system settings:', error);
 
-        res.status(500).json({
+        res.status(error.statusCode || 500).json({
             success: false,
-            message: 'Lỗi server khi cập nhật cấu hình hệ thống'
+            message: error.statusCode ? error.message : 'Lỗi server khi cập nhật cấu hình hệ thống'
         });
     } finally {
         connection.release();
@@ -337,7 +330,7 @@ exports.resetSettings = async (req, res) => {
 
         await safeLogAction(
             actorId,
-            'RESET_SYSTEM_SETTINGS',
+            'RESET_SETTINGS',
             'Khôi phục cấu hình hệ thống về mặc định',
             'system_settings',
             null,

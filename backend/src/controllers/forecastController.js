@@ -1,31 +1,5 @@
 const { pool } = require('../db');
-const { logAction } = require('./activityLogController');
-
-const getActorId = (req) => req.user?.user_id || req.user?.id || null;
-
-const safeLogAction = async (
-    userId,
-    action,
-    description,
-    entityType,
-    entityId,
-    ipAddress
-) => {
-    try {
-        if (!userId) return;
-
-        await logAction(
-            userId,
-            action,
-            description,
-            entityType,
-            entityId,
-            ipAddress
-        );
-    } catch (error) {
-        console.error('Lỗi ghi activity log:', error.message);
-    }
-};
+const { getActorId, safeLogAction } = require('../utils/controllerUtils');
 
 const getNextMonthDate = () => {
     const now = new Date();
