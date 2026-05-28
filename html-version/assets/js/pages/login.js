@@ -2,7 +2,7 @@ lucide.createIcons();
 
 // Đã đăng nhập rồi → không cần vào đây nữa
 if (typeof Auth !== 'undefined' && Auth.isLoggedIn()) {
-    window.location.href = 'dashboard.html';
+    window.location.href = typeof Auth.getHomePage === 'function' ? Auth.getHomePage() : 'dashboard.html';
 }
 
 // Toggle hiện/ẩn mật khẩu
@@ -48,7 +48,7 @@ document.getElementById('loginForm').addEventListener('submit', async function (
         if (result && result.success) {
             Auth.setToken(result.token);
             Auth.setUser(result.user);
-            window.location.href = 'dashboard.html';
+            window.location.href = typeof Auth.getHomePage === 'function' ? Auth.getHomePage() : 'dashboard.html';
         } else {
             // Server trả 200 nhưng success: false (hiếm)
             showLoginError(errorBox, result?.message || 'Đăng nhập thất bại.');

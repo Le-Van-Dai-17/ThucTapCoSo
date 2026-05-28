@@ -76,6 +76,8 @@ const displayRole = currentUser
     ? (currentUser.role || currentUser.role_name || 'User')
     : 'Guest';
 
+const currentRole = String(displayRole || '').trim().toLowerCase();
+
 
 // ===============================
 // 3. TẠO AVATAR TỪ TÊN USER
@@ -213,6 +215,20 @@ if (wrapper) {
 
     navLinks.forEach(link => {
         const href = link.getAttribute('href');
+
+        if (currentRole === 'staff') {
+            const staffPages = ['purchase-orders.html', 'profile.html'];
+            if (!staffPages.includes(href)) {
+                link.classList.add('hidden');
+                return;
+            }
+        } else if (currentRole === 'manager') {
+            const adminOnlyPages = ['users.html', 'settings.html'];
+            if (adminOnlyPages.includes(href)) {
+                link.classList.add('hidden');
+                return;
+            }
+        }
 
         if (href === currentPath) {
             link.classList.remove('text-gray-700', 'hover:bg-gray-100');
