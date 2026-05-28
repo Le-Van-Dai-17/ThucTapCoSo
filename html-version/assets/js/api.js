@@ -145,6 +145,52 @@ const API = {
         async getInventoryStatus() {
             const res = await apiFetch('/reports/inventory-status');
             return res.data;
+        },
+        async getSalesSummary() {
+            const res = await apiFetch('/reports/sales-summary');
+            return res.data;
+        },
+        async getTopProducts() {
+            const res = await apiFetch('/reports/top-products');
+            return res.data;
+        },
+        async getCategorySales() {
+            const res = await apiFetch('/reports/category-sales');
+            return res.data;
+        },
+        async getSalesTrend(days = 30) {
+            const res = await apiFetch(`/reports/sales-trend?days=${days}`);
+            return res.data;
+        },
+        async exportExcel() {
+            return fetch(`${API_BASE_URL}/reports/export/excel`, {
+                headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
+            }).then(res => {
+                if (res.status === 401 || res.status === 403) { Auth.logout(); return; }
+                if (!res.ok) throw new Error('Cannot download Excel');
+                return res.blob();
+            });
+        },
+        async exportPdf() {
+            return fetch(`${API_BASE_URL}/reports/export/pdf`, {
+                headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
+            }).then(res => {
+                if (res.status === 401 || res.status === 403) { Auth.logout(); return; }
+                if (!res.ok) throw new Error('Cannot download PDF');
+                return res.blob();
+            });
+        }
+    },
+
+    settings: {
+        async get() {
+            return apiFetch('/settings');
+        },
+        async update(data) {
+            return apiFetch('/settings', { method: 'PUT', body: JSON.stringify(data) });
+        },
+        async reset() {
+            return apiFetch('/settings/reset', { method: 'POST' });
         }
     }
 };

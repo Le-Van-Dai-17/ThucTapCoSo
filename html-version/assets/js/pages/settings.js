@@ -22,11 +22,6 @@ window.Auth = window.Auth || {
     }
 };
 
-const SETTINGS_API_BASE_URL =
-    typeof API_BASE_URL !== 'undefined'
-        ? API_BASE_URL
-        : 'http://localhost:5000/api';
-
 const state = {
     settings: {
         defaultTimePeriod: 30,
@@ -50,41 +45,6 @@ const state = {
         showAdvancedMetrics: false
     }
 };
-
-function getToken() {
-    return (
-        localStorage.getItem('forecastai_token') ||
-        localStorage.getItem('token') ||
-        localStorage.getItem('authToken') ||
-        localStorage.getItem('accessToken') ||
-        sessionStorage.getItem('forecastai_token') ||
-        sessionStorage.getItem('token') ||
-        sessionStorage.getItem('authToken') ||
-        sessionStorage.getItem('accessToken') ||
-        ''
-    );
-}
-
-async function requestApi(path, options = {}) {
-    const token = getToken();
-
-    const response = await fetch(`${SETTINGS_API_BASE_URL}${path}`, {
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            ...(options.headers || {})
-        }
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || result.success === false) {
-        throw new Error(result.message || 'Lỗi gọi API');
-    }
-
-    return result;
-}
 
 function showToast(message = 'Settings saved successfully!', type = 'success') {
     const toast = document.getElementById('toast');
@@ -224,12 +184,8 @@ function validateSettings(settings) {
 
 async function loadSettings() {
     try {
-        const result = await requestApi('/settings', {
-            method: 'GET'
-        });
-
-        applySettingsToForm(result.data);
-
+        const result = await API.settings.get();
+        applySettingsToForm(result.data || result);
     } catch (error) {
         console.error('Lỗi tải settings:', error);
         showToast(error.message || 'Không thể tải cấu hình hệ thống', 'error');
@@ -251,16 +207,11 @@ window.toggleSwitch = function (btn) {
 
 window.resetToDefaults = async function () {
     const ok = confirm('Bạn có chắc muốn khôi phục toàn bộ cấu hình về mặc định không?');
-
     if (!ok) return;
 
     try {
-        const result = await requestApi('/settings/reset', {
-            method: 'POST'
-        });
-
-        applySettingsToForm(result.data);
-
+        const result = await API.settings.reset();
+        applySettingsToForm(result.data || result);
         showToast(result.message || 'Đã khôi phục cấu hình mặc định');
     } catch (error) {
         console.error('Lỗi reset settings:', error);
@@ -280,13 +231,8 @@ window.handleSaveSettings = async function (event) {
     }
 
     try {
-        const result = await requestApi('/settings', {
-            method: 'PUT',
-            body: JSON.stringify(settings)
-        });
-
+        const result = await API.settings.update(settings);
         state.settings = settings;
-
         showToast(result.message || 'Settings saved successfully!');
     } catch (error) {
         console.error('Lỗi lưu settings:', error);

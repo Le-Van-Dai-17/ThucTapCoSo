@@ -7,16 +7,8 @@
 lucide.createIcons();
 if (typeof Auth !== 'undefined') Auth.requireAuth();
 
-const MOCK_PRODUCTS = [
-    { id: 1, sku: "WBH-001", name: "Wireless Bluetooth Headphones", category: "Electronics", selling_price: 89.99, current_stock: 145, min_stock: 50, status: "active" },
-    { id: 2, sku: "SWS-005", name: "Smart Watch Series 5",          category: "Electronics", selling_price: 299.99, current_stock: 67, min_stock: 30, status: "active" },
-    { id: 3, sku: "LSA-220", name: "Laptop Stand Aluminum",          category: "Accessories", selling_price: 45.50, current_stock: 234, min_stock: 20, status: "active" },
-    { id: 4, sku: "MKR-070", name: "Mechanical Keyboard RGB",        category: "Electronics", selling_price: 129.99, current_stock: 89, min_stock: 25, status: "active" },
-    { id: 5, sku: "WME-360", name: "Wireless Mouse Ergonomic",       category: "Accessories", selling_price: 49.99, current_stock: 312, min_stock: 50, status: "active" },
-];
-
 let allProducts = [];
-let isUsingMock = false;
+
 let editingId   = null;
 
 const searchInput    = document.getElementById('searchInput');
@@ -32,13 +24,11 @@ async function loadProducts() {
     try {
         const result = await API.products.getAll();
         allProducts  = result.data || result;
-        isUsingMock  = false;
         console.log(`✅ Loaded ${allProducts.length} products from backend.`);
     } catch (err) {
-        console.warn('[Products] Backend offline → mock:', err.message);
-        allProducts = [...MOCK_PRODUCTS];
-        isUsingMock = true;
-        showToast('⚠️ Using demo data — backend not connected.', 'warning');
+        console.warn('[Products] Backend error:', err.message);
+        allProducts = []; // Xóa fallback sang MOCK_PRODUCTS
+        showToast('⚠️ Cannot load products from server.', 'error');
     }
     renderTable();
 }
@@ -175,11 +165,7 @@ document.getElementById('addProductForm')?.addEventListener('submit', async func
     btn.disabled = true;
     btn.textContent = 'Adding...';
     try {
-        if (!isUsingMock) {
-            await API.products.create(payload);  // POST /api/products/create
-        } else {
-            allProducts.push({ ...payload, id: Date.now() });
-        }
+        await API.products.create(payload);  // POST /api/products/create
         closeAddModal();
         await loadProducts();
         showToast('✅ Product added successfully!', 'success');
@@ -200,13 +186,8 @@ window.openEditModal = async function (id) {
     if (errEl) errEl.classList.add('hidden');
 
     try {
-        let product;
-        if (!isUsingMock) {
-            const result = await API.products.getById(id);  // GET /api/products/get/:id
-            product = result.data || result;
-        } else {
-            product = allProducts.find(p => p.id === id);
-        }
+        const result = await API.products.getById(id);  // GET /api/products/get/:id
+        const product = result.data || result;
         if (!product) { showToast('Product not found.', 'error'); return; }
 
         // Điền data vào form
@@ -265,12 +246,7 @@ document.getElementById('editProductForm')?.addEventListener('submit', async fun
     btn.disabled = true;
     btn.textContent = 'Saving...';
     try {
-        if (!isUsingMock) {
-            await API.products.update(editingId, payload);  // PUT /api/products/update/:id
-        } else {
-            const idx = allProducts.findIndex(p => p.id === editingId);
-            if (idx !== -1) allProducts[idx] = { ...allProducts[idx], ...payload };
-        }
+        await API.products.update(editingId, payload);  // PUT /api/products/update/:id
         closeEditModal();
         await loadProducts();
         showToast('✅ Product updated successfully!', 'success');
@@ -288,7 +264,7 @@ document.getElementById('editProductForm')?.addEventListener('submit', async fun
 window.deleteProduct = async function (id) {
     if (!confirm('Are you sure you want to delete this product?')) return;
     try {
-        if (!isUsingMock) await API.products.delete(id);  // DELETE /api/products/delete/:id
+        await API.products.delete(id);  // DELETE /api/products/delete/:id
         allProducts = allProducts.filter(p => p.id !== id);
         renderTable();
         showToast('✅ Product deleted.', 'success');

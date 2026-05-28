@@ -1,18 +1,6 @@
 lucide.createIcons();
 if (typeof Auth !== 'undefined') Auth.requireAuth();
 
-// Mock data fallback
-const MOCK_SALES = [
-    { id: 1, sale_date: "2024-03-01", product_name: "Wireless Bluetooth Headphones", quantity: 15, unit_price: 89.99,  total_amount: 1349.85 },
-    { id: 2, sale_date: "2024-03-01", product_name: "Smart Watch Series 5",          quantity: 8,  unit_price: 299.99, total_amount: 2399.92 },
-    { id: 3, sale_date: "2024-03-02", product_name: "Laptop Stand Aluminum",          quantity: 22, unit_price: 45.50,  total_amount: 1001.00 },
-    { id: 4, sale_date: "2024-03-02", product_name: "Mechanical Keyboard RGB",        quantity: 12, unit_price: 129.99, total_amount: 1559.88 },
-    { id: 5, sale_date: "2024-03-03", product_name: "Wireless Mouse Ergonomic",       quantity: 31, unit_price: 49.99,  total_amount: 1549.69 },
-    { id: 6, sale_date: "2024-03-04", product_name: "Wireless Bluetooth Headphones",  quantity: 19, unit_price: 89.99,  total_amount: 1709.81 },
-    { id: 7, sale_date: "2024-03-05", product_name: "Smart Watch Series 5",           quantity: 11, unit_price: 299.99, total_amount: 3299.89 },
-    { id: 8, sale_date: "2024-03-06", product_name: "Laptop Stand Aluminum",          quantity: 28, unit_price: 45.50,  total_amount: 1274.00 },
-];
-
 let allSalesData  = [];
 let chartInstance = null;
 
@@ -29,23 +17,21 @@ if (startDateInput) startDateInput.value = '2024-03-01';
 if (endDateInput)   endDateInput.value   = '2024-03-14';
 
 async function loadSalesData() {
-    showLoading('tableBody');
+    showLoading('salesTableBody');
     try {
         const result = await API.sales.getAll();
-        // Map đúng field từ DB của Kiệt (salesController.js → getSalesSummary)
-        allSalesData = (result.data || result).map(item => ({
-            id:           item.id,
-            sale_date:    item.sale_date?.split('T')[0] || item.sale_date, // cắt phần giờ nếu có
-            product_name: item.product_name || item.name || 'Unknown',
-            quantity:     item.quantity ?? item.quantity_sold ?? 0,
-            unit_price:   parseFloat(item.unit_price  ?? 0),
-            total_amount: parseFloat(item.total_amount ?? item.quantity * item.unit_price ?? 0)
+        const data = result.data || result;
+        allSalesData = data.map(item => ({
+            ...item,
+            quantity: Number(item.quantity || item.qty || 0),
+            unit_price: Number(item.unit_price || item.price || 0),
+            total_amount: Number(item.total_amount || item.total || 0)
         }));
-        console.log(`✅ Loaded ${allSalesData.length} sales records from backend.`);
+        console.log(`Loaded ${allSalesData.length} sales records from backend.`);
     } catch (err) {
-        console.warn('[Sales] Backend offline → dùng mock:', err.message);
-        allSalesData = [...MOCK_SALES];
-        showToast('⚠️ Đang dùng dữ liệu demo — backend chưa kết nối.', 'warning');
+        console.warn('[Sales] Backend error:', err.message);
+        allSalesData = []; // Bỏ rơi fallback
+        showToast('Cannot load sales data from server.', 'error');
     }
     populateProductFilter();
     renderUI();
