@@ -85,34 +85,29 @@ function normalizeActionText(action) {
     return map[action] || action;
 }
 
-function getActionColor(action) {
+function getActionBadgeClasses(action) {
     const l = String(action || '').toLowerCase();
 
     if (l.includes('login') || l.includes('logout') || l.includes('đăng nhập')) {
-        return 'text-[#2563EB]'; // xanh dương
+        return 'bg-blue-100 text-blue-700 border border-blue-200'; // xanh dương
     }
-
     if (l.includes('import') || l.includes('export')) {
-        return 'text-purple-600'; // tím
+        return 'bg-purple-100 text-purple-700 border border-purple-200'; // tím
     }
-
     if (l.includes('forecast') || l.includes('dự báo')) {
-        return 'text-orange-500'; // cam
+        return 'bg-orange-100 text-orange-700 border border-orange-200'; // cam
     }
-
     if (l.includes('create') || l.includes('tạo')) {
-        return 'text-[#10B981]'; // xanh lá
+        return 'bg-green-100 text-green-700 border border-green-200'; // xanh lá
     }
-
     if (l.includes('delete') || l.includes('xóa') || l.includes('ngừng')) {
-        return 'text-red-600'; // đỏ
+        return 'bg-red-100 text-red-700 border border-red-200'; // đỏ
     }
-
     if (l.includes('update') || l.includes('cập nhật') || l.includes('modified')) {
-        return 'text-[#F59E0B]'; // vàng
+        return 'bg-yellow-100 text-yellow-800 border border-yellow-200'; // vàng
     }
 
-    return 'text-gray-600';
+    return 'bg-gray-100 text-gray-700 border border-gray-200';
 }
 
 function getTableBadgeColor(table) {
@@ -456,7 +451,7 @@ function renderData() {
         tr.className = 'hover:bg-gray-50 transition-colors duration-150';
 
         const initials = getInitials(activity.user);
-        const actionColor = getActionColor(activity.rawAction + ' ' + activity.action);
+        const actionBadgeClasses = getActionBadgeClasses(activity.rawAction + ' ' + activity.action);
         const badgeColor = getTableBadgeColor(activity.tableAffected);
 
         tr.innerHTML = `
@@ -479,10 +474,10 @@ function renderData() {
             </td>
 
             <td class="px-6 py-4">
-                <div class="text-sm font-medium ${actionColor}">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold ${actionBadgeClasses}">
                     ${escapeHtml(activity.action)}
-                </div>
-                <div class="text-xs text-gray-500 mt-0.5">
+                </span>
+                <div class="text-[11px] text-gray-500 mt-1.5 font-mono">
                     ${escapeHtml(activity.rawAction)}
                 </div>
             </td>

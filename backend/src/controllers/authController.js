@@ -178,20 +178,35 @@ exports.login = async (req, res) => {
             throw new Error("LỖI: Chưa cài đặt JWT_SECRET trong file .env!");
         }
 
+        const originalRole = user.role_name; 
+        // 2. Chuyển về chữ thường để khớp với logic logic v1 (Ví dụ: "staff", "admin")
+        const lowerRole = String(user.role_name).toLowerCase(); 
+
+        // Đóng gói Object User chứa mọi kịch bản thuộc tính mà Frontend có thể quét
         const userData = {
+            // Kiểu DB v3
+            user_id: user.user_id,
+            role_name: originalRole,
+
+            // Kiểu DB v1 cũ (Frontend đang cắn chặt vào đây)
             id: user.user_id,
             username: user.username,
             full_name: user.full_name,
             email: user.email,
             phone: user.phone,
-            role: user.role_name
+            role: lowerRole, // Trả về chữ thường "staff" để lệnh check (user.role === 'staff') của Thanh chạy đúng
+            status: user.is_active ? 'active' : 'inactive'
         };
 
+        // Ký Token bảo mật chứa toàn bộ các biếnquyền (Cả chữ hoa lẫn chữ thường)
         const token = jwt.sign(
             {
                 id: userData.id,
+                user_id: userData.user_id,
                 username: userData.username,
-                role: userData.role
+                role: lowerRole,         // Phục vụ middleware requireRole chữ thường
+                role_name: originalRole, // Phục vụ cấu trúc v3
+                role_lower: lowerRole
             },
             secretKey,
             { expiresIn: '1d' }
@@ -206,6 +221,7 @@ exports.login = async (req, res) => {
             req.ip
         );
 
+        // Trả về dữ liệu phẳng hoàn hảo
         res.status(200).json({
             success: true,
             token,

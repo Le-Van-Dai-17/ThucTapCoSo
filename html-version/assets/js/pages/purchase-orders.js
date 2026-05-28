@@ -18,6 +18,12 @@ const statusFilter        = document.getElementById('statusFilter');
 const tableBody           = document.getElementById('tableBody');
 const emptyState          = document.getElementById('emptyState');
 const statsCardsContainer = document.getElementById('statsCardsContainer');
+const isStaff = typeof Auth !== 'undefined' && typeof Auth.hasRole === 'function' && Auth.hasRole('staff');
+
+if (isStaff) {
+    const createButton = document.querySelector('button[onclick="openCreatePOModal()"]');
+    if (createButton) createButton.classList.add('hidden');
+}
 
 // ============================================================
 // LOAD DATA
@@ -78,7 +84,8 @@ function renderTable() {
     filtered.forEach((order, i) => {
         const bgClass   = i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50';
         const cfg       = statusConfig[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-700' };
-        const canEdit   = order.status === 'pending' || order.status === 'draft';
+        const canEdit   = !isStaff && (order.status === 'pending' || order.status === 'draft');
+        const canReceive = order.status === 'pending' || order.status === 'draft';
         const createdAt = order.created_at || order.order_date;
 
         const tr = document.createElement('tr');
@@ -100,9 +107,13 @@ function renderTable() {
                     <button onclick="editOrder(${order.id})" class="p-2 text-gray-600 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all" title="Edit Order">
                         <i data-lucide="edit" class="w-4 h-4"></i>
                     </button>
+                    ` : ''}
+                    ${canReceive ? `
                     <button onclick="openConfirmReceive(${order.id})" class="p-2 text-gray-600 hover:text-[#10B981] hover:bg-green-50 rounded-lg transition-all" title="Confirm Receive">
                         <i data-lucide="package-check" class="w-4 h-4"></i>
                     </button>
+                    ` : ''}
+                    ${canEdit ? `
                     <button onclick="openConfirmDelete(${order.id})" class="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Delete Order">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
@@ -264,6 +275,10 @@ window.closeDetailModal = function () {
 // CREATE & EDIT ORDER MODAL
 // ============================================================
 window.openCreatePOModal = async function () {
+    if (isStaff) {
+        showToast('You do not have permission to create purchase orders.', 'warning');
+        return;
+    }
     editingOrderId = null;
     document.getElementById('poModalTitle').textContent = 'New Purchase Order';
     document.getElementById('createPOBtn').textContent = 'Create Order';
