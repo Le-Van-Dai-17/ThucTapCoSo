@@ -25,85 +25,13 @@ function formatNumber(value) {
     return Number(value || 0).toLocaleString('vi-VN');
 }
 
-function getApiBaseUrl() {
-    if (typeof API_BASE_URL !== 'undefined') {
-        return API_BASE_URL;
-    }
-
-    // Fallback nếu api.js của bạn không khai báo API_BASE_URL
-    return 'http://localhost:3000/api';
-}
-
-function getAuthToken() {
-    if (typeof Auth !== 'undefined' && typeof Auth.getToken === 'function') {
-        return Auth.getToken();
-    }
-
-    return (
-        localStorage.getItem('forecastai_token') ||
-        localStorage.getItem('token')
-    );
-}
-
-async function fetchJson(endpoint) {
-    const token = getAuthToken();
-
-    const response = await fetch(`${getApiBaseUrl()}${endpoint}`, {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-        }
-    });
-
-    if (response.status === 401 || response.status === 403) {
-        localStorage.removeItem('forecastai_token');
-        localStorage.removeItem('forecastai_user');
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = 'login.html';
-        return;
-    }
-
-    const result = await response.json();
-
-    if (!response.ok || result.success === false) {
-        throw new Error(result.message || 'Không thể lấy dữ liệu báo cáo');
-    }
-
-    return result.data;
-}
-
 async function downloadReport(type) {
     try {
-        const token = getAuthToken();
-        const endpoint = type === 'excel'
-            ? '/reports/export/excel'
-            : '/reports/export/pdf';
+        const blob = type === 'excel'
+            ? await API.reports.exportExcel()
+            : await API.reports.exportPdf();
 
-        const response = await fetch(`${getApiBaseUrl()}${endpoint}`, {
-            method: 'GET',
-            headers: {
-                ...(token ? { Authorization: `Bearer ${token}` } : {})
-            }
-        });
-
-        if (response.status === 401 || response.status === 403) {
-            localStorage.removeItem('forecastai_token');
-            localStorage.removeItem('forecastai_user');
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = 'login.html';
-            return;
-        }
-
-        if (!response.ok) {
-            throw new Error('Không thể tải file báo cáo');
-        }
-
-        const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-
         const a = document.createElement('a');
         a.href = url;
         a.download = type === 'excel'
@@ -113,7 +41,6 @@ async function downloadReport(type) {
         document.body.appendChild(a);
         a.click();
         a.remove();
-
         window.URL.revokeObjectURL(url);
     } catch (error) {
         console.error('Download report error:', error);
@@ -459,11 +386,11 @@ async function loadReports() {
             inventoryStatus,
             salesTrend
         ] = await Promise.all([
-            fetchJson('/reports/sales-summary'),
-            fetchJson('/reports/top-products'),
-            fetchJson('/reports/category-sales'),
-            fetchJson('/reports/inventory-status'),
-            fetchJson(`/reports/sales-trend?days=${days}`)
+            API.reports.getSalesSummary(),
+            API.reports.getTopProducts(),
+            API.reports.getCategorySales(),
+            API.reports.getInventoryStatus(),
+            API.reports.getSalesTrend(days)
         ]);
 
         const totalRevenue = Number(salesSummary?.total_revenue || 0);

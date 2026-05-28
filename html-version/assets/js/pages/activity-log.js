@@ -36,29 +36,6 @@ const totalMaxEl = document.getElementById('totalMax');
 const lastUpdatedEl = document.getElementById('lastUpdated');
 
 // ===============================
-// CONFIG
-// ===============================
-
-const ACTIVITY_API_BASE_URL =
-    typeof API_BASE_URL !== 'undefined'
-        ? API_BASE_URL
-        : 'http://localhost:5000/api';
-
-function getToken() {
-    return (
-        localStorage.getItem('forecastai_token') ||
-        localStorage.getItem('token') ||
-        localStorage.getItem('authToken') ||
-        localStorage.getItem('accessToken') ||
-        sessionStorage.getItem('forecastai_token') ||
-        sessionStorage.getItem('token') ||
-        sessionStorage.getItem('authToken') ||
-        sessionStorage.getItem('accessToken') ||
-        ''
-    );
-}
-
-// ===============================
 // HELPERS
 // ===============================
 
@@ -111,33 +88,31 @@ function normalizeActionText(action) {
 function getActionColor(action) {
     const l = String(action || '').toLowerCase();
 
-    if (
-        l.includes('create') ||
-        l.includes('tạo') ||
-        l.includes('import') ||
-        l.includes('run_forecast') ||
-        l.includes('chạy')
-    ) {
-        return 'text-[#10B981]';
+    if (l.includes('login') || l.includes('logout') || l.includes('đăng nhập')) {
+        return 'text-[#2563EB]'; // xanh dương
     }
 
-    if (
-        l.includes('delete') ||
-        l.includes('xóa') ||
-        l.includes('ngừng')
-    ) {
-        return 'text-red-600';
+    if (l.includes('import') || l.includes('export')) {
+        return 'text-purple-600'; // tím
     }
 
-    if (
-        l.includes('update') ||
-        l.includes('cập nhật') ||
-        l.includes('modified')
-    ) {
-        return 'text-[#F59E0B]';
+    if (l.includes('forecast') || l.includes('dự báo')) {
+        return 'text-orange-500'; // cam
     }
 
-    return 'text-[#2563EB]';
+    if (l.includes('create') || l.includes('tạo')) {
+        return 'text-[#10B981]'; // xanh lá
+    }
+
+    if (l.includes('delete') || l.includes('xóa') || l.includes('ngừng')) {
+        return 'text-red-600'; // đỏ
+    }
+
+    if (l.includes('update') || l.includes('cập nhật') || l.includes('modified')) {
+        return 'text-[#F59E0B]'; // vàng
+    }
+
+    return 'text-gray-600';
 }
 
 function getTableBadgeColor(table) {
@@ -202,52 +177,11 @@ function getInitials(name) {
 // ===============================
 
 async function fetchActivityLogs() {
-    /*
-        Ưu tiên dùng API object nếu dự án của bạn đã có file api.js frontend.
-        Nếu không có, tự fetch trực tiếp từ backend.
-    */
-    if (
-        window.API &&
-        window.API.activityLogs &&
-        typeof window.API.activityLogs.getAll === 'function'
-    ) {
-        const result = await window.API.activityLogs.getAll();
-
-        /*
-            Có dự án trả thẳng array.
-            Có dự án trả object: { success: true, data: [...] }.
-            Xử lý cả hai kiểu.
-        */
-        if (Array.isArray(result)) {
-            return result;
-        }
-
-        if (Array.isArray(result?.data)) {
-            return result.data;
-        }
-
-        return [];
-    }
-
-    const token = getToken();
-
-    const response = await fetch(`${ACTIVITY_API_BASE_URL}/activity-logs/list`, {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-        }
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || result.success === false) {
-        throw new Error(result.message || 'Không thể tải nhật ký hoạt động');
-    }
-
-    return Array.isArray(result.data) ? result.data : [];
+    const result = await API.activityLogs.getAll();
+    if (Array.isArray(result)) return result;
+    if (Array.isArray(result?.data)) return result.data;
+    return [];
 }
-
 function normalizeLog(log) {
     const user =
         log.full_name ||

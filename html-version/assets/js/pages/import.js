@@ -184,7 +184,34 @@ uploadBtn.addEventListener('click', async () => {
     for (let i = 0; i < uploadedFiles.length; i++) {
         const fileObj = uploadedFiles[i];
         if (fileObj.status === 'pending') {
-            await simulateValidation(fileObj);
+            fileObj.status = 'validating';
+            renderFileList();
+            try {
+                // Gọi API thật từ backend
+                const res = await API.sales.importCSV(fileObj.file);
+                if (res.success || res.status === 'success') {
+                    fileObj.status = 'success';
+                    fileObj.validationResults = {
+                        totalRows: res.data?.total || res.total || 0,
+                        validRows: res.data?.imported || res.imported || 0,
+                        errors: []
+                    };
+                } else {
+                    fileObj.status = 'error';
+                    fileObj.validationResults = {
+                        totalRows: res.data?.total || res.total || 0,
+                        validRows: res.data?.imported || res.imported || 0,
+                        errors: res.errors || [res.message || 'Import failed']
+                    };
+                }
+            } catch (err) {
+                fileObj.status = 'error';
+                fileObj.validationResults = {
+                    totalRows: 0,
+                    validRows: 0,
+                    errors: [err.message || 'Network error']
+                };
+            }
             const progress = ((i + 1) / uploadedFiles.length) * 100;
             progressText.textContent = Math.round(progress) + '%';
             progressBar.style.width = progress + '%';
@@ -198,34 +225,6 @@ uploadBtn.addEventListener('click', async () => {
     }, 500);
 });
 
-function simulateValidation(fileObj) {
-    return new Promise(resolve => {
-        fileObj.status = 'validating';
-        renderFileList();
-
-        setTimeout(() => {
-            const hasErrors = Math.random() > 0.6;
-            const validationResults = {
-                totalRows: Math.floor(Math.random() * 100) + 50,
-                validRows: Math.floor(Math.random() * 80) + 40,
-                errors: []
-            };
-
-            if (hasErrors) {
-                validationResults.errors = [
-                    "Row 5: Missing required field 'product'",
-                    "Row 12: Invalid date format",
-                    "Row 23: Unit price must be greater than 0"
-                ];
-            }
-
-            fileObj.status = hasErrors ? 'error' : 'success';
-            fileObj.validationResults = validationResults;
-            resolve();
-        }, 1200);
-    });
-}
-
 confirmBtn.addEventListener('click', () => {
     const successFiles = uploadedFiles.filter(f => f.status === "success");
     if (successFiles.length === 0) {
@@ -234,9 +233,10 @@ confirmBtn.addEventListener('click', () => {
     }
 
     const totalValid = successFiles.reduce((sum, f) => sum + f.validationResults.validRows, 0);
-    alert(`Importing ${successFiles.length} file(s) with ${totalValid} valid rows.`);
+    alert(`Successfully imported ${successFiles.length} file(s) with ${totalValid} valid rows.`);
     
-    // Reset
+    // Reset and redirect
     uploadedFiles = [];
     renderFileList();
+    window.location.href = 'sales-data.html';
 });
