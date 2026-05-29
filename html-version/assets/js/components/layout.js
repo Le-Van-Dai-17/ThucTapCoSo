@@ -157,6 +157,8 @@ const displayName = currentUser
 
 const displayRole = currentUser ? currentUser.role : 'Guest';
 
+const currentRole = String(displayRole || '').trim().toLowerCase();
+
 
 // ===============================
 // 4. CHẶN MỞ URL TRÁI QUYỀN
