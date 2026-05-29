@@ -27,7 +27,7 @@ exports.verifyToken = (req, res, next) => {
     }
     catch (error) {
         console.error(">>> LỖI BẢO VỆ BẮT ĐƯỢC:", error.message);
-        return res.status(403).json({
+        return res.status(401).json({
             success: false,
             message: 'Token không hợp lệ hoặc đã hết hạn!' });
     }
