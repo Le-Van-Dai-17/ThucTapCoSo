@@ -48,7 +48,20 @@ document.getElementById('loginForm').addEventListener('submit', async function (
         if (result && result.success) {
             Auth.setToken(result.token);
             Auth.setUser(result.user);
-            window.location.href = 'dashboard.html';
+
+            const role = result.user.role;
+
+            if (role === 'Admin') {
+                window.location.href = 'users.html';
+            } else if (role === 'Manager') {
+                window.location.href = 'dashboard.html';
+            } else if (role === 'Staff') {
+                window.location.href = 'purchase-orders.html';
+            } else {
+                alert('Tài khoản chưa được phân quyền hợp lệ.');
+                Auth.clear();
+                window.location.href = 'login.html';
+            }
         } else {
             // Server trả 200 nhưng success: false (hiếm)
             showLoginError(errorBox, result?.message || 'Đăng nhập thất bại.');

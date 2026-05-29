@@ -1,46 +1,131 @@
 // ======================================================
 // layout.js
 // Dùng cho các trang nội bộ sau khi đăng nhập
-// Yêu cầu: mỗi file HTML phải import api.js trước layout.js
-// Ví dụ:
-// <script src="../assets/js/api.js"></script>
-// <script src="../assets/js/components/layout.js"></script>
+// Mỗi file HTML nội bộ phải import api.js trước layout.js
 // ======================================================
 
 
 // ===============================
-// 1. BẢO VỆ TRANG NỘI BỘ
+// 1. CẤU HÌNH PHÂN QUYỀN FRONTEND
 // ===============================
+
+const ROLE_PERMISSIONS = {
+    Admin: [
+        'dashboard.html',
+        'products.html',
+        'sales-data.html',
+        'import.html',
+        'reports.html',
+        'inventory.html',
+        'purchase-orders.html',
+        'users.html',
+        'activity-log.html',
+        'settings.html',
+        'profile.html'
+    ],
+
+    Manager: [
+        'dashboard.html',
+        'products.html',
+        'sales-data.html',
+        'import.html',
+        'reports.html',
+        'inventory.html',
+        'purchase-orders.html',
+        'activity-log.html',
+        'profile.html'
+    ],
+
+    Staff: [
+        'purchase-orders.html',
+        'profile.html'
+    ]
+};
+
+const NAV_ITEMS = [
+    {
+        href: 'dashboard.html',
+        label: 'Dashboard',
+        icon: 'bar-chart-3',
+        roles: ['Admin', 'Manager']
+    },
+    {
+        href: 'products.html',
+        label: 'Products',
+        icon: 'box',
+        roles: ['Admin', 'Manager']
+    },
+    {
+        href: 'sales-data.html',
+        label: 'Sales Data',
+        icon: 'line-chart',
+        roles: ['Admin', 'Manager']
+    },
+    {
+        href: 'import.html',
+        label: 'Import Data',
+        icon: 'upload',
+        roles: ['Admin', 'Manager']
+    },
+    {
+        href: 'reports.html',
+        label: 'Reports',
+        icon: 'file-text',
+        roles: ['Admin', 'Manager']
+    },
+    {
+        href: 'inventory.html',
+        label: 'Inventory',
+        icon: 'package',
+        roles: ['Admin', 'Manager']
+    },
+    {
+        href: 'purchase-orders.html',
+        label: 'Purchase Orders',
+        icon: 'shopping-cart',
+        roles: ['Admin', 'Manager', 'Staff']
+    },
+    {
+        href: 'users.html',
+        label: 'Users',
+        icon: 'users',
+        roles: ['Admin']
+    },
+    {
+        href: 'activity-log.html',
+        label: 'Activity Log',
+        icon: 'activity',
+        roles: ['Admin', 'Manager']
+    },
+    {
+        href: 'settings.html',
+        label: 'Settings',
+        icon: 'settings',
+        roles: ['Admin']
+    }
+];
+
+
+// ===============================
+// 2. KIỂM TRA ĐĂNG NHẬP
+// ===============================
+
 (function protectPrivatePage() {
     const currentPage = window.location.pathname.split('/').pop();
 
-    // Không chặn trang login
-    if (currentPage === 'login.html' || currentPage === '') {
+    if (currentPage === 'login.html' || currentPage === '' || currentPage === 'index.html') {
         return;
     }
 
-    // Nếu chưa import api.js thì Auth sẽ không tồn tại
-    // Trường hợp này phải đá về login để tránh lọt trang
     if (typeof Auth === 'undefined') {
         window.location.href = 'login.html';
         return;
     }
 
-    // Hỗ trợ nhiều tên hàm khác nhau tùy api.js của bạn đang viết kiểu nào
-    let isLoggedIn = false;
-
-    if (typeof Auth.isLoggedIn === 'function') {
-        isLoggedIn = Auth.isLoggedIn();
-    } else if (typeof Auth.isAuthenticated === 'function') {
-        isLoggedIn = Auth.isAuthenticated();
-    } else if (typeof Auth.getToken === 'function') {
-        isLoggedIn = !!Auth.getToken();
-    } else {
-        // Fallback nếu api.js chưa có hàm kiểm tra
-        isLoggedIn =
-            !!localStorage.getItem('forecastai_token') ||
-            !!localStorage.getItem('token');
-    }
+    const isLoggedIn =
+        typeof Auth.isLoggedIn === 'function'
+            ? Auth.isLoggedIn()
+            : !!localStorage.getItem('forecastai_token');
 
     if (!isLoggedIn) {
         window.location.href = 'login.html';
@@ -49,18 +134,16 @@
 
 
 // ===============================
-// 2. LẤY THÔNG TIN USER
+// 3. LẤY USER HIỆN TẠI
 // ===============================
+
 let currentUser = null;
 
 try {
     if (typeof Auth !== 'undefined' && typeof Auth.getUser === 'function') {
         currentUser = Auth.getUser();
     } else {
-        const savedUser =
-            localStorage.getItem('forecastai_user') ||
-            localStorage.getItem('user');
-
+        const savedUser = localStorage.getItem('forecastai_user');
         currentUser = savedUser ? JSON.parse(savedUser) : null;
     }
 } catch (error) {
@@ -72,14 +155,48 @@ const displayName = currentUser
     ? (currentUser.full_name || currentUser.fullName || currentUser.username || 'User')
     : 'User';
 
-const displayRole = currentUser
-    ? (currentUser.role || currentUser.role_name || 'User')
-    : 'Guest';
+const displayRole = currentUser ? currentUser.role : 'Guest';
 
 
 // ===============================
-// 3. TẠO AVATAR TỪ TÊN USER
+// 4. CHẶN MỞ URL TRÁI QUYỀN
 // ===============================
+
+(function protectPageByRole() {
+    const currentPage = window.location.pathname.split('/').pop();
+
+    if (
+        currentPage === 'login.html' ||
+        currentPage === '' ||
+        currentPage === 'index.html'
+    ) {
+        return;
+    }
+
+    const allowedPages = ROLE_PERMISSIONS[displayRole] || [];
+
+    if (!allowedPages.includes(currentPage)) {
+        alert('Bạn không có quyền truy cập trang này. Vui lòng đăng nhập lại.');
+
+        if (typeof Auth !== 'undefined' && typeof Auth.clear === 'function') {
+            Auth.clear();
+        } else {
+            localStorage.removeItem('forecastai_token');
+            localStorage.removeItem('forecastai_user');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+        }
+
+        window.location.href = 'login.html';
+    }
+})();
+
+
+
+// ===============================
+// 5. TẠO AVATAR
+// ===============================
+
 const initials = displayName
     .split(' ')
     .filter(Boolean)
@@ -90,10 +207,35 @@ const initials = displayName
 
 
 // ===============================
-// 4. HTML LAYOUT
+// 6. TẠO MENU THEO ROLE
 // ===============================
+
+const currentPath = window.location.pathname.split('/').pop() || 'dashboard.html';
+
+const navHtml = NAV_ITEMS
+    .filter(item => item.roles.includes(displayRole))
+    .map(item => {
+        const isActive = item.href === currentPath;
+
+        const activeClass = isActive
+            ? 'bg-[#2563EB]/10 text-[#2563EB]'
+            : 'text-gray-700 hover:bg-gray-100';
+
+        return `
+            <a href="${item.href}" class="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-200 ${activeClass}">
+                <i data-lucide="${item.icon}" class="w-5 h-5"></i>
+                <span>${item.label}</span>
+            </a>
+        `;
+    })
+    .join('');
+
+
+// ===============================
+// 7. HTML LAYOUT
+// ===============================
+
 const layoutHtml = `
-    <!-- Sidebar -->
     <aside class="fixed left-0 top-0 h-screen w-[240px] bg-white border-r border-gray-200 shadow-sm z-30 flex flex-col">
         <div class="p-6">
             <div class="flex items-center gap-3">
@@ -105,55 +247,7 @@ const layoutHtml = `
         </div>
 
         <nav class="px-4 space-y-1 flex-1 overflow-y-auto">
-            <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-200 text-gray-700 hover:bg-gray-100">
-                <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
-                <span>Dashboard</span>
-            </a>
-
-            <a href="products.html" class="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-200 text-gray-700 hover:bg-gray-100">
-                <i data-lucide="box" class="w-5 h-5"></i>
-                <span>Products</span>
-            </a>
-
-            <a href="sales-data.html" class="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-200 text-gray-700 hover:bg-gray-100">
-                <i data-lucide="line-chart" class="w-5 h-5"></i>
-                <span>Sales Data</span>
-            </a>
-
-            <a href="import.html" class="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-200 text-gray-700 hover:bg-gray-100">
-                <i data-lucide="upload" class="w-5 h-5"></i>
-                <span>Import Data</span>
-            </a>
-
-            <a href="reports.html" class="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-200 text-gray-700 hover:bg-gray-100">
-                <i data-lucide="file-text" class="w-5 h-5"></i>
-                <span>Reports</span>
-            </a>
-
-            <a href="inventory.html" class="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-200 text-gray-700 hover:bg-gray-100">
-                <i data-lucide="package" class="w-5 h-5"></i>
-                <span>Inventory</span>
-            </a>
-
-            <a href="purchase-orders.html" class="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-200 text-gray-700 hover:bg-gray-100">
-                <i data-lucide="shopping-cart" class="w-5 h-5"></i>
-                <span>Purchase Orders</span>
-            </a>
-
-            <a href="users.html" class="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-200 text-gray-700 hover:bg-gray-100">
-                <i data-lucide="users" class="w-5 h-5"></i>
-                <span>Users</span>
-            </a>
-
-            <a href="activity-log.html" class="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-200 text-gray-700 hover:bg-gray-100">
-                <i data-lucide="activity" class="w-5 h-5"></i>
-                <span>Activity Log</span>
-            </a>
-
-            <a href="settings.html" class="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-200 text-gray-700 hover:bg-gray-100">
-                <i data-lucide="settings" class="w-5 h-5"></i>
-                <span>Settings</span>
-            </a>
+            ${navHtml}
         </nav>
 
         <div class="p-4 border-t border-gray-200 shrink-0">
@@ -169,7 +263,6 @@ const layoutHtml = `
         </div>
     </aside>
 
-    <!-- Header -->
     <header class="fixed top-0 left-[240px] right-0 h-16 bg-white border-b border-gray-200 shadow-sm z-20">
         <div class="h-full flex items-center justify-between px-8">
             <div class="flex-1 max-w-xl">
@@ -200,34 +293,20 @@ const layoutHtml = `
 
 
 // ===============================
-// 5. GẮN LAYOUT VÀO TRANG
+// 8. GẮN LAYOUT VÀO TRANG
 // ===============================
+
 const wrapper = document.querySelector('.size-full');
 
 if (wrapper) {
     wrapper.insertAdjacentHTML('afterbegin', layoutHtml);
-
-    // Highlight active link
-    const currentPath = window.location.pathname.split('/').pop() || 'dashboard.html';
-    const navLinks = document.querySelectorAll('aside nav a');
-
-    navLinks.forEach(link => {
-        const href = link.getAttribute('href');
-
-        if (href === currentPath) {
-            link.classList.remove('text-gray-700', 'hover:bg-gray-100');
-            link.classList.add('bg-[#2563EB]/10', 'text-[#2563EB]');
-        } else {
-            link.classList.remove('bg-[#2563EB]/10', 'text-[#2563EB]');
-            link.classList.add('text-gray-700', 'hover:bg-gray-100');
-        }
-    });
 }
 
 
 // ===============================
-// 6. XỬ LÝ LOGOUT
+// 9. LOGOUT
 // ===============================
+
 const logoutBtn = document.getElementById('logoutBtn');
 
 if (logoutBtn) {
@@ -239,7 +318,6 @@ if (logoutBtn) {
             return;
         }
 
-        // Fallback nếu Auth.logout chưa có
         localStorage.removeItem('forecastai_token');
         localStorage.removeItem('forecastai_user');
         localStorage.removeItem('token');
@@ -251,8 +329,9 @@ if (logoutBtn) {
 
 
 // ===============================
-// 7. KHỞI TẠO ICON
+// 10. KHỞI TẠO ICON
 // ===============================
+
 if (typeof lucide !== 'undefined') {
     lucide.createIcons();
 }
