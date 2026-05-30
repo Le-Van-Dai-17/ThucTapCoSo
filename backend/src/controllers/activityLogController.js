@@ -66,8 +66,8 @@ exports.logAction = async (
  */
 exports.getLogs = async (req, res) => {
     try {
-        const page = clampInteger(req.query.page, 1, 100000, 1);
-        const limit = clampInteger(req.query.limit, 1, 200, 100);
+        const page = clampInteger(req.query.page, 1, 1, 100000);
+        const limit = clampInteger(req.query.limit, 100, 1, 200);
         const offset = (page - 1) * limit;
 
         const { action, user_id, keyword } = req.query;

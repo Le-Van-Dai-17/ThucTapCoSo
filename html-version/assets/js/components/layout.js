@@ -11,13 +11,6 @@
 
 const ROLE_PERMISSIONS = {
     Admin: [
-        'dashboard.html',
-        'products.html',
-        'sales-data.html',
-        'import.html',
-        'reports.html',
-        'inventory.html',
-        'purchase-orders.html',
         'users.html',
         'activity-log.html',
         'settings.html',
@@ -32,7 +25,8 @@ const ROLE_PERMISSIONS = {
         'reports.html',
         'inventory.html',
         'purchase-orders.html',
-        'activity-log.html',
+        'suppliers.html',
+        'forecast.html',
         'profile.html'
     ],
 
@@ -47,43 +41,55 @@ const NAV_ITEMS = [
         href: 'dashboard.html',
         label: 'Dashboard',
         icon: 'bar-chart-3',
-        roles: ['Admin', 'Manager']
+        roles: ['Manager']
     },
     {
         href: 'products.html',
         label: 'Products',
         icon: 'box',
-        roles: ['Admin', 'Manager']
+        roles: ['Manager']
     },
     {
         href: 'sales-data.html',
         label: 'Sales Data',
         icon: 'line-chart',
-        roles: ['Admin', 'Manager']
+        roles: ['Manager']
     },
     {
         href: 'import.html',
         label: 'Import Data',
         icon: 'upload',
-        roles: ['Admin', 'Manager']
+        roles: ['Manager']
     },
     {
         href: 'reports.html',
         label: 'Reports',
         icon: 'file-text',
-        roles: ['Admin', 'Manager']
+        roles: ['Manager']
     },
     {
         href: 'inventory.html',
         label: 'Inventory',
         icon: 'package',
-        roles: ['Admin', 'Manager']
+        roles: ['Manager']
     },
     {
         href: 'purchase-orders.html',
         label: 'Purchase Orders',
         icon: 'shopping-cart',
-        roles: ['Admin', 'Manager', 'Staff']
+        roles: ['Manager', 'Staff']
+    },
+    {
+        href: 'suppliers.html',
+        label: 'Suppliers',
+        icon: 'truck',
+        roles: ['Manager']
+    },
+    {
+        href: 'forecast.html',
+        label: 'Forecast',
+        icon: 'trending-up',
+        roles: ['Manager']
     },
     {
         href: 'users.html',
@@ -95,7 +101,7 @@ const NAV_ITEMS = [
         href: 'activity-log.html',
         label: 'Activity Log',
         icon: 'activity',
-        roles: ['Admin', 'Manager']
+        roles: ['Admin']
     },
     {
         href: 'settings.html',
@@ -335,3 +341,74 @@ if (logoutBtn) {
 if (typeof lucide !== 'undefined') {
     lucide.createIcons();
 }
+
+
+// ===============================
+// 11. CUSTOM ALERTS & CONFIRMS
+// ===============================
+
+// Override default alert
+window.alert = function(message) {
+    const existing = document.getElementById('_global_toast');
+    if (existing) existing.remove();
+    
+    const toast = document.createElement('div');
+    toast.id = '_global_toast';
+    toast.className = 'fixed top-20 right-8 z-[9999] px-6 py-4 rounded-xl shadow-2xl text-sm font-medium flex items-center gap-3 bg-gray-900 text-white transition-all duration-300 transform translate-x-0 opacity-100';
+    toast.innerHTML = `<i data-lucide="info" class="w-5 h-5 text-[#3b82f6]"></i><span>${message}</span>`;
+    
+    document.body.appendChild(toast);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    
+    setTimeout(() => { 
+        toast.classList.add('translate-x-[150%]', 'opacity-0'); 
+        setTimeout(() => toast.remove(), 300); 
+    }, 3500);
+};
+
+// Custom Confirm Dialog
+window.showConfirmDialog = function(message, onConfirm) {
+    const existing = document.getElementById('_global_confirm');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = '_global_confirm';
+    overlay.className = 'fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4 opacity-0 transition-opacity duration-300';
+    
+    overlay.innerHTML = `
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl transform scale-95 transition-transform duration-300" onclick="event.stopPropagation()">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center shrink-0">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 text-yellow-600"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900">Confirmation</h3>
+            </div>
+            <p class="text-gray-600 mb-6 text-sm">${message}</p>
+            <div class="flex gap-3">
+                <button id="_btnConfirmCancel" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors text-sm font-medium">Cancel</button>
+                <button id="_btnConfirmOk" class="flex-1 px-4 py-2 bg-[#2563EB] text-white rounded-xl hover:bg-[#1d4ed8] transition-colors text-sm font-medium shadow-sm">Confirm</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    // Animate in
+    requestAnimationFrame(() => {
+        overlay.classList.remove('opacity-0');
+        overlay.querySelector('div').classList.remove('scale-95');
+    });
+
+    const close = () => {
+        overlay.classList.add('opacity-0');
+        overlay.querySelector('div').classList.add('scale-95');
+        setTimeout(() => overlay.remove(), 300);
+    };
+
+    document.getElementById('_btnConfirmCancel').addEventListener('click', close);
+    document.getElementById('_btnConfirmOk').addEventListener('click', () => {
+        close();
+        if (typeof onConfirm === 'function') onConfirm();
+    });
+};

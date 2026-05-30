@@ -22,11 +22,6 @@ const generateTransactionCode = () => {
 
 /**
  * Tìm product_id từ product_id hoặc SKU.
- *
- * Frontend có thể gửi:
- * - product_id
- * - id
- * - sku
  */
 const resolveProductId = async (productIdentifier, connection = pool) => {
     if (!productIdentifier) {
@@ -35,7 +30,6 @@ const resolveProductId = async (productIdentifier, connection = pool) => {
 
     const value = String(productIdentifier).trim();
 
-    // Nếu gửi product_id dạng số
     if (!Number.isNaN(Number(value))) {
         const [rows] = await connection.query(
             'SELECT product_id FROM products WHERE product_id = ? LIMIT 1',
@@ -49,7 +43,6 @@ const resolveProductId = async (productIdentifier, connection = pool) => {
         return rows[0].product_id;
     }
 
-    // Nếu gửi SKU
     const [rows] = await connection.query(
         'SELECT product_id FROM products WHERE sku = ? LIMIT 1',
         [value]
@@ -64,7 +57,6 @@ const resolveProductId = async (productIdentifier, connection = pool) => {
 
 /**
  * Kiểm tra bảng sale_details có cột line_total không.
- * Việc này giúp code chạy được cả khi database_v3 của bạn có hoặc chưa có line_total.
  */
 const hasLineTotalColumn = async (connection = pool) => {
     const [columns] = await connection.query(`
@@ -76,8 +68,6 @@ const hasLineTotalColumn = async (connection = pool) => {
 
 /**
  * Insert chi tiết bán hàng.
- * Nếu bảng sale_details có line_total thì lưu line_total.
- * Nếu không có thì chỉ lưu transaction_id, product_id, quantity, unit_price.
  */
 const insertSaleDetail = async (
     connection,
@@ -92,23 +82,10 @@ const insertSaleDetail = async (
     if (hasLineTotal) {
         const [detailResult] = await connection.query(
             `
-            INSERT INTO sale_details
-                (
-                    transaction_id,
-                    product_id,
-                    quantity,
-                    unit_price,
-                    line_total
-                )
+            INSERT INTO sale_details (transaction_id, product_id, quantity, unit_price, line_total)
             VALUES (?, ?, ?, ?, ?)
             `,
-            [
-                transactionId,
-                productId,
-                quantity,
-                unitPrice,
-                lineTotal
-            ]
+            [transactionId, productId, quantity, unitPrice, lineTotal]
         );
 
         return detailResult;
@@ -116,21 +93,10 @@ const insertSaleDetail = async (
 
     const [detailResult] = await connection.query(
         `
-        INSERT INTO sale_details
-            (
-                transaction_id,
-                product_id,
-                quantity,
-                unit_price
-            )
+        INSERT INTO sale_details (transaction_id, product_id, quantity, unit_price)
         VALUES (?, ?, ?, ?)
         `,
-        [
-            transactionId,
-            productId,
-            quantity,
-            unitPrice
-        ]
+        [transactionId, productId, quantity, unitPrice]
     );
 
     return detailResult;
@@ -170,40 +136,20 @@ const parseCsvRow = (line) => {
 };
 
 /**
- * GET /api/sales
- * Lấy danh sách dữ liệu bán hàng.
+ * GET /api/sales/list — Lấy danh sách dữ liệu bán hàng (Phục vụ dòng 65 trong api.js)
  */
 exports.getSalesList = async (req, res) => {
     try {
         const query = `
             SELECT
-                sd.detail_id AS id,
-                sd.detail_id,
-
-                st.transaction_id,
-                st.transaction_code,
-                st.transaction_date AS sale_date,
-                DATE_FORMAT(st.transaction_date, '%Y-%m-%d') AS sale_date_formatted,
-
-                p.product_id,
-                p.sku,
-                p.name AS product_name,
-
-                sd.quantity,
-                sd.unit_price,
-
-                CASE
-                    WHEN sd.line_total IS NOT NULL THEN sd.line_total
-                    ELSE sd.quantity * sd.unit_price
-                END AS total_amount,
-
-                st.total_amount AS transaction_total_amount,
-                st.discount_amount
+                sd.detail_id AS id, sd.detail_id, st.transaction_id, st.transaction_code,
+                st.transaction_date AS sale_date, DATE_FORMAT(st.transaction_date, '%Y-%m-%d') AS sale_date_formatted,
+                p.product_id, p.sku, p.name AS product_name, sd.quantity, sd.unit_price,
+                CASE WHEN sd.line_total IS NOT NULL THEN sd.line_total ELSE sd.quantity * sd.unit_price END AS total_amount,
+                st.total_amount AS transaction_total_amount, st.discount_amount
             FROM sale_details sd
-            JOIN sales_transactions st
-                ON sd.transaction_id = st.transaction_id
-            JOIN products p
-                ON sd.product_id = p.product_id
+            JOIN sales_transactions st ON sd.transaction_id = st.transaction_id
+            JOIN products p ON sd.product_id = p.product_id
             ORDER BY st.transaction_date DESC, sd.detail_id DESC
         `;
 
@@ -215,61 +161,24 @@ exports.getSalesList = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching sales list:', error);
-
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi server khi lấy dữ liệu doanh số bán hàng'
-        });
+        res.status(500).json({ success: false, message: 'Lỗi server khi lấy dữ liệu doanh số bán hàng' });
     }
 };
 
 /**
- * POST /api/sales
- * Tạo một bản ghi bán hàng.
- *
- * Body có thể gửi:
- * {
- *   "product_id": 1,
- *   "quantity": 5,
- *   "unit_price": 10000,
- *   "sale_date": "2026-05-25"
- * }
- *
- * Hoặc:
- * {
- *   "sku": "SP001",
- *   "quantity": 5,
- *   "unit_price": 10000
- * }
+ * POST /api/sales/create — Tạo một bản ghi bán hàng bằng tay
  */
 exports.createSale = async (req, res) => {
     const connection = await pool.getConnection();
 
     try {
-        let {
-            product_id,
-            id,
-            sku,
-            quantity,
-            unit_price,
-            selling_price,
-            total_amount,
-            sale_date,
-            transaction_date,
-            discount_amount
-        } = req.body;
+        let { product_id, id, sku, quantity, unit_price, selling_price, total_amount, sale_date, transaction_date, discount_amount } = req.body;
 
         const productIdentifier = product_id || id || sku;
-        const resolvedProductId = await resolveProductId(
-            productIdentifier,
-            connection
-        );
+        const resolvedProductId = await resolveProductId(productIdentifier, connection);
 
         if (!resolvedProductId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Không tìm thấy sản phẩm hợp lệ'
-            });
+            return res.status(400).json({ success: false, message: 'Không tìm thấy sản phẩm hợp lệ' });
         }
 
         const qty = parsePositiveNumber(quantity, 'quantity');
@@ -283,157 +192,67 @@ exports.createSale = async (req, res) => {
         const saleDate = sale_date || transaction_date || new Date();
 
         if (discountAmount > lineTotal) {
-            return res.status(400).json({
-                success: false,
-                message: 'discount_amount cannot be greater than total_amount'
-            });
+            return res.status(400).json({ success: false, message: 'discount_amount cannot be greater than total_amount' });
         }
 
         await connection.beginTransaction();
 
         const [productRows] = await connection.query(
-            `
-            SELECT
-                product_id,
-                name,
-                current_stock,
-                is_discontinued
-            FROM products
-            WHERE product_id = ?
-            LIMIT 1
-            FOR UPDATE
-            `,
+            'SELECT product_id, name, current_stock, is_discontinued FROM products WHERE product_id = ? LIMIT 1 FOR UPDATE',
             [resolvedProductId]
         );
 
         if (productRows.length === 0) {
             await connection.rollback();
-
-            return res.status(404).json({
-                success: false,
-                message: 'Sản phẩm không tồn tại'
-            });
+            return res.status(404).json({ success: false, message: 'Sản phẩm không tồn tại' });
         }
 
         const product = productRows[0];
 
         if (Number(product.is_discontinued) === 1) {
             await connection.rollback();
-
-            return res.status(400).json({
-                success: false,
-                message: 'Sản phẩm đã ngừng kinh doanh, không thể tạo doanh số'
-            });
+            return res.status(400).json({ success: false, message: 'Sản phẩm đã ngừng kinh doanh, không thể tạo doanh số' });
         }
 
         if (Number(product.current_stock || 0) < qty) {
             await connection.rollback();
-
-            return res.status(400).json({
-                success: false,
-                message: `Tồn kho không đủ. Hiện còn ${product.current_stock}, cần bán ${qty}`
-            });
+            return res.status(400).json({ success: false, message: `Tồn kho không đủ. Hiện còn ${product.current_stock}, cần bán ${qty}` });
         }
 
         const [transactionResult] = await connection.query(
-            `
-            INSERT INTO sales_transactions
-                (
-                    transaction_code,
-                    transaction_date,
-                    total_amount,
-                    discount_amount
-                )
-            VALUES (?, ?, ?, ?)
-            `,
-            [
-                generateTransactionCode(),
-                saleDate,
-                transactionTotalAmount,
-                discountAmount
-            ]
+            'INSERT INTO sales_transactions (transaction_code, transaction_date, total_amount, discount_amount) VALUES (?, ?, ?, ?)',
+            [generateTransactionCode(), saleDate, transactionTotalAmount, discountAmount]
         );
 
         const transactionId = transactionResult.insertId;
+        const detailResult = await insertSaleDetail(connection, transactionId, resolvedProductId, qty, price, lineTotal);
 
-        const detailResult = await insertSaleDetail(
-            connection,
-            transactionId,
-            resolvedProductId,
-            qty,
-            price,
-            lineTotal
-        );
-
-        await connection.query(
-            `
-            UPDATE products
-            SET current_stock = current_stock - ?
-            WHERE product_id = ?
-            `,
-            [qty, resolvedProductId]
-        );
+        await connection.query('UPDATE products SET current_stock = current_stock - ? WHERE product_id = ?', [qty, resolvedProductId]);
 
         await connection.commit();
 
-        await safeLogAction(
-            getActorId(req),
-            'CREATE_SALE',
-            `Tạo dữ liệu bán hàng cho sản phẩm ID: ${resolvedProductId}, số lượng: ${qty}`,
-            'sales_transactions',
-            transactionId,
-            req.ip
-        );
+        await safeLogAction(getActorId(req), 'CREATE_SALE', `Tạo dữ liệu bán hàng cho sản phẩm ID: ${resolvedProductId}, số lượng: ${qty}`, 'sales_transactions', transactionId, req.ip);
 
         res.status(201).json({
             success: true,
             message: 'Doanh số bán hàng đã được tạo thành công',
-            data: {
-                transaction_id: transactionId,
-                detail_id: detailResult.insertId,
-                product_id: resolvedProductId,
-                quantity: qty,
-                unit_price: price,
-                line_total: lineTotal,
-                total_amount: transactionTotalAmount
-            }
+            data: { transaction_id: transactionId, detail_id: detailResult.insertId, product_id: resolvedProductId, quantity: qty, unit_price: price, line_total: lineTotal, total_amount: transactionTotalAmount }
         });
     } catch (error) {
         await connection.rollback();
-
         console.error('Error creating sale:', error);
-
-        res.status(error.statusCode || 500).json({
-            success: false,
-            message: error.statusCode ? error.message : 'Lỗi server khi tạo doanh số bán hàng'
-        });
+        res.status(error.statusCode || 500).json({ success: false, message: error.statusCode ? error.message : 'Lỗi server khi tạo doanh số bán hàng' });
     } finally {
         connection.release();
     }
 };
 
 /**
- * POST /api/sales/import
- * Import CSV dữ liệu bán hàng.
- *
- * Format CSV khuyến nghị:
- * sale_date,product_id,quantity,unit_price
- *
- * Ví dụ dùng product_id:
- * 2026-05-01,1,5,899.99
- *
- * Ví dụ dùng SKU:
- * 2026-05-01,SP001,5,899.99
- *
- * Lưu ý:
- * Mỗi dòng CSV hiện được hiểu là một giao dịch bán hàng riêng.
+ * POST /api/sales/import — [BE-07] Import CSV dữ liệu bán hàng linh hoạt tiêu đề cột
  */
 exports.importSalesCSV = async (req, res) => {
     if (!req.file) {
-        return res.status(400).json({
-            success: false,
-            message: 'Vui lòng chọn file CSV để tải lên.'
-        });
+        return res.status(400).json({ success: false, message: 'Vui lòng chọn file CSV để tải lên.' });
     }
 
     const filePath = req.file.path;
@@ -442,217 +261,129 @@ exports.importSalesCSV = async (req, res) => {
     try {
         const originalName = req.file.originalname || '';
         const extension = path.extname(originalName).toLowerCase();
-        const allowedMimeTypes = [
-            'text/csv',
-            'application/csv',
-            'application/vnd.ms-excel',
-            'text/plain'
-        ];
+        const allowedMimeTypes = ['text/csv', 'application/csv', 'application/vnd.ms-excel', 'text/plain'];
 
         if (extension !== '.csv' && !allowedMimeTypes.includes(req.file.mimetype)) {
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
-            }
-
-            return res.status(400).json({
-                success: false,
-                message: 'File import phải có định dạng CSV'
-            });
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+            return res.status(400).json({ success: false, message: 'File import phải có định dạng CSV' });
         }
 
         const fileContent = fs.readFileSync(filePath, 'utf8');
-
-        const lines = fileContent
-            .split(/\r?\n/)
-            .map(line => line.trim())
-            .filter(Boolean);
+        const lines = fileContent.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
 
         if (lines.length <= 1) {
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
-            }
-
-            return res.status(400).json({
-                success: false,
-                message: 'File CSV không có dữ liệu'
-            });
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+            return res.status(400).json({ success: false, message: 'File CSV không có dữ liệu để nạp' });
         }
 
         const headers = parseCsvRow(lines[0]).map(header => header.toLowerCase());
-        const requiredColumns = ['sale_date', 'product_id', 'quantity', 'unit_price'];
-        const missingColumns = requiredColumns.filter(column => !headers.includes(column));
+        
+        const hasDateColumn = headers.includes('sale_date') || headers.includes('transaction_date');
+        const hasProductColumn = headers.includes('product_id') || headers.includes('sku') || headers.includes('product_code');
+        const hasQtyColumn = headers.includes('quantity');
 
-        if (missingColumns.length > 0) {
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
-            }
-
+        if (!hasDateColumn || !hasProductColumn || !hasQtyColumn) {
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
             return res.status(400).json({
                 success: false,
-                message: `File CSV thiếu cột bắt buộc: ${missingColumns.join(', ')}`,
-                requiredColumns
+                message: 'Cấu trúc file CSV không hợp lệ. Phải chứa các cột tối thiểu: Ngày bán, Mã SP/SKU và Số lượng.'
             });
         }
 
-        const getColumnValue = (values, columnName) => {
-            const index = headers.indexOf(columnName);
-            return index >= 0 ? values[index] : undefined;
+        const getFlexValue = (values, targets) => {
+            for (const target of targets) {
+                const idx = headers.indexOf(target);
+                if (idx >= 0) return values[idx];
+            }
+            return undefined;
         };
 
         await connection.beginTransaction();
-
         const totalRows = lines.length - 1;
         let insertedCount = 0;
         let skippedCount = 0;
         const errors = [];
 
         for (let i = 1; i < lines.length; i++) {
-            const line = lines[i];
-
-            /*
-                Parser CSV đơn giản.
-                File nên không có dấu phẩy nằm trong dấu ngoặc kép.
-                Ví dụ hợp lệ:
-                2026-05-01,1,5,10000
-            */
-            const values = parseCsvRow(line);
-
+            const values = parseCsvRow(lines[i]);
             if (values.length < headers.length) {
                 skippedCount++;
-                errors.push(`Dòng ${i + 1}: thiếu dữ liệu theo header CSV`);
+                errors.push(`Dòng ${i + 1}: Thiếu dữ liệu cấu trúc cột.`);
                 continue;
             }
 
-            const saleDate = getColumnValue(values, 'sale_date');
-            const productIdentifier = getColumnValue(values, 'product_id') || getColumnValue(values, 'sku');
-            const quantityRaw = getColumnValue(values, 'quantity');
-            const unitPriceRaw = getColumnValue(values, 'unit_price');
-            const discountRaw = getColumnValue(values, 'discount_amount');
+            const saleDate = getFlexValue(values, ['sale_date', 'transaction_date']);
+            const productIdentifier = getFlexValue(values, ['product_id', 'sku', 'product_code']);
+            const quantityRaw = getFlexValue(values, ['quantity']);
+            const unitPriceRaw = getFlexValue(values, ['unit_price']);
+            const discountRaw = getFlexValue(values, ['discount_amount']) || '0';
 
             const qty = Number(quantityRaw);
-            const price = Number(unitPriceRaw);
-            const discountAmount = Number(discountRaw || 0);
+            const discountAmount = Number(discountRaw);
 
-            if (
-                !saleDate ||
-                !productIdentifier ||
-                !qty ||
-                Number.isNaN(qty) ||
-                qty <= 0 ||
-                Number.isNaN(price) ||
-                price < 0 ||
-                Number.isNaN(discountAmount) ||
-                discountAmount < 0
-            ) {
+            if (!saleDate || !productIdentifier || Number.isNaN(qty) || qty <= 0 || Number.isNaN(discountAmount) || discountAmount < 0) {
                 skippedCount++;
-                errors.push(`Dòng ${i + 1}: dữ liệu không hợp lệ`);
+                errors.push(`Dòng ${i + 1}: Định dạng dữ liệu ngày tháng, số lượng hoặc giảm giá bị sai.`);
                 continue;
             }
 
-            const productId = await resolveProductId(
-                productIdentifier,
-                connection
-            );
-
+            const productId = await resolveProductId(productIdentifier, connection);
             if (!productId) {
                 skippedCount++;
-                errors.push(`Dòng ${i + 1}: không tìm thấy sản phẩm ${productIdentifier}`);
+                errors.push(`Dòng ${i + 1}: Lỗi! Sản phẩm mang mã số/SKU "${productIdentifier}" không tồn tại trên hệ thống.`);
                 continue;
             }
 
             const [productRows] = await connection.query(
-                `
-                SELECT
-                    product_id,
-                    current_stock,
-                    is_discontinued
-                FROM products
-                WHERE product_id = ?
-                LIMIT 1
-                FOR UPDATE
-                `,
+                'SELECT product_id, current_stock, selling_price, is_discontinued FROM products WHERE product_id = ? LIMIT 1 FOR UPDATE',
                 [productId]
             );
 
-            if (productRows.length === 0) {
+            if (productRows.length === 0 || Number(productRows[0].is_discontinued) === 1) {
                 skippedCount++;
-                errors.push(`Dòng ${i + 1}: sản phẩm ID ${productId} không tồn tại`);
+                errors.push(`Dòng ${i + 1}: Sản phẩm đã bị xóa hoặc ngừng kinh doanh.`);
                 continue;
             }
 
-            if (Number(productRows[0].is_discontinued) === 1) {
+            const price = unitPriceRaw === undefined || unitPriceRaw === null || unitPriceRaw === ''
+                ? Number(productRows[0].selling_price || 0)
+                : Number(unitPriceRaw);
+            if (Number.isNaN(price) || price < 0) {
                 skippedCount++;
-                errors.push(`Dòng ${i + 1}: sản phẩm ID ${productId} đã ngừng kinh doanh`);
+                errors.push(`Dòng ${i + 1}: Đơn giá bị sai.`);
                 continue;
             }
 
             const currentStock = Number(productRows[0].current_stock || 0);
-
             if (currentStock < qty) {
                 skippedCount++;
-                errors.push(`Dòng ${i + 1}: tồn kho không đủ cho sản phẩm ID ${productId}`);
+                errors.push(`Dòng ${i + 1}: Số lượng tồn kho không đủ để bán (Hiện còn: ${currentStock}).`);
                 continue;
             }
 
             const lineTotal = qty * price;
+            if (discountAmount > lineTotal) {
+                skippedCount++;
+                errors.push(`Dòng ${i + 1}: Giảm giá không được lớn hơn thành tiền.`);
+                continue;
+            }
             const transactionTotalAmount = Math.max(lineTotal - discountAmount, 0);
 
             const [transactionResult] = await connection.query(
-                `
-                INSERT INTO sales_transactions
-                    (
-                        transaction_code,
-                        transaction_date,
-                        total_amount,
-                        discount_amount
-                    )
-                VALUES (?, ?, ?, ?)
-                `,
-                [
-                    generateTransactionCode(),
-                    saleDate,
-                    transactionTotalAmount,
-                    discountAmount
-                ]
+                'INSERT INTO sales_transactions (transaction_code, transaction_date, total_amount, discount_amount) VALUES (?, ?, ?, ?)',
+                [generateTransactionCode(), saleDate, transactionTotalAmount, discountAmount]
             );
 
-            const transactionId = transactionResult.insertId;
-
-            await insertSaleDetail(
-                connection,
-                transactionId,
-                productId,
-                qty,
-                price,
-                lineTotal
-            );
-
-            await connection.query(
-                `
-                UPDATE products
-                SET current_stock = current_stock - ?
-                WHERE product_id = ?
-                `,
-                [qty, productId]
-            );
+            await insertSaleDetail(connection, transactionResult.insertId, productId, qty, price, lineTotal);
+            await connection.query('UPDATE products SET current_stock = current_stock - ? WHERE product_id = ?', [qty, productId]);
 
             insertedCount++;
         }
 
         await connection.commit();
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-        }
-
-        await safeLogAction(
-            getActorId(req),
-            'IMPORT_SALES',
-            `Import file CSV doanh số bán hàng: ${insertedCount} dòng thành công, ${skippedCount} dòng bỏ qua.`,
-            'sales_transactions',
-            null,
-            req.ip
-        );
+        await safeLogAction(getActorId(req), 'IMPORT_SALES', `Import CSV bán hàng thành công: ${insertedCount} dòng, lỗi: ${skippedCount} dòng.`, 'sales_transactions', null, req.ip);
 
         res.status(200).json({
             success: true,
@@ -660,23 +391,13 @@ exports.importSalesCSV = async (req, res) => {
             totalRows,
             importedRows: insertedCount,
             errorRows: skippedCount,
-            insertedCount,
-            skippedCount,
             errors
         });
     } catch (error) {
         await connection.rollback();
-
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-        }
-
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         console.error('Lỗi Backend importSalesCSV:', error);
-
-        res.status(500).json({
-            success: false,
-            message: 'Cấu trúc file CSV không hợp lệ hoặc lỗi kết nối Database.'
-        });
+        res.status(500).json({ success: false, message: 'Cấu trúc file CSV không hợp lệ hoặc lỗi hệ thống.' });
     } finally {
         connection.release();
     }

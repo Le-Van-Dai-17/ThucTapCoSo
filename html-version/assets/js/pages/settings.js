@@ -206,17 +206,16 @@ window.toggleSwitch = function (btn) {
 };
 
 window.resetToDefaults = async function () {
-    const ok = confirm('Bạn có chắc muốn khôi phục toàn bộ cấu hình về mặc định không?');
-    if (!ok) return;
-
-    try {
-        const result = await API.settings.reset();
-        applySettingsToForm(result.data || result);
-        showToast(result.message || 'Đã khôi phục cấu hình mặc định');
-    } catch (error) {
-        console.error('Lỗi reset settings:', error);
-        showToast(error.message || 'Không thể reset cấu hình', 'error');
-    }
+    showConfirmDialog('Bạn có chắc muốn khôi phục toàn bộ cấu hình về mặc định không?', async () => {
+        try {
+            await API.settings.reset();
+            alert('Cấu hình đã được khôi phục mặc định.');
+            loadSettings();
+        } catch (error) {
+            console.error('Reset error:', error);
+            alert('Không thể khôi phục mặc định: ' + error.message);
+        }
+    });
 };
 
 window.handleSaveSettings = async function (event) {

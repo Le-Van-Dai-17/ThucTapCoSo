@@ -8,7 +8,6 @@ lucide.createIcons();
 if (typeof Auth !== 'undefined') Auth.requireAuth();
 
 let allProducts = [];
-
 let editingId   = null;
 
 const searchInput    = document.getElementById('searchInput');
@@ -24,11 +23,11 @@ async function loadProducts() {
     try {
         const result = await API.products.getAll();
         allProducts  = result.data || result;
-        console.log(`✅ Loaded ${allProducts.length} products from backend.`);
+        console.log(`Loaded ${allProducts.length} products from backend.`);
     } catch (err) {
         console.warn('[Products] Backend error:', err.message);
         allProducts = []; // Xóa fallback sang MOCK_PRODUCTS
-        showToast('⚠️ Cannot load products from server.', 'error');
+        showToast('Cannot load products from server.', 'error');
     }
     renderTable();
 }
@@ -165,10 +164,10 @@ document.getElementById('addProductForm')?.addEventListener('submit', async func
     btn.disabled = true;
     btn.textContent = 'Adding...';
     try {
-        await API.products.create(payload);  // POST /api/products/create
+    
         closeAddModal();
         await loadProducts();
-        showToast('✅ Product added successfully!', 'success');
+        showToast('Product added successfully!', 'success');
     } catch (err) {
         if (errEl) { errEl.textContent = err.message || 'Failed to add product.'; errEl.classList.remove('hidden'); }
     } finally {
@@ -186,8 +185,13 @@ window.openEditModal = async function (id) {
     if (errEl) errEl.classList.add('hidden');
 
     try {
-        const result = await API.products.getById(id);  // GET /api/products/get/:id
-        const product = result.data || result;
+        let product;
+        if (!isUsingMock) {
+            const result = await API.products.getById(id);  // GET /api/products/get/:id
+            product = result.data || result;
+        } else {
+            product = allProducts.find(p => p.id === id);
+        }
         if (!product) { showToast('Product not found.', 'error'); return; }
 
         // Điền data vào form
@@ -246,7 +250,12 @@ document.getElementById('editProductForm')?.addEventListener('submit', async fun
     btn.disabled = true;
     btn.textContent = 'Saving...';
     try {
-        await API.products.update(editingId, payload);  // PUT /api/products/update/:id
+        if (!isUsingMock) {
+            await API.products.update(editingId, payload);  // PUT /api/products/update/:id
+        } else {
+            const idx = allProducts.findIndex(p => p.id === editingId);
+            if (idx !== -1) allProducts[idx] = { ...allProducts[idx], ...payload };
+        }
         closeEditModal();
         await loadProducts();
         showToast('✅ Product updated successfully!', 'success');
@@ -264,7 +273,7 @@ document.getElementById('editProductForm')?.addEventListener('submit', async fun
 window.deleteProduct = async function (id) {
     if (!confirm('Are you sure you want to delete this product?')) return;
     try {
-        await API.products.delete(id);  // DELETE /api/products/delete/:id
+        if (!isUsingMock) await API.products.delete(id);  // DELETE /api/products/delete/:id
         allProducts = allProducts.filter(p => p.id !== id);
         renderTable();
         showToast('✅ Product deleted.', 'success');

@@ -10,6 +10,20 @@ let backupProfile = {
 const fNameInput = document.getElementById('fullName');
 const userInp = document.getElementById('username');
 const mailInp = document.getElementById('email');
+const roleInp = document.getElementById('roleInp');
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof currentUser !== 'undefined' && currentUser) {
+        backupProfile.fullName = currentUser.full_name || currentUser.fullName || currentUser.username || "User";
+        backupProfile.username = currentUser.username || "user";
+        backupProfile.email = currentUser.email || "";
+        
+        fNameInput.value = backupProfile.fullName;
+        userInp.value = backupProfile.username;
+        mailInp.value = backupProfile.email;
+        if (roleInp) roleInp.value = currentUser.role || 'Guest';
+    }
+});
 
 window.toggleEditProfile = function() {
     isEditing = true;
