@@ -8,6 +8,18 @@ const Auth = {
         catch { return null; }
     },
     setUser(u)  { localStorage.setItem('forecastai_user', JSON.stringify(u)); },
+    getRole() {
+        const user = this.getUser();
+        return String(user?.role || user?.role_name || '').trim().toLowerCase();
+    },
+    hasRole(...roles) {
+        const currentRole = this.getRole();
+        return roles.some(role => String(role).trim().toLowerCase() === currentRole);
+    },
+    getHomePage() {
+        if (this.hasRole('admin')) return 'users.html';
+        return this.hasRole('staff') ? 'purchase-orders.html' : 'dashboard.html';
+    },
     clear() {
         localStorage.removeItem('forecastai_token');
         localStorage.removeItem('forecastai_user');
@@ -41,7 +53,7 @@ async function apiFetch(endpoint, options = {}, skipAuthRedirect = false) {
         const data = await res.json();
 
         // Token hết hạn → về login (nhưng KHÔNG làm vậy ở trang login)
-        if ((res.status === 401 || res.status === 403) && !skipAuthRedirect) {
+        if (res.status === 401 && !skipAuthRedirect) {
             Auth.clear();
             window.location.href = 'login.html';
             return null;
@@ -113,7 +125,8 @@ const API = {
         async create(data)  { return apiFetch('/purchases/create', { method: 'POST', body: JSON.stringify(data) }); },
         async update(id, data) { return apiFetch(`/purchases/update/${id}`, { method: 'PUT', body: JSON.stringify(data) }); },
         async delete(id)    { return apiFetch(`/purchases/delete/${id}`, { method: 'DELETE' }); },
-        async receive(id)   { return apiFetch(`/purchases/receive/${id}`, { method: 'PUT' }); }
+        async approve(id)   { return apiFetch(`/purchases/approve/${id}`, { method: 'PUT' }); },
+        async receive(id, data) { return apiFetch(`/purchases/receive/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
     },
 
     users: {
@@ -145,6 +158,54 @@ const API = {
         async getInventoryStatus() {
             const res = await apiFetch('/reports/inventory-status');
             return res.data;
+        },
+        async getSalesSummary() {
+            const res = await apiFetch('/reports/sales-summary');
+            return res.data;
+        },
+        async getTopProducts() {
+            const res = await apiFetch('/reports/top-products');
+            return res.data;
+        },
+        async getCategorySales() {
+            const res = await apiFetch('/reports/category-sales');
+            return res.data;
+        },
+        async getSalesTrend(days = 30) {
+            const res = await apiFetch(`/reports/sales-trend?days=${days}`);
+            return res.data;
+        },
+        async exportExcel() {
+            return fetch(`${API_BASE_URL}/reports/export/excel`, {
+                headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
+            }).then(res => {
+                if (res.status === 401) { Auth.logout(); return; }
+                if (res.status === 403) throw new Error('Ban khong co quyen thuc hien thao tac nay.');
+                if (!res.ok) throw new Error('Cannot download Excel');
+                return res.blob();
+            });
+        },
+        async exportPdf() {
+            return fetch(`${API_BASE_URL}/reports/export/pdf`, {
+                headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
+            }).then(res => {
+                if (res.status === 401) { Auth.logout(); return; }
+                if (res.status === 403) throw new Error('Ban khong co quyen thuc hien thao tac nay.');
+                if (!res.ok) throw new Error('Cannot download PDF');
+                return res.blob();
+            });
+        }
+    },
+
+    settings: {
+        async get() {
+            return apiFetch('/settings');
+        },
+        async update(data) {
+            return apiFetch('/settings', { method: 'PUT', body: JSON.stringify(data) });
+        },
+        async reset() {
+            return apiFetch('/settings/reset', { method: 'POST' });
         }
     }
 };

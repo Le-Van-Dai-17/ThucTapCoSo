@@ -78,6 +78,7 @@ router.post(
 router.get('/purchases/list', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff'), purchaseController.getPurchases);
 router.get('/purchases/detail/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff'), purchaseController.getPurchasesDetail);
 router.post('/purchases/create', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), purchaseController.createPurchase);
+router.put('/purchases/approve/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), purchaseController.approvePurchase);
 router.put('/purchases/receive/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff'), purchaseController.receiveOrder);
 router.put('/purchases/update/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), purchaseController.updatePurchase);
 router.delete('/purchases/delete/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), purchaseController.deletePurchase);
