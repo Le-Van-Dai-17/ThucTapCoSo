@@ -2,7 +2,7 @@ lucide.createIcons();
 
 // Đã đăng nhập rồi → không cần vào đây nữa
 if (typeof Auth !== 'undefined' && Auth.isLoggedIn()) {
-    window.location.href = 'dashboard.html';
+    window.location.href = typeof Auth.getHomePage === 'function' ? Auth.getHomePage() : 'dashboard.html';
 }
 
 // Toggle hiện/ẩn mật khẩu
