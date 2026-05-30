@@ -237,6 +237,7 @@ window.closeAddSaleModal = function () {
 // Tự động tính Total Amount khi thay đổi qty hoặc unit price
 document.getElementById('saleQty')?.addEventListener('input', calcTotal);
 document.getElementById('saleUnitPrice')?.addEventListener('input', calcTotal);
+document.getElementById('saleDiscount')?.addEventListener('input', calcTotal);
 document.getElementById('saleProductId')?.addEventListener('change', function () {
     const opt = this.options[this.selectedIndex];
     if (opt.dataset.price) {
@@ -248,8 +249,9 @@ document.getElementById('saleProductId')?.addEventListener('change', function ()
 function calcTotal() {
     const qty   = parseFloat(document.getElementById('saleQty')?.value) || 0;
     const price = parseFloat(document.getElementById('saleUnitPrice')?.value) || 0;
+    const discount = parseFloat(document.getElementById('saleDiscount')?.value) || 0;
     const total = document.getElementById('saleTotalAmount');
-    if (total) total.value = (qty * price).toFixed(2);
+    if (total) total.value = Math.max(0, (qty * price) - discount).toFixed(2);
 }
 
 document.getElementById('addSaleForm')?.addEventListener('submit', async function (e) {
@@ -260,13 +262,15 @@ document.getElementById('addSaleForm')?.addEventListener('submit', async functio
 
     const qty   = parseInt(document.getElementById('saleQty').value) || 0;
     const price = parseFloat(document.getElementById('saleUnitPrice').value) || 0;
+    const discount = parseFloat(document.getElementById('saleDiscount').value) || 0;
 
     const payload = {
         product_id:   parseInt(document.getElementById('saleProductId').value),
         sale_date:    document.getElementById('saleDate').value,
         quantity:     qty,
         unit_price:   price,
-        total_amount: parseFloat((qty * price).toFixed(2)),
+        discount_amount: discount,
+        total_amount: parseFloat(Math.max(0, (qty * price) - discount).toFixed(2)),
     };
 
     if (!payload.product_id || !payload.sale_date || qty <= 0 || price <= 0) {

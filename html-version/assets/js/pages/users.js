@@ -113,9 +113,12 @@ function renderTable() {
             const bgClass = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50';
             tr.className = `hover:bg-gray-50 transition-colors duration-150 ${bgClass}`;
 
-            const roleOptions = ['Admin', 'Manager', 'Staff'].map(r =>
-                `<option value="${r}" ${user.role === r ? 'selected' : ''}>${r}</option>`
-            ).join('');
+            const isAdmin = user.role === 'Admin';
+            const roleOptions = isAdmin
+                ? `<option value="Admin" selected>Admin</option>`
+                : ['Manager', 'Staff'].map(r =>
+                    `<option value="${r}" ${user.role === r ? 'selected' : ''}>${r}</option>`
+                ).join('');
 
             const badgeColor = getRoleBadgeColor(user.role);
             const isAct = user.status === 'active';
@@ -140,7 +143,8 @@ function renderTable() {
                 <td class="px-6 py-4">
                     <div class="flex justify-center">
                         <select onchange="changeRole(${user.id}, this.value)"
-                            class="px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border-2 border-transparent hover:border-gray-300 transition-all duration-200 ${badgeColor} outline-none"
+                            ${isAdmin ? 'disabled' : ''} title="${isAdmin ? 'Không thể đổi role của Admin' : ''}"
+                            class="px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border-2 border-transparent hover:border-gray-300 transition-all duration-200 ${badgeColor} outline-none ${isAdmin ? 'opacity-50 cursor-not-allowed' : ''}"
                             style="appearance:none;padding-right:28px;text-align:center;">
                             ${roleOptions}
                         </select>
@@ -148,8 +152,8 @@ function renderTable() {
                 </td>
                 <td class="px-6 py-4">
                     <div class="flex justify-center">
-                        <button onclick="toggleStatus(${user.id})"
-                            class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${toggleBg}">
+                        <button onclick="${isAdmin ? 'alert(\\\'Không thể khoá tài khoản Admin duy nhất.\\\')' : `toggleStatus(${user.id})`}"
+                            class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${toggleBg} ${isAdmin ? 'opacity-50 cursor-not-allowed' : ''}">
                             <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 shadow-sm ${toggleThumb}"></span>
                         </button>
                     </div>
@@ -162,12 +166,12 @@ function renderTable() {
                 </td>
                 <td class="px-6 py-4">
                     <div class="flex items-center justify-center gap-2">
-                        <button onclick="openEditModal(${user.id})"
-                            class="p-2 text-orange-500 hover:bg-orange-50 rounded-lg transition-all duration-150" title="Edit Profile">
+                        <button onclick="${isAdmin ? 'alert(\\\'Không thể sửa tài khoản Admin.\\\')' : `openEditModal(${user.id})`}"
+                            class="p-2 text-orange-500 hover:bg-orange-50 rounded-lg transition-all duration-150 ${isAdmin ? 'opacity-50 cursor-not-allowed' : ''}" title="Edit Profile">
                             <i data-lucide="edit" class="w-4 h-4"></i>
                         </button>
-                        <button onclick="prepareDelete(${user.id})"
-                            class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-150" title="Delete User">
+                        <button onclick="${isAdmin ? 'alert(\\\'Không thể xoá tài khoản Admin duy nhất.\\\')' : `prepareDelete(${user.id})`}"
+                            class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-150 ${isAdmin ? 'opacity-50 cursor-not-allowed' : ''}" title="Delete User">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
                     </div>

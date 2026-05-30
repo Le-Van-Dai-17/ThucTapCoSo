@@ -1,0 +1,17 @@
+﻿node_modules/
+backend/node_modules/
+.env
+backend/.env
+*.log
+npm-debug.log*
+
+__pycache__/
+*.pyc
+backend/ml/__pycache__/
+backend/ml/**/__pycache__/
+
+.DS_Store
+Thumbs.db
+
+backend/ml/models/*.pkl
+backend/ml/models/*.joblib

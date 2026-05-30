@@ -38,7 +38,17 @@ async function apiFetch(endpoint, options = {}, skipAuthRedirect = false) {
 
     try {
         const res = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
-        const data = await res.json();
+        
+        let data;
+        const textStr = await res.text();
+        try {
+            data = textStr ? JSON.parse(textStr) : {};
+        } catch(e) {
+            if (!res.ok) {
+                throw new Error(`Lỗi ${res.status}: Backend chưa hỗ trợ API này hoặc trả về HTML. Vui lòng báo cho BE.`);
+            }
+            data = {};
+        }
 
         // Token hết hạn → về login (nhưng KHÔNG làm vậy ở trang login)
         if ((res.status === 401 || res.status === 403) && !skipAuthRedirect) {
@@ -126,12 +136,31 @@ const API = {
         async delete(id)     { return apiFetch(`/users/delete/${id}`, { method: 'DELETE' }); }
     },
 
+    suppliers: {
+        async getAll() { 
+            const res = await apiFetch('/suppliers/list');
+            return res.data || res;
+        },
+        async create(data)     { return apiFetch('/suppliers/create',       { method: 'POST',   body: JSON.stringify(data) }); },
+        async update(id, data) { return apiFetch(`/suppliers/update/${id}`, { method: 'PUT',    body: JSON.stringify(data) }); },
+        async delete(id)       { return apiFetch(`/suppliers/delete/${id}`, { method: 'DELETE' }); }
+    },
+
     forecast: {
         async getLatest() { 
             const res = await apiFetch('/forecast/latest');
-            return res.data;
+            return res.data || res;
         },
-        async getByProduct(prodId) { throw new Error('BACKEND_OFFLINE'); }
+        async run() {
+            return apiFetch('/forecast/run', { method: 'POST' });
+        },
+        async getSaved() {
+            const res = await apiFetch('/forecast/saved');
+            return res.data || res;
+        },
+        async getByProduct(productId) {
+            return apiFetch(`/forecast/product/${productId}`);
+        }
     },
 
     activityLogs: {
