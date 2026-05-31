@@ -127,11 +127,7 @@ function renderTable() {
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                     ` : ''}
-                    ${canApprove ? `
-                    <button onclick="approveOrder(${order.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Approve Order">
-                        <i data-lucide="check-circle" class="w-4 h-4"></i>
-                    </button>
-                    ` : ''}
+
                     ${canReceive ? `
                     <button onclick="openConfirmReceive(${order.id})" class="p-2 text-gray-600 hover:text-[#10B981] hover:bg-green-50 rounded-lg transition-all" title="Confirm Receive">
                         <i data-lucide="package-check" class="w-4 h-4"></i>
