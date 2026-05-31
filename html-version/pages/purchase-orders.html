@@ -120,11 +120,13 @@
                     <label class="block text-sm font-semibold text-gray-800 mb-2">Add Products to Order</label>
                     <div class="grid grid-cols-12 gap-3 items-end">
                         <div class="col-span-6 relative group">
-                            <label class="block text-xs font-medium text-gray-500 mb-1">Product Name</label>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-medium text-gray-500">Product Name</label>
+                                <div id="productStockHint" class="text-xs font-medium text-[#2563EB]"></div>
+                            </div>
                             <input type="text" id="poItemProductName" list="productsDatalist" placeholder="Type product name..." 
                                 class="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#2563EB] bg-white text-sm transition-all" />
                             <datalist id="productsDatalist"></datalist>
-                            <div id="productStockHint" class="absolute right-2 top-8 text-xs font-medium text-[#2563EB]"></div>
                         </div>
                         <div class="col-span-3">
                             <label class="block text-xs font-medium text-gray-500 mb-1">Quantity</label>
