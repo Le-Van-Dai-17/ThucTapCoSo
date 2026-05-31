@@ -170,11 +170,11 @@ window.resetToDefaults = async function () {
     showConfirmDialog('Bạn có chắc muốn khôi phục toàn bộ cấu hình về mặc định không?', async () => {
         try {
             await API.settings.reset();
-            alert('Cấu hình đã được khôi phục mặc định.');
+            showToast('Cấu hình đã được khôi phục mặc định.', 'info');
             loadSettings();
         } catch (error) {
             console.error('Reset error:', error);
-            alert('Không thể khôi phục mặc định: ' + error.message);
+            showToast('Không thể khôi phục mặc định: ' + error.message, 'info');
         }
     });
 };

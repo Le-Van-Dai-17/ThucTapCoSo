@@ -113,7 +113,7 @@ window.handleSupplierSubmit = async function(e) {
         closeSupplierModal();
         await loadSuppliers();
     } catch (err) {
-        alert("Error saving supplier: " + err.message);
+        showToast("Error saving supplier: " + err.message, 'info');
     } finally {
         btn.disabled = false;
         btn.textContent = 'Save Supplier';
@@ -141,7 +141,7 @@ window.confirmDelete = async function() {
         closeDeleteModal();
         await loadSuppliers();
     } catch (err) {
-        alert("Cannot delete supplier: " + err.message);
+        showToast("Cannot delete supplier: " + err.message, 'info');
     }
 };
 

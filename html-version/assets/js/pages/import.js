@@ -64,7 +64,7 @@ function resetDropZoneUI() {
 function handleFiles(files) {
     const csvFiles = files.filter(f => f.type === "text/csv" || f.name.endsWith(".csv"));
     if (csvFiles.length === 0) {
-        alert("Please upload CSV files only.");
+        showToast("Please upload CSV files only.", 'info');
         return;
     }
 
@@ -228,12 +228,12 @@ uploadBtn.addEventListener('click', async () => {
 confirmBtn.addEventListener('click', () => {
     const successFiles = uploadedFiles.filter(f => f.status === "success");
     if (successFiles.length === 0) {
-        alert("No valid files to import. Please fix errors and try again.");
+        showToast("No valid files to import. Please fix errors and try again.", 'info');
         return;
     }
 
     const totalValid = successFiles.reduce((sum, f) => sum + f.validationResults.validRows, 0);
-    alert(`Successfully imported ${successFiles.length} file(s) with ${totalValid} valid rows.`);
+    showToast(`Successfully imported ${successFiles.length} file(s, 'info') with ${totalValid} valid rows.`);
     
     // Reset and redirect
     uploadedFiles = [];

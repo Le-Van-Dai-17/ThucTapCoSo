@@ -137,7 +137,8 @@ const API = {
         async delete(id)    { return apiFetch(`/purchases/delete/${id}`, { method: 'DELETE' }); },
         async approve(id)   { return apiFetch(`/purchases/approve/${id}`, { method: 'PUT' }); },
         async ship(id)      { return apiFetch(`/purchases/ship/${id}`, { method: 'PUT' }); },
-        async receive(id, data)   { return apiFetch(`/purchases/receive/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
+        async receive(id, data)   { return apiFetch(`/purchases/receive/${id}`, { method: 'PUT', body: JSON.stringify(data) }); },
+        async cancel(id)    { return apiFetch(`/purchases/cancel/${id}`, { method: 'PUT' }); }
     },
 
     users: {

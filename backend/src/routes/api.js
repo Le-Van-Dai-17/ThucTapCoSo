@@ -83,6 +83,7 @@ router.put('/purchases/ship/:id', authMiddleware.verifyToken, authMiddleware.req
 router.put('/purchases/receive/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff'), purchaseController.receiveOrder);
 router.put('/purchases/update/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), purchaseController.updatePurchase);
 router.delete('/purchases/delete/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), purchaseController.deletePurchase);
+router.put('/purchases/cancel/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), purchaseController.cancelPurchase);
 
 // ==========================================
 // 7. FORECAST API — Chỉ dành cho Manager [BE-01]

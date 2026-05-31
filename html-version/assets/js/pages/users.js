@@ -152,7 +152,7 @@ function renderTable() {
                 </td>
                 <td class="px-6 py-4">
                     <div class="flex justify-center">
-                        <button onclick="${isAdmin ? 'alert(\\\'Không thể khoá tài khoản Admin duy nhất.\\\')' : `toggleStatus(${user.id})`}"
+                        <button onclick="${isAdmin ? 'showToast(\'Không thể khoá tài khoản Admin duy nhất.\', \'info\')' : `toggleStatus(${user.id})`}"
                             class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${toggleBg} ${isAdmin ? 'opacity-50 cursor-not-allowed' : ''}">
                             <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 shadow-sm ${toggleThumb}"></span>
                         </button>
@@ -166,11 +166,11 @@ function renderTable() {
                 </td>
                 <td class="px-6 py-4">
                     <div class="flex items-center justify-center gap-2">
-                        <button onclick="${isAdmin ? 'alert(\\\'Không thể sửa tài khoản Admin.\\\')' : `openEditModal(${user.id})`}"
+                        <button onclick="${isAdmin ? 'showToast(\'Không thể sửa tài khoản Admin.\', \'info\')' : `openEditModal(${user.id})`}"
                             class="p-2 text-orange-500 hover:bg-orange-50 rounded-lg transition-all duration-150 ${isAdmin ? 'opacity-50 cursor-not-allowed' : ''}" title="Edit Profile">
                             <i data-lucide="edit" class="w-4 h-4"></i>
                         </button>
-                        <button onclick="${isAdmin ? 'alert(\\\'Không thể xoá tài khoản Admin duy nhất.\\\')' : `prepareDelete(${user.id})`}"
+                        <button onclick="${isAdmin ? 'showToast(\'Không thể xoá tài khoản Admin duy nhất.\', \'info\')' : `prepareDelete(${user.id})`}"
                             class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-150 ${isAdmin ? 'opacity-50 cursor-not-allowed' : ''}" title="Delete User">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>

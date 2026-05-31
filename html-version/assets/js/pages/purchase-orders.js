@@ -115,7 +115,7 @@ function renderTable() {
                         <i data-lucide="file-text" class="w-4 h-4"></i>
                     </button>
                     ${canApprove ? `
-                    <button onclick="approveOrder(${order.id})" class="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all" title="Approve Plan">
+                    <button onclick="openActionModal(${order.id}, 'approve')" class="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all" title="Approve Plan">
                         <i data-lucide="check-circle" class="w-4 h-4"></i>
                     </button>
                     ` : ''}
@@ -123,18 +123,22 @@ function renderTable() {
                     <button onclick="editOrder(${order.id})" class="p-2 text-gray-600 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all" title="Edit Order">
                         <i data-lucide="edit" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="openConfirmDelete(${order.id})" class="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Delete Order">
+                    <button onclick="openActionModal(${order.id}, 'delete')" class="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Delete Order">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                     ` : ''}
-
+                    ${order.status.toLowerCase() !== 'received' && order.status.toLowerCase() !== 'cancelled' && canEdit ? `
+                    <button onclick="openActionModal(${order.id}, 'cancel')" class="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Cancel Order">
+                        <i data-lucide="x-circle" class="w-4 h-4"></i>
+                    </button>
+                    ` : ''}
                     ${canReceive ? `
                     <button onclick="openConfirmReceive(${order.id})" class="p-2 text-gray-600 hover:text-[#10B981] hover:bg-green-50 rounded-lg transition-all" title="Confirm Receive">
                         <i data-lucide="package-check" class="w-4 h-4"></i>
                     </button>
                     ` : ''}
                     ${canShip ? `
-                    <button onclick="shipOrder(${order.id})" class="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-all" title="Mark as Shipped">
+                    <button onclick="openActionModal(${order.id}, 'ship')" class="p-2 text-yellow-600 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-all" title="Mark as Shipped">
                         <i data-lucide="truck" class="w-4 h-4"></i>
                     </button>
                     ` : ''}
@@ -529,7 +533,7 @@ document.getElementById('addPOItemBtn')?.addEventListener('click', function() {
     const quantity = parseInt(qtyInput.value) || 0;
     
     if (!productName || quantity <= 0) {
-        alert('Invalid product name or quantity!');
+        showToast('Invalid product name or quantity!', 'info');
         return;
     }
 

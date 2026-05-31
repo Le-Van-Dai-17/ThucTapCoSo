@@ -94,7 +94,7 @@ btnRunForecast.addEventListener('click', async () => {
         showToast('Forecast generation completed successfully!', 'success');
         await loadForecasts();
     } catch (err) {
-        alert("Failed to run forecast: " + err.message);
+        showToast("Failed to run forecast: " + err.message, 'info');
     } finally {
         loadingModalOverlay.classList.add('hidden');
         loadingModalOverlay.classList.remove('overlay-enter', 'overlay-enter-active');

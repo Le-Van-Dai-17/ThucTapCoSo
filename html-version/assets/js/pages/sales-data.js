@@ -301,7 +301,7 @@ window.handleImportCSV = async function(event) {
     // Tìm thẻ input chọn file CSV trên giao diện HTML
     const fileInput = document.getElementById('csvFileInput');
     if (!fileInput || fileInput.files.length === 0) {
-        alert('Vui lòng chọn một file dữ liệu định dạng .csv trước khi bấm Import!');
+        showToast('Vui lòng chọn một file dữ liệu định dạng .csv trước khi bấm Import!', 'info');
         return;
     }
 
@@ -318,15 +318,15 @@ window.handleImportCSV = async function(event) {
         const response = await API.sales.importCSV(file);
         
         if (response.success) {
-            alert('✅ ' + response.message);
+            showToast('✅ ' + response.message, 'info');
             // Cập nhật lại bảng dữ liệu động lập tức
             await loadSalesData();
         } else {
-            alert('Lỗi khi import file: ' + response.message);
+            showToast('Lỗi khi import file: ' + response.message, 'info');
         }
     } catch (error) {
         console.error('Lỗi kết nối API Import:', error);
-        alert('Không thể kết nối đến máy chủ: ' + error.message);
+        showToast('Không thể kết nối đến máy chủ: ' + error.message, 'info');
     } finally {
         if (importBtn) {
             importBtn.disabled = false;

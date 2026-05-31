@@ -58,7 +58,7 @@ document.getElementById('loginForm').addEventListener('submit', async function (
             } else if (role === 'Staff') {
                 window.location.href = 'purchase-orders.html';
             } else {
-                alert('Tài khoản chưa được phân quyền hợp lệ.');
+                showToast('Tài khoản chưa được phân quyền hợp lệ.', 'info');
                 Auth.clear();
                 window.location.href = 'login.html';
             }
@@ -85,6 +85,6 @@ function showLoginError(box, msg) {
         box.textContent = msg;
         box.classList.remove('hidden');
     } else {
-        alert(msg);
+        showToast(msg, 'info');
     }
 }

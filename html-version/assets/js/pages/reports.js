@@ -44,7 +44,7 @@ async function downloadReport(type) {
         window.URL.revokeObjectURL(url);
     } catch (error) {
         console.error('Download report error:', error);
-        alert('Không thể tải báo cáo. Vui lòng kiểm tra backend.');
+        showToast('Không thể tải báo cáo. Vui lòng kiểm tra backend.', 'info');
     }
 }
 
@@ -65,7 +65,7 @@ function showError(message) {
         return;
     }
 
-    alert(message);
+    showToast(message, 'info');
 }
 
 function hideError() {

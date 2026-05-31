@@ -42,20 +42,21 @@
 </div>
 
     <!-- Confirm Delete Modal -->
-    <div id="confirmDeleteOverlay" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden overlay-enter">
-        <div id="confirmDeleteModal" class="bg-white rounded-[16px] p-8 max-w-md w-full shadow-xl modal-enter" onclick="event.stopPropagation()">
+    <!-- Generic Confirm Action Modal -->
+    <div id="confirmActionOverlay" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden overlay-enter" onclick="closeConfirmAction()">
+        <div id="confirmActionModal" class="bg-white rounded-[16px] p-8 max-w-md w-full shadow-xl modal-enter" onclick="event.stopPropagation()">
             <div class="flex items-center gap-4 mb-4">
-                <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                    <i data-lucide="trash-2" class="w-6 h-6 text-red-600"></i>
+                <div id="confirmActionIconBg" class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                    <i id="confirmActionIcon" data-lucide="alert-triangle" class="w-6 h-6 text-red-600"></i>
                 </div>
-                <h3 class="text-xl font-semibold text-gray-900">Delete Order</h3>
+                <h3 id="confirmActionTitle" class="text-xl font-semibold text-gray-900">Confirm Action</h3>
             </div>
-            <p class="text-gray-600 mb-6">
-                Are you sure you want to delete this purchase order? This action is permanent and cannot be undone.
+            <p id="confirmActionDesc" class="text-gray-600 mb-6">
+                Are you sure you want to proceed?
             </p>
             <div class="flex items-center gap-3">
-                <button onclick="closeConfirmDelete()" class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium">Cancel</button>
-                <button id="btnProceedDelete" class="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-medium shadow-sm">Yes, Delete</button>
+                <button onclick="closeConfirmAction()" class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium">Cancel</button>
+                <button id="btnProceedAction" class="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-medium shadow-sm">Confirm</button>
             </div>
         </div>
     </div>

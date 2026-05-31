@@ -182,7 +182,7 @@ const displayRole = currentUser ? currentUser.role : 'Guest';
     const allowedPages = ROLE_PERMISSIONS[displayRole] || [];
 
     if (!allowedPages.includes(currentPage)) {
-        alert('Bạn không có quyền truy cập trang này. Vui lòng đăng nhập lại.');
+        showToast('Bạn không có quyền truy cập trang này. Vui lòng đăng nhập lại.', 'info');
 
         if (typeof Auth !== 'undefined' && typeof Auth.clear === 'function') {
             Auth.clear();
