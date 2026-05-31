@@ -127,7 +127,7 @@ function renderTable() {
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                     ` : ''}
-                    ${order.status.toLowerCase() !== 'received' && order.status.toLowerCase() !== 'cancelled' && canEdit ? `
+                    ${(order.status || '').toLowerCase() !== 'received' && (order.status || '').toLowerCase() !== 'cancelled' && canEdit ? `
                     <button onclick="openActionModal(${order.id}, 'cancel')" class="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Cancel Order">
                         <i data-lucide="x-circle" class="w-4 h-4"></i>
                     </button>

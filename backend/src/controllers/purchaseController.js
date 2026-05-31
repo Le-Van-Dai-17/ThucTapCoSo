@@ -339,201 +339,6 @@ exports.deletePurchase = async (req, res) => {
     const [orders] = await connection.query('SELECT * FROM purchase_orders WHERE po_id = ? FOR UPDATE', [id]);
     if (orders.length === 0) {
       await connection.rollback(); return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng' });
-};
-
-exports.getPurchasesDetail = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userRole = String(req.user?.role || '').trim().toLowerCase();
-
-    const [orders] = await pool.query('SELECT status FROM purchase_orders WHERE po_id = ? LIMIT 1', [id]);
-    if (orders.length === 0) return res.status(404).json({ success: false, message: 'Không tìm thấy đơn nhập hàng' });
-
-    const orderStatus = String(orders[0].status).trim().toLowerCase();
-    if (userRole === 'staff' && !['approved', 'shipped'].includes(orderStatus)) {
-      return res.status(403).json({ success: false, message: 'Bạn không có quyền xem chi tiết đơn nhập hàng ở trạng thái này.' });
-    }
-
-    const [details] = await pool.query(
-      `
-      SELECT
-        pi.po_item_id AS id, pi.po_item_id, pi.po_id, pi.product_id, p.sku, p.name AS product_name, p.unit,
-        pi.forecast_id, pi.forecasted_quantity, pi.ordered_quantity, pi.ordered_quantity AS quantity,
-        pi.received_quantity, pi.unit_cost, pi.unit_cost AS unit_price, pi.line_total, pi.line_total AS total_amount
-      FROM po_items pi
-      INNER JOIN products p ON pi.product_id = p.product_id
-      WHERE pi.po_id = ? ORDER BY pi.po_item_id ASC
-      `, [id]
-    );
-    res.status(200).json({ success: true, data: details });
-  } catch (error) {
-    console.error('Error fetching purchase details:', error);
-    res.status(500).json({ success: false, message: 'Lỗi lấy chi tiết đơn nhập hàng' });
-  }
-};
-
-// BE-04: API Phê duyệt đơn dành cho Manager
-exports.approvePurchase = async (req, res) => {
-  const { id } = req.params;
-  try {
-    const managerId = getActorId(req);
-    const [result] = await pool.query(
-      `UPDATE purchase_orders SET status = 'Approved', approved_by = ? WHERE po_id = ? AND status = 'Pending'`,
-      [managerId, id]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(400).json({ success: false, message: 'Không thể duyệt đơn. Đơn phải ở trạng thái Chờ duyệt (Pending).' });
-    }
-
-    await safeLogAction(managerId, 'APPROVE_PURCHASE_ORDER', `Manager phê duyệt đơn nhập hàng ID: ${id}`, 'purchase_orders', id, req.ip);
-    res.status(200).json({ success: true, message: 'Đơn nhập hàng đã được phê duyệt thành công!' });
-  } catch (error) {
-    console.error('Error approving purchase:', error);
-    res.status(500).json({ success: false, message: 'Lỗi hệ thống khi duyệt đơn hàng' });
-  }
-};
-
-// Thêm hàm chuyển trạng thái từ Approved sang Shipped
-exports.shipPurchase = async (req, res) => {
-  const { id } = req.params;
-  try {
-    const actorId = getActorId(req);
-    const [result] = await pool.query(
-      `UPDATE purchase_orders SET status = 'Shipped' WHERE po_id = ? AND status = 'Approved'`,
-      [id]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(400).json({ success: false, message: 'Chỉ có thể chuyển sang Đang giao (Shipped) khi đơn hàng đã được Duyệt (Approved).' });
-    }
-
-    await safeLogAction(actorId, 'SHIP_PURCHASE_ORDER', `Chuyển đơn hàng ID: ${id} sang trạng thái Đang giao`, 'purchase_orders', id, req.ip);
-    res.status(200).json({ success: true, message: 'Cập nhật trạng thái Đang giao thành công!' });
-  } catch (error) {
-    console.error('Error shipping purchase:', error);
-    res.status(500).json({ success: false, message: 'Lỗi hệ thống khi chuyển trạng thái Đang giao' });
-  }
-};
-
-// BE-03: Cho phép Staff truyền mảng items chứa số lượng thực nhận lên để kiểm kho thực tế
-exports.receiveOrder = async (req, res) => {
-  const { id } = req.params;
-  const { items } = req.body; // Cấu trúc mong đợi: items = [{ product_id: 1, received_quantity: 45 }]
-  
-  if (!items || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ success: false, message: 'Vui lòng truyền danh sách số lượng thực nhận của các sản phẩm.' });
-  }
-
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
-
-    const [orders] = await connection.query('SELECT * FROM purchase_orders WHERE po_id = ? FOR UPDATE', [id]);
-    if (orders.length === 0) {
-      await connection.rollback(); return res.status(404).json({ success: false, message: 'Không tìm thấy đơn nhập hàng này' });
-    }
-
-    const order = orders[0];
-    const currentStatus = normalizeStatus(order.status);
-
-    if (!['Approved', 'Shipped'].includes(currentStatus)) {
-      await connection.rollback();
-      return res.status(400).json({ success: false, message: 'Chỉ được xác nhận nhập kho với đơn đã được duyệt hoặc đang giao.' });
-    }
-
-    for (const item of items) {
-      const productId = item.product_id;
-      const receivedQuantity = Number(item.received_quantity);
-
-      if (!productId || Number.isNaN(receivedQuantity) || receivedQuantity < 0) {
-        await connection.rollback();
-        return res.status(400).json({ success: false, message: 'Số lượng thực nhận phải là số nguyên không âm hợp lệ.' });
-      }
-
-      // Cập nhật số lượng thực nhận thực tế do Staff nhập vào hệ thống bảng po_items
-      const [updateItem] = await connection.query(
-        'UPDATE po_items SET received_quantity = ? WHERE po_id = ? AND product_id = ?',
-        [receivedQuantity, id, productId]
-      );
-
-      if (updateItem.affectedRows > 0) {
-        // Tăng số lượng tồn kho vật lý tương ứng trong bảng products
-        await connection.query('UPDATE products SET current_stock = current_stock + ? WHERE product_id = ?', [receivedQuantity, productId]);
-      }
-    }
-
-    await connection.query("UPDATE purchase_orders SET status = 'Received', received_date = CURRENT_TIMESTAMP WHERE po_id = ?", [id]);
-    await connection.commit();
-
-    await safeLogAction(getActorId(req), 'RECEIVE_PURCHASE_ORDER', `Staff xác nhận nhập kho thực tế thành công cho đơn PO ID: ${id}`, 'purchase_orders', id, req.ip);
-    res.status(200).json({ success: true, message: 'Xác nhận nhập hàng thực tế và cập nhật tồn kho thành công' });
-  } catch (error) {
-    await connection.rollback(); console.error('Error receiving purchase:', error);
-    res.status(500).json({ success: false, message: 'Lỗi khi xử lý xác nhận nhập kho' });
-  } finally {
-    connection.release();
-  }
-};
-
-// BE-05: Chặn tuyệt đối không cho sửa đơn khi đã Approved / Shipped / Received
-exports.updatePurchase = async (req, res) => {
-  const { id } = req.params;
-  const connection = await pool.getConnection();
-  try {
-    const { supplier_id, supplier_name, status, expected_delivery_date, items } = req.body;
-    await connection.beginTransaction();
-
-    const [orders] = await connection.query('SELECT * FROM purchase_orders WHERE po_id = ? FOR UPDATE', [id]);
-    if (orders.length === 0) {
-      await connection.rollback(); return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng' });
-    }
-
-    const order = orders[0];
-    if (isLockedStatus(order.status)) {
-      await connection.rollback();
-      return res.status(400).json({ success: false, message: `Không thể chỉnh sửa đơn nhập hàng khi đã ở trạng thái: ${order.status}` });
-    }
-
-    const updates = []; const values = [];
-    if (supplier_id !== undefined || supplier_name !== undefined) {
-      const supplierId = await getSupplierId(connection, supplier_id, supplier_name);
-      updates.push('supplier_id = ?'); values.push(supplierId);
-    }
-    if (status !== undefined) {
-      updates.push('status = ?'); values.push(normalizeStatus(status));
-    }
-    if (expected_delivery_date !== undefined) {
-      updates.push('expected_delivery_date = ?'); values.push(expected_delivery_date || null);
-    }
-
-    if (updates.length > 0) {
-      values.push(id); await connection.query(`UPDATE purchase_orders SET ${updates.join(', ')} WHERE po_id = ?`, values);
-    }
-    if (items !== undefined) {
-      validateItems(items); await connection.query('DELETE FROM po_items WHERE po_id = ?', [id]); await insertPoItems(connection, id, items);
-    }
-
-    await connection.commit();
-    await safeLogAction(getActorId(req), 'UPDATE_PURCHASE_ORDER', `Cập nhật đơn nhập hàng ID: ${id}`, 'purchase_orders', id, req.ip);
-    res.status(200).json({ success: true, message: 'Cập nhật đơn hàng thành công' });
-  } catch (error) {
-    await connection.rollback(); console.error('Error updating purchase:', error);
-    res.status(500).json({ success: false, message: 'Lỗi cập nhật đơn hàng' });
-  } finally {
-    connection.release();
-  }
-};
-
-// BE-05: Chặn tuyệt đối không cho xóa đơn khi đã Approved / Shipped / Received
-exports.deletePurchase = async (req, res) => {
-  const { id } = req.params;
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
-    const [orders] = await connection.query('SELECT * FROM purchase_orders WHERE po_id = ? FOR UPDATE', [id]);
-    if (orders.length === 0) {
-      await connection.rollback(); return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng' });
     }
 
     const order = orders[0];
@@ -558,25 +363,25 @@ exports.cancelPurchase = async (req, res) => {
   const { id } = req.params;
   try {
     const [orders] = await pool.query('SELECT * FROM purchase_orders WHERE po_id = ?', [id]);
-    if (orders.length === 0) return res.status(404).json({ success: false, message: 'Kh�ng t�m th?y don h�ng' });
+    if (orders.length === 0) return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng' });
 
     const order = orders[0];
     const statusMap = { draft: 'Draft', pending: 'Pending', approved: 'Approved', shipped: 'Shipped', received: 'Received', completed: 'Received', cancelled: 'Cancelled', canceled: 'Cancelled' };
     const currentStatus = statusMap[String(order.status).toLowerCase()] || order.status;
 
     if (currentStatus === 'Received') {
-      return res.status(400).json({ success: false, message: 'Kh�ng th? h?y don h�ng d� nh?p kho' });
+      return res.status(400).json({ success: false, message: 'Không thể hủy đơn hàng đã nhập kho' });
     }
     if (currentStatus === 'Cancelled') {
-      return res.status(400).json({ success: false, message: '�on h�ng d� b? h?y tru?c d�' });
+      return res.status(400).json({ success: false, message: 'Đơn hàng đã bị hủy trước đó' });
     }
 
     await pool.query('UPDATE purchase_orders SET status = ? WHERE po_id = ?', ['Cancelled', id]);
-    await safeLogAction(getActorId(req), 'CANCEL_PURCHASE', 'H?y don nh?p h�ng ID: ' + id, 'purchase_orders', id, req.ip);
+    await safeLogAction(getActorId(req), 'CANCEL_PURCHASE', 'Hủy đơn nhập hàng ID: ' + id, 'purchase_orders', id, req.ip);
 
-    res.status(200).json({ success: true, message: '�� h?y don h�ng th�nh c�ng' });
+    res.status(200).json({ success: true, message: 'Đã hủy đơn hàng thành công' });
   } catch (error) {
     console.error('Error cancelling purchase:', error);
-    res.status(500).json({ success: false, message: 'L?i khi h?y don h�ng' });
+    res.status(500).json({ success: false, message: 'Lỗi khi hủy đơn hàng' });
   }
 };
