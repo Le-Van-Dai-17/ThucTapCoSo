@@ -168,9 +168,66 @@ function hideModal(overlayId, modalId) {
     modal.classList.add('modal-leave', 'modal-leave-active');
     setTimeout(() => overlay.classList.add('hidden'), 200);
 }
+// BE-04: HÀM PHÊ DUYỆT ĐƠN HÀNG DÀNH CHO MANAGER
+window.approveOrder = async function(id) {
+    if (!confirm('Are you sure you want to approve this purchase order plan?')) return;
+    try {
+        await API.orders.approve(id);
+        showToast('✅ Purchase order approved successfully!', 'success');
+        await loadOrders();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+};
 
+window.shipOrder = async function(id) {
+    if (!confirm('Are you sure you want to mark this order as Shipped?')) return;
+    try {
+        await API.orders.ship(id);
+        showToast('✅ Purchase order marked as Shipped!', 'success');
+        await loadOrders();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+};
+
+// BE-03: HIỂN THỊ DANH SÁCH Ô NHẬP ĐỂ STAFF ĐẾM KHO THỰC TẾ
+window.openConfirmReceive = async function(id) {
+    currentPOIdToReceive = id;
+    const container = document.getElementById('receiveItemsContainer');
+    if (container) container.innerHTML = '<p class="text-sm text-gray-400 py-2">Loading items for inventory count...</p>';
+    
+    showModal('confirmReceiveOverlay', 'confirmReceiveModal');
+    
+    try {
+        const res = await API.orders.getDetail(id);
+        const details = res.data || [];
+        window.receiveItemsData = details.map(d => ({
+            product_id: d.product_id,
+            product_name: d.product_name,
+            ordered_quantity: d.quantity || d.ordered_quantity || 0
+        }));
+        
+        if (container) {
+            if (window.receiveItemsData.length === 0) {
+                container.innerHTML = '<p class="text-sm text-gray-500">No products found in this order.</p>';
+            } else {
+                container.innerHTML = window.receiveItemsData.map((item, idx) => `
+                    <div class="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-200 mb-2">
+                        <div class="text-xs font-semibold text-gray-800 truncate max-w-[200px]" title="${item.product_name}">${item.product_name}</div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[11px] text-gray-400 font-mono">Ordered: ${item.ordered_quantity}</span>
+                            <input type="number" id="actualQtyInput_${idx}" min="0" value="${item.ordered_quantity}" 
+                                class="w-16 px-2 py-1 text-xs border-2 border-gray-200 rounded-lg text-right font-bold focus:outline-none focus:border-[#10B981]" />
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
     } catch (e) {
         if (container) container.innerHTML = '<p class="text-sm text-red-500">Failed to load items for verification.</p>';
+    }
+};
 window.closeConfirmReceive = function() {
     hideModal('confirmReceiveOverlay', 'confirmReceiveModal');
     currentPOIdToReceive = null;
@@ -345,15 +402,9 @@ window.editOrder = async function(id) {
         window.currentOrderItems = details.map(d => ({
             product_id: d.product_id,
             product_name: d.product_name,
-<<<<<<< HEAD
-            quantity: d.quantity,
-            received_quantity: d.received_quantity || 0,
-            unit_price: parseFloat(d.unit_price)
-=======
             quantity: d.quantity || d.ordered_quantity,
             received_quantity: d.received_quantity || 0,
             unit_price: parseFloat(d.unit_price || d.unit_cost || 0)
->>>>>>> origin/kit-backend
         }));
         renderSelectedItemsUI();
     } catch(e) {

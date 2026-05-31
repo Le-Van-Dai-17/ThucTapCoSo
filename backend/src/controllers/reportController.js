@@ -238,7 +238,7 @@ exports.exportPDF = async (req, res) => {
 // GET /api/reports/sales-trend?days=30
 exports.getSalesTrend = async (req, res) => {
     try {
-        const days = clampInteger(req.query.days, 30, 1, 365);
+        const days = clampInteger(req.query.days, 1, 365, 30);
         const [salesTrend] = await pool.query(`
             SELECT 
                 DATE(st.transaction_date) AS sale_date,
