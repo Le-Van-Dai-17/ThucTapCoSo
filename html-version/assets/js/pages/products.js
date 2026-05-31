@@ -261,16 +261,39 @@ document.getElementById('editProductForm')?.addEventListener('submit', async fun
 });
 
 // ============================================================
-// XÓA SẢN PHẨM (Kết nối API thật)
+// XÓA SẢN PHẨM (Sử dụng Custom Modal)
 // ============================================================
-window.deleteProduct = async function (id) {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+let deletingProductId = null;
+
+window.deleteProduct = function (id) {
+    deletingProductId = id;
+    const p = allProducts.find(x => x.id === id);
+    if (!p) return;
+    
+    document.getElementById('deleteProductName').textContent = p.name;
+    const modal = document.getElementById('deleteModalOverlay');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+};
+
+window.closeDeleteModal = function () {
+    const modal = document.getElementById('deleteModalOverlay');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    deletingProductId = null;
+};
+
+window.confirmDeleteProduct = async function () {
+    if (!deletingProductId) return;
+    const id = deletingProductId;
     try {
         await API.products.delete(id);
         allProducts = allProducts.filter(p => p.id !== id);
+        closeDeleteModal();
         renderTable();
-        showToast('✅ Product deleted.', 'success');
+        showToast('✅ Product deleted successfully.', 'success');
     } catch (err) {
+        closeDeleteModal();
         showToast('Delete failed: ' + err.message, 'error');
     }
 };

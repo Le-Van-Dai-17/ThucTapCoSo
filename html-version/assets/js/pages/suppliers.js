@@ -18,7 +18,7 @@ async function loadSuppliers() {
     if (tableBody) tableBody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-gray-500">Loading...</td></tr>`;
     try {
         const data = await API.suppliers.getAll();
-        suppliers = data || [];
+        suppliers = (data || []).map(s => ({ ...s, id: s.supplier_id || s.id }));
     } catch (error) {
         console.error("Failed to load suppliers:", error);
         suppliers = [];
