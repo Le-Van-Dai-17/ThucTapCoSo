@@ -205,49 +205,7 @@ INSERT INTO user_credentials (user_id, username, password_hash) VALUES
 (2, 'manager', '$2a$10$HhgoTX.GFAa7NVo.8JGYsuqif2NP0orznY7BnIiQMNTYm65/XQCiW'),
 (3, 'staff', '$2a$10$HhgoTX.GFAa7NVo.8JGYsuqif2NP0orznY7BnIiQMNTYm65/XQCiW');
 
-INSERT INTO categories (name, description) VALUES
-('Electronics', 'Thiết bị điện tử'),
-('Accessories', 'Phụ kiện công nghệ'),
-('Office', 'Thiết bị văn phòng');
 
-INSERT INTO suppliers (name, contact_name, phone, email, address, lead_time_days) VALUES
-('TechWorld Supplier', 'Nguyễn Văn A', '0911111111', 'sales@techworld.local', 'Hà Nội', 7),
-('SmartGear Distribution', 'Trần Thị B', '0922222222', 'contact@smartgear.local', 'Đà Nẵng', 10),
-('OfficePlus Wholesale', 'Lê Văn C', '0933333333', 'support@officeplus.local', 'TP. Hồ Chí Minh', 5);
-
-INSERT INTO products
-(sku, name, category_id, supplier_id, unit, cost_price, selling_price, current_stock, min_stock_level, max_stock_level, is_discontinued)
-VALUES
-('ELEC-HP-001', 'Wireless Bluetooth Headphones', 1, 1, 'piece', 300000, 450000, 25, 20, 300, FALSE),
-('ELEC-SW-002', 'Smart Watch Series 5', 1, 2, 'piece', 850000, 1200000, 18, 15, 200, FALSE),
-('ACC-LS-003', 'Laptop Stand Aluminum', 2, 2, 'piece', 150000, 250000, 95, 30, 400, FALSE),
-('OFF-KB-004', 'Mechanical Keyboard Pro', 3, 3, 'piece', 600000, 900000, 12, 15, 150, FALSE),
-('ACC-MO-005', 'Wireless Mouse Ergonomic', 2, 1, 'piece', 90000, 180000, 40, 25, 500, FALSE),
-('OFF-USB-006', 'USB-C Hub 7 in 1', 2, 3, 'piece', 250000, 390000, 8, 20, 200, FALSE);
-
-INSERT INTO sales_transactions (transaction_code, transaction_date, total_amount, discount_amount, created_by) VALUES
-('TXN-202601-001', '2026-01-05 09:10:00', 11460000, 0, 2),
-('TXN-202601-002', '2026-01-18 15:30:00', 14070000, 0, 2),
-('TXN-202602-001', '2026-02-07 10:25:00', 16740000, 0, 2),
-('TXN-202602-002', '2026-02-22 16:05:00', 16750000, 0, 2),
-('TXN-202603-001', '2026-03-08 11:15:00', 23460000, 0, 2),
-('TXN-202603-002', '2026-03-23 14:45:00', 21490000, 0, 2),
-('TXN-202604-001', '2026-04-10 09:40:00', 29640000, 0, 2),
-('TXN-202604-002', '2026-04-25 17:20:00', 25730000, 0, 2),
-('TXN-202605-001', '2026-05-07 13:05:00', 35100000, 0, 2),
-('TXN-202605-002', '2026-05-21 18:10:00', 32060000, 0, 2);
-
-INSERT INTO sale_details (transaction_id, product_id, quantity, unit_price, line_total) VALUES
-(1, 1, 10, 450000, 4500000), (1, 2, 4, 1200000, 4800000), (1, 5, 12, 180000, 2160000),
-(2, 3, 18, 250000, 4500000), (2, 4, 5, 900000, 4500000), (2, 6, 13, 390000, 5070000),
-(3, 1, 14, 450000, 6300000), (3, 2, 6, 1200000, 7200000), (3, 5, 18, 180000, 3240000),
-(4, 3, 22, 250000, 5500000), (4, 4, 6, 900000, 5400000), (4, 6, 15, 390000, 5850000),
-(5, 1, 20, 450000, 9000000), (5, 2, 8, 1200000, 9600000), (5, 5, 27, 180000, 4860000),
-(6, 3, 28, 250000, 7000000), (6, 4, 7, 900000, 6300000), (6, 6, 21, 390000, 8190000),
-(7, 1, 24, 450000, 10800000), (7, 2, 10, 1200000, 12000000), (7, 5, 38, 180000, 6840000),
-(8, 3, 32, 250000, 8000000), (8, 4, 8, 900000, 7200000), (8, 6, 27, 390000, 10530000),
-(9, 1, 30, 450000, 13500000), (9, 2, 12, 1200000, 14400000), (9, 5, 40, 180000, 7200000),
-(10, 3, 35, 250000, 8750000), (10, 4, 9, 900000, 8100000), (10, 6, 39, 390000, 15210000);
 
 INSERT INTO ml_models
 (version_tag, model_path, algorithm_type, training_date, hyperparameters, is_deployed, created_by)
@@ -267,19 +225,6 @@ VALUES
 (5, 1, '2026-05-22 09:00:00', '2026-06-01', 105, 89, 121, 65, 2),
 (6, 1, '2026-05-22 09:00:00', '2026-06-01', 87, 74, 100, 79, 2);
 
-INSERT INTO purchase_orders
-(po_code, supplier_id, created_by, approved_by, status, order_date, expected_delivery_date, received_date, total_value)
-VALUES
-('PO-202605-001', 1, 2, 2, 'Pending', '2026-05-22 10:00:00', '2026-05-29', NULL, 20850000),
-('PO-202605-002', 3, 2, 2, 'Received', '2026-05-15 09:00:00', '2026-05-20', '2026-05-20 16:00:00', 22200000);
-
-INSERT INTO po_items
-(po_id, product_id, forecast_id, forecasted_quantity, ordered_quantity, received_quantity, unit_cost, line_total)
-VALUES
-(1, 1, 1, 50, 50, 0, 300000, 15000000),
-(1, 5, 5, 65, 65, 0, 90000, 5850000),
-(2, 4, 4, 12, 15, 15, 600000, 9000000),
-(2, 6, 6, 79, 60, 60, 220000, 13200000);
 
 INSERT INTO activity_logs (user_id, action, entity_type, entity_id, description, ip_address, created_at) VALUES
 (1, 'CREATE_USER', 'users', 2, 'Admin tạo tài khoản Manager', '127.0.0.1', '2026-05-21 08:00:00'),
