@@ -173,27 +173,9 @@ function hideModal(overlayId, modalId) {
     setTimeout(() => overlay.classList.add('hidden'), 200);
 }
 // BE-04: HÀM PHÊ DUYỆT ĐƠN HÀNG DÀNH CHO MANAGER
-window.approveOrder = async function(id) {
-    if (!confirm('Are you sure you want to approve this purchase order plan?')) return;
-    try {
-        await API.orders.approve(id);
-        showToast('✅ Purchase order approved successfully!', 'success');
-        await loadOrders();
-    } catch (e) {
-        showToast(e.message, 'error');
-    }
-};
 
-window.shipOrder = async function(id) {
-    if (!confirm('Are you sure you want to mark this order as Shipped?')) return;
-    try {
-        await API.orders.ship(id);
-        showToast('✅ Purchase order marked as Shipped!', 'success');
-        await loadOrders();
-    } catch (e) {
-        showToast(e.message, 'error');
-    }
-};
+
+
 
 // BE-03: HIỂN THỊ DANH SÁCH Ô NHẬP ĐỂ STAFF ĐẾM KHO THỰC TẾ
 window.openConfirmReceive = async function(id) {
@@ -266,31 +248,9 @@ document.getElementById('btnProceedReceive')?.addEventListener('click', async ()
 });
 
 // DELETE MODAL
-window.openConfirmDelete = function(id) {
-    currentPOIdToDelete = id;
-    showModal('confirmDeleteOverlay', 'confirmDeleteModal');
-};
-window.closeConfirmDelete = function() {
-    hideModal('confirmDeleteOverlay', 'confirmDeleteModal');
-    currentPOIdToDelete = null;
-};
-document.getElementById('btnProceedDelete')?.addEventListener('click', async () => {
-    if (!currentPOIdToDelete) return;
-    const btn = document.getElementById('btnProceedDelete');
-    btn.disabled = true;
-    btn.textContent = 'Deleting...';
-    try {
-        await API.orders.delete(currentPOIdToDelete);
-        showToast('Purchase Order deleted!', 'success');
-        closeConfirmDelete();
-        await loadOrders();
-    } catch (e) {
-        showToast(e.message, 'error');
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Yes, Delete';
-    }
-});
+
+
+
 
 // VIEW INVOICE DETAIL
 window.viewDetail = async function (id) {
@@ -597,27 +557,104 @@ function formatDate(str) {
     return isNaN(d) ? str : d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-window.shipOrder = async function(id) {
-    if (!confirm('Xác nhận chuyển đơn hàng này sang trạng thái Đang giao (Shipped)?')) return;
-    try {
-        await API.orders.ship(id);
-        showToast('✅ Đơn hàng đã được chuyển sang trạng thái Đang giao (Shipped)!', 'success');
-        await loadOrders();
-    } catch (e) {
-        showToast(e.message, 'error');
+
+
+
+
+
+// ============================================================
+// GENERIC ACTION MODAL LOGIC
+// ============================================================
+let currentActionType = null;
+let currentActionId = null;
+
+window.openActionModal = function(id, type) {
+    currentActionId = id;
+    currentActionType = type;
+    
+    const titleEl = document.getElementById('confirmActionTitle');
+    const descEl = document.getElementById('confirmActionDesc');
+    const iconBg = document.getElementById('confirmActionIconBg');
+    const icon = document.getElementById('confirmActionIcon');
+    const btn = document.getElementById('btnProceedAction');
+    
+    if(!titleEl) return;
+
+    btn.className = 'flex-1 px-4 py-3 text-white rounded-xl transition-all font-medium shadow-sm ';
+    
+    if (type === 'delete') {
+        titleEl.textContent = 'Xóa đơn hàng';
+        descEl.textContent = 'Bạn có chắc chắn muốn xóa đơn hàng này? Hành động này không thể hoàn tác.';
+        iconBg.className = 'w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center';
+        icon.className = 'w-6 h-6 text-red-600';
+        icon.setAttribute('data-lucide', 'trash-2');
+        btn.textContent = 'Xóa đơn hàng';
+        btn.classList.add('bg-red-600', 'hover:bg-red-700');
+    } else if (type === 'cancel') {
+        titleEl.textContent = 'Hủy đơn hàng';
+        descEl.textContent = 'Bạn có chắc chắn muốn hủy đơn hàng này?';
+        iconBg.className = 'w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center';
+        icon.className = 'w-6 h-6 text-red-600';
+        icon.setAttribute('data-lucide', 'x-circle');
+        btn.textContent = 'Hủy đơn hàng';
+        btn.classList.add('bg-red-600', 'hover:bg-red-700');
+    } else if (type === 'approve') {
+        titleEl.textContent = 'Duyệt đơn hàng';
+        descEl.textContent = 'Bạn có chắc chắn muốn duyệt đơn hàng này?';
+        iconBg.className = 'w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center';
+        icon.className = 'w-6 h-6 text-purple-600';
+        icon.setAttribute('data-lucide', 'check-circle');
+        btn.textContent = 'Duyệt đơn hàng';
+        btn.classList.add('bg-purple-600', 'hover:bg-purple-700');
+    } else if (type === 'ship') {
+        titleEl.textContent = 'Giao hàng';
+        descEl.textContent = 'Xác nhận chuyển trạng thái đơn hàng sang Đang giao (Shipped)?';
+        iconBg.className = 'w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center';
+        icon.className = 'w-6 h-6 text-yellow-600';
+        icon.setAttribute('data-lucide', 'truck');
+        btn.textContent = 'Đang giao';
+        btn.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
     }
+    
+    showModal('confirmActionOverlay', 'confirmActionModal');
+    if(window.lucide) window.lucide.createIcons();
 };
 
-window.approveOrder = async function(id) {
-    if (!confirm('Xác nhận duyệt đơn hàng này?')) return;
+window.closeConfirmAction = function() {
+    hideModal('confirmActionOverlay', 'confirmActionModal');
+    currentActionId = null;
+    currentActionType = null;
+};
+
+document.getElementById('btnProceedAction')?.addEventListener('click', async () => {
+    if (!currentActionId || !currentActionType) return;
+    const btn = document.getElementById('btnProceedAction');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Đang xử lý...';
     try {
-        await API.orders.approve(id);
-        showToast('✅ Đơn hàng đã được duyệt (Approved)!', 'success');
+        if (currentActionType === 'delete') {
+            await API.orders.delete(currentActionId);
+            showToast('Đã xóa đơn hàng!', 'success');
+        } else if (currentActionType === 'cancel') {
+            await API.orders.cancel(currentActionId);
+            showToast('Đã hủy đơn hàng!', 'success');
+        } else if (currentActionType === 'approve') {
+            await API.orders.approve(currentActionId);
+            showToast('Đã duyệt đơn hàng!', 'success');
+        } else if (currentActionType === 'ship') {
+            await API.orders.ship(currentActionId);
+            showToast('Đã chuyển trạng thái Đang giao!', 'success');
+        }
+        closeConfirmAction();
         await loadOrders();
     } catch (e) {
         showToast(e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
     }
-};
+});
 
 if (statusFilter) statusFilter.addEventListener('change', renderTable);
 loadOrders();
