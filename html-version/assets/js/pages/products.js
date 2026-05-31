@@ -16,7 +16,7 @@ const tableBody      = document.getElementById('tableBody');
 const statsCards     = document.getElementById('statsCards');
 
 // ============================================================
-// LOAD dữ liệu
+// LOAD dữ liệu từ API thật
 // ============================================================
 async function loadProducts() {
     showLoading('tableBody');
@@ -26,7 +26,7 @@ async function loadProducts() {
         console.log(`Loaded ${allProducts.length} products from backend.`);
     } catch (err) {
         console.warn('[Products] Backend error:', err.message);
-        allProducts = []; // Xóa fallback sang MOCK_PRODUCTS
+        allProducts = []; 
         showToast('Cannot load products from server.', 'error');
     }
     renderTable();
@@ -121,7 +121,7 @@ function renderTable() {
 }
 
 // ============================================================
-// FE-01: ADD PRODUCT MODAL
+// FE-01: ADD PRODUCT MODAL (Đã vá lỗi nạp API vào DB)
 // ============================================================
 window.openAddModal = function () {
     document.getElementById('addProductForm').reset();
@@ -165,7 +165,8 @@ document.getElementById('addProductForm')?.addEventListener('submit', async func
     btn.disabled = true;
     btn.textContent = 'Adding...';
     try {
-    
+        // GỌI API ĐỂ LƯU SẢN PHẨM THẬT VÀO BACKEND DATABASE
+        await API.products.create(payload);
         closeAddModal();
         await loadProducts();
         showToast('Product added successfully!', 'success');
@@ -178,7 +179,7 @@ document.getElementById('addProductForm')?.addEventListener('submit', async func
 });
 
 // ============================================================
-// FE-02: EDIT PRODUCT MODAL
+// FE-02: EDIT PRODUCT MODAL (Đã dọn sạch đống dữ liệu giả Mock)
 // ============================================================
 window.openEditModal = async function (id) {
     editingId = id;
@@ -186,16 +187,12 @@ window.openEditModal = async function (id) {
     if (errEl) errEl.classList.add('hidden');
 
     try {
-        let product;
-        if (!isUsingMock) {
-            const result = await API.products.getById(id);  // GET /api/products/get/:id
-            product = result.data || result;
-        } else {
-            product = allProducts.find(p => p.id === id);
-        }
+        // Gọi thẳng vào API endpoint lấy dữ liệu trực tiếp từ DB
+        const result = await API.products.getById(id);
+        const product = result.data || result;
+        
         if (!product) { showToast('Product not found.', 'error'); return; }
 
-        // Điền data vào form
         const s = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val ?? ''; };
         s('editSku',          product.sku);
         s('editName',         product.name);
@@ -204,7 +201,7 @@ window.openEditModal = async function (id) {
         s('editSellingPrice', product.selling_price);
         s('editCostPrice',    product.cost_price);
         s('editStock',        product.current_stock);
-        s('editMinStock',     product.min_stock);
+        s('editMinStock',     product.min_stock_level || product.min_stock);
         s('editStatus',       product.status);
 
         const modal = document.getElementById('editModalOverlay');
@@ -251,12 +248,7 @@ document.getElementById('editProductForm')?.addEventListener('submit', async fun
     btn.disabled = true;
     btn.textContent = 'Saving...';
     try {
-        if (!isUsingMock) {
-            await API.products.update(editingId, payload);  // PUT /api/products/update/:id
-        } else {
-            const idx = allProducts.findIndex(p => p.id === editingId);
-            if (idx !== -1) allProducts[idx] = { ...allProducts[idx], ...payload };
-        }
+        await API.products.update(editingId, payload);
         closeEditModal();
         await loadProducts();
         showToast('✅ Product updated successfully!', 'success');
@@ -269,12 +261,12 @@ document.getElementById('editProductForm')?.addEventListener('submit', async fun
 });
 
 // ============================================================
-// XÓA SẢN PHẨM
+// XÓA SẢN PHẨM (Kết nối API thật)
 // ============================================================
 window.deleteProduct = async function (id) {
     if (!confirm('Are you sure you want to delete this product?')) return;
     try {
-        if (!isUsingMock) await API.products.delete(id);  // DELETE /api/products/delete/:id
+        await API.products.delete(id);
         allProducts = allProducts.filter(p => p.id !== id);
         renderTable();
         showToast('✅ Product deleted.', 'success');
@@ -283,9 +275,6 @@ window.deleteProduct = async function (id) {
     }
 };
 
-// ============================================================
-// EVENT LISTENERS
-// ============================================================
 if (searchInput)    searchInput.addEventListener('input', renderTable);
 if (categoryFilter) categoryFilter.addEventListener('change', renderTable);
 

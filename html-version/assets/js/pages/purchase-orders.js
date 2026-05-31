@@ -57,6 +57,7 @@ function renderStats() {
     const received  = allOrders.filter(o => o.status === 'received' || o.status === 'completed').length;
     const totalVal  = allOrders.reduce((s, o) => s + o.total_amount, 0);
 
+    if (!statsCardsContainer) return;
     statsCardsContainer.innerHTML = `
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div class="text-sm text-gray-500 mb-1">Total Orders</div>
@@ -80,6 +81,7 @@ function renderTable() {
     const filter   = statusFilter?.value || 'all';
     const filtered = filter === 'all' ? allOrders : allOrders.filter(o => o.status === filter);
 
+    if (!tableBody) return;
     tableBody.innerHTML = '';
     if (filtered.length === 0) {
         if (emptyState) emptyState.classList.remove('hidden');
@@ -91,10 +93,10 @@ function renderTable() {
         const bgClass   = i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50';
         const cfg       = statusConfig[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-700' };
         const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
-        const canEdit = !isStaff && order.status !== 'received' && order.status !== 'cancelled';
-        const canReceive = order.status === 'approved' || order.status === 'shipped';
+        const canEdit = !isStaff && !['approved', 'shipped', 'received', 'completed', 'cancelled'].includes(order.status);
         const canApprove = !isStaff && order.status === 'pending';
         const canShip = !isStaff && order.status === 'approved';
+        const canReceive = order.status === 'approved' || order.status === 'shipped';
         const createdAt = order.created_at || order.order_date;
 
         const tr = document.createElement('tr');
@@ -109,9 +111,14 @@ function renderTable() {
             <td class="px-6 py-4 text-right"><span class="font-semibold text-gray-900">${formatCurrency(order.total_amount)}</span></td>
             <td class="px-6 py-4">
                 <div class="flex items-center justify-center gap-2">
-                    <button onclick="viewDetail(${order.id})" class="p-2 text-gray-600 hover:text-[#2563EB] hover:bg-blue-50 rounded-lg transition-all" title="View Invoice">
+                    <button onclick="viewDetail(${order.id})" class="p-2 text-gray-600 hover:text-[#2563EB] hover:bg-blue-50 rounded-lg transition-all" title="View Details">
                         <i data-lucide="file-text" class="w-4 h-4"></i>
                     </button>
+                    ${canApprove ? `
+                    <button onclick="approveOrder(${order.id})" class="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all" title="Approve Plan">
+                        <i data-lucide="check-circle" class="w-4 h-4"></i>
+                    </button>
+                    ` : ''}
                     ${canEdit ? `
                     <button onclick="editOrder(${order.id})" class="p-2 text-gray-600 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all" title="Edit Order">
                         <i data-lucide="edit" class="w-4 h-4"></i>
@@ -148,6 +155,7 @@ function renderTable() {
 function showModal(overlayId, modalId) {
     const overlay = document.getElementById(overlayId);
     const modal = document.getElementById(modalId);
+    if (!overlay || !modal) return;
     overlay.classList.remove('hidden');
     overlay.classList.remove('overlay-leave', 'overlay-leave-active');
     overlay.classList.add('overlay-enter', 'overlay-enter-active');
@@ -157,6 +165,7 @@ function showModal(overlayId, modalId) {
 function hideModal(overlayId, modalId) {
     const overlay = document.getElementById(overlayId);
     const modal = document.getElementById(modalId);
+    if (!overlay || !modal) return;
     overlay.classList.remove('overlay-enter', 'overlay-enter-active');
     overlay.classList.add('overlay-leave', 'overlay-leave-active');
     modal.classList.remove('modal-enter', 'modal-enter-active');
@@ -164,79 +173,31 @@ function hideModal(overlayId, modalId) {
     setTimeout(() => overlay.classList.add('hidden'), 200);
 }
 
-// RECEIVE MODAL
-window.openConfirmReceive = async function(id) {
-    currentPOIdToReceive = id;
-    
-    const listUI = document.getElementById('receiveItemsList');
-    if (listUI) listUI.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-gray-500">Loading items...</td></tr>';
-    showModal('confirmReceiveOverlay', 'confirmReceiveModal');
-
-    try {
-        const res = await API.orders.getDetail(id);
-        const details = res.data || [];
-        
-        window.receiveOrderItems = details.map(d => ({
-            product_id: d.product_id,
-            product_name: d.product_name,
-            quantity: d.quantity,
-            received_quantity: d.quantity
-        }));
-        
-        renderReceiveItems();
     } catch (e) {
-        if (listUI) listUI.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-red-500">Failed to load items</td></tr>';
-    }
-};
-
-window.renderReceiveItems = function() {
-    const listUI = document.getElementById('receiveItemsList');
-    if (!listUI) return;
-
-    if (!window.receiveOrderItems || window.receiveOrderItems.length === 0) {
-        listUI.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-gray-500">No items found</td></tr>';
-        return;
-    }
-    
-    listUI.innerHTML = window.receiveOrderItems.map((item, index) => `
-        <tr class="hover:bg-gray-50 transition-colors">
-            <td class="px-4 py-3 border-b text-gray-900">${item.product_name}</td>
-            <td class="px-4 py-3 border-b text-center font-medium text-gray-700">${item.quantity}</td>
-            <td class="px-4 py-3 border-b text-center">
-                <input type="number" min="0" value="${item.received_quantity}" onchange="updateReceiveItem(${index}, this.value)" 
-                    class="w-20 px-2 py-1.5 text-center border-2 border-gray-200 rounded-lg focus:outline-none focus:border-[#10B981] transition-colors">
-            </td>
-        </tr>
-    `).join('');
-};
-
-window.updateReceiveItem = function(index, value) {
-    const val = parseInt(value) || 0;
-    if (window.receiveOrderItems && window.receiveOrderItems[index]) {
-        window.receiveOrderItems[index].received_quantity = val >= 0 ? val : 0;
-    }
-};
-
+        if (container) container.innerHTML = '<p class="text-sm text-red-500">Failed to load items for verification.</p>';
 window.closeConfirmReceive = function() {
     hideModal('confirmReceiveOverlay', 'confirmReceiveModal');
     currentPOIdToReceive = null;
-    window.receiveOrderItems = [];
+    window.receiveItemsData = null;
 };
 
-document.getElementById('btnProceedReceive').addEventListener('click', async () => {
-    if (!currentPOIdToReceive) return;
+document.getElementById('btnProceedReceive')?.addEventListener('click', async () => {
+    if (!currentPOIdToReceive || !window.receiveItemsData) return;
     const btn = document.getElementById('btnProceedReceive');
     btn.disabled = true;
     btn.textContent = 'Processing...';
     try {
-        const payload = {
-            items: (window.receiveOrderItems || []).map(item => ({
+        const payloadItems = window.receiveItemsData.map((item, idx) => {
+            const inputEl = document.getElementById(`actualQtyInput_${idx}`);
+            const val = inputEl ? parseInt(inputEl.value) : item.ordered_quantity;
+            return {
                 product_id: item.product_id,
-                received_quantity: item.received_quantity
-            }))
-        };
-        await API.orders.receive(currentPOIdToReceive, payload);
-        showToast('✅ Inventory successfully updated!', 'success');
+                received_quantity: isNaN(val) || val < 0 ? 0 : val
+            };
+        });
+
+        await API.orders.receive(currentPOIdToReceive, { items: payloadItems });
+        showToast('✅ Inventory successfully updated with actual count!', 'success');
         closeConfirmReceive();
         await loadOrders();
     } catch (e) {
@@ -256,7 +217,7 @@ window.closeConfirmDelete = function() {
     hideModal('confirmDeleteOverlay', 'confirmDeleteModal');
     currentPOIdToDelete = null;
 };
-document.getElementById('btnProceedDelete').addEventListener('click', async () => {
+document.getElementById('btnProceedDelete')?.addEventListener('click', async () => {
     if (!currentPOIdToDelete) return;
     const btn = document.getElementById('btnProceedDelete');
     btn.disabled = true;
@@ -265,7 +226,7 @@ document.getElementById('btnProceedDelete').addEventListener('click', async () =
         await API.orders.delete(currentPOIdToDelete);
         showToast('Purchase Order deleted!', 'success');
         closeConfirmDelete();
-        loadOrders();
+        await loadOrders();
     } catch (e) {
         showToast(e.message, 'error');
     } finally {
@@ -296,9 +257,10 @@ window.viewDetail = async function (id) {
             <tr class="border-b border-gray-100">
                 <td class="py-4 text-center text-gray-500">${i+1}</td>
                 <td class="py-4 text-gray-900 font-medium">${d.product_name || 'N/A'}</td>
-                <td class="py-4 text-center text-gray-700">${d.quantity}</td>
-                <td class="py-4 text-right text-gray-700">${formatCurrency(d.unit_price)}</td>
-                <td class="py-4 text-right font-semibold text-gray-900">${formatCurrency(d.total_amount)}</td>
+                <td class="py-4 text-center text-gray-700 font-semibold">${d.quantity || d.ordered_quantity}</td>
+                <td class="py-4 text-center text-[#10B981] font-semibold">${d.received_quantity || 0}</td>
+                <td class="py-4 text-right text-gray-700">${formatCurrency(d.unit_price || d.unit_cost)}</td>
+                <td class="py-4 text-right font-bold text-gray-900">${formatCurrency(d.total_amount || d.line_total)}</td>
             </tr>`).join('');
 
         content.innerHTML = `
@@ -320,7 +282,8 @@ window.viewDetail = async function (id) {
                     <tr class="border-b-2 border-gray-200 bg-white">
                         <th class="py-3 text-center text-gray-500 font-semibold w-12">#</th>
                         <th class="py-3 text-left text-gray-500 font-semibold">Product Description</th>
-                        <th class="py-3 text-center text-gray-500 font-semibold w-24">Qty</th>
+                        <th class="py-3 text-center text-gray-500 font-semibold w-32">Ordered Quantity</th>
+                        <th class="py-3 text-center text-gray-500 font-semibold w-32">Received Quantity</th>
                         <th class="py-3 text-right text-gray-500 font-semibold w-32">Unit Price</th>
                         <th class="py-3 text-right text-gray-500 font-semibold w-32">Total</th>
                     </tr>
@@ -328,7 +291,7 @@ window.viewDetail = async function (id) {
                 <tbody>${rows}</tbody>
                 <tfoot>
                     <tr>
-                        <td colspan="4" class="py-6 text-right font-semibold text-gray-500 uppercase tracking-wider text-xs">Total Amount:</td>
+                        <td colspan="5" class="py-6 text-right font-semibold text-gray-500 uppercase tracking-wider text-xs">Total Amount:</td>
                         <td class="py-6 text-right font-bold text-2xl text-[#2563EB]">${formatCurrency(order.total_amount)}</td>
                     </tr>
                 </tfoot>
@@ -351,6 +314,13 @@ window.openCreatePOModal = async function () {
     editingOrderId = null;
     document.getElementById('poModalTitle').textContent = 'New Purchase Order';
     document.getElementById('createPOBtn').textContent = 'Create Order';
+    
+    const poInput = document.getElementById('poOrderNumber');
+    if (poInput) {
+        poInput.readOnly = false;
+        poInput.className = "w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#2563EB] transition-all";
+    }
+
     resetCreateForm();
     showCreateModal();
 };
@@ -363,7 +333,12 @@ window.editOrder = async function(id) {
     
     const order = allOrders.find(o => o.id === id);
     if(order) {
-        document.getElementById('poOrderNumber').value = order.order_number;
+        const poInput = document.getElementById('poOrderNumber');
+        if (poInput) {
+            poInput.value = order.order_number;
+            poInput.readOnly = true;
+            poInput.className = "w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500 focus:outline-none cursor-not-allowed transition-all";
+        }
         document.getElementById('poSupplier').value = order.supplier_name;
         document.getElementById('poStatus').value = order.status;
     }
@@ -374,9 +349,15 @@ window.editOrder = async function(id) {
         window.currentOrderItems = details.map(d => ({
             product_id: d.product_id,
             product_name: d.product_name,
+<<<<<<< HEAD
             quantity: d.quantity,
             received_quantity: d.received_quantity || 0,
             unit_price: parseFloat(d.unit_price)
+=======
+            quantity: d.quantity || d.ordered_quantity,
+            received_quantity: d.received_quantity || 0,
+            unit_price: parseFloat(d.unit_price || d.unit_cost || 0)
+>>>>>>> origin/kit-backend
         }));
         renderSelectedItemsUI();
     } catch(e) {
@@ -413,8 +394,10 @@ async function showCreateModal() {
         } catch (e) {}
     }
     const modal = document.getElementById('createPOModal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
 }
 
 function resetCreateForm() {
@@ -429,8 +412,10 @@ function resetCreateForm() {
 
 window.closeCreatePOModal = function () {
     const modal = document.getElementById('createPOModal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
 };
 
 document.getElementById('poItemProductName')?.addEventListener('input', function(e) {
@@ -508,7 +493,7 @@ document.getElementById('addPOItemBtn')?.addEventListener('click', function() {
         received_quantity: 0,
         unit_price: existingProd ? parseFloat(existingProd.selling_price || 0) : 10.00
     };
-    if (existingProd) itemData.product_id = existingProd.id;
+    if (existingProd) itemData.product_id = existingProd.id || existingProd.product_id;
     else itemData.is_new_product = true;
 
     window.currentOrderItems.push(itemData);
@@ -537,7 +522,7 @@ function renderSelectedItemsUI() {
                 <div>
                     <span class="font-medium">${item.product_name}</span>
                     ${item.is_new_product ? `<span class="ml-1 text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-bold">NEW</span>` : ''}
-                    <span class="text-gray-400 block text-[11px]">Qty: ${item.quantity} x $${item.unit_price.toFixed(2)}</span>
+                    <span class="text-gray-400 block text-[11px]">Quantity: ${item.quantity} x $${item.unit_price.toFixed(2)}</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <span class="font-semibold">$${itemTotal.toFixed(2)}</span>
