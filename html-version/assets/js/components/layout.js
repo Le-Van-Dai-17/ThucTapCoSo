@@ -51,7 +51,7 @@ const NAV_ITEMS = [
     },
     {
         href: 'sales-data.html',
-        label: 'Sales Data',
+        label: 'Demand Data',
         icon: 'line-chart',
         roles: ['Manager']
     },

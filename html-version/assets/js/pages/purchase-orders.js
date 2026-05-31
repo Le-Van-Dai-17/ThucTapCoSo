@@ -9,9 +9,10 @@ let editingOrderId = null;
 const statusConfig = {
     draft:     { label: "Draft",     color: "bg-gray-100 text-gray-700" },
     pending:   { label: "Pending",   color: "bg-orange-100 text-orange-700" },
-    ordered:   { label: "Ordered",   color: "bg-blue-100 text-blue-700" },
+    approved:  { label: "Approved",  color: "bg-blue-100 text-blue-700" },
+    shipped:   { label: "Shipped",   color: "bg-yellow-100 text-yellow-700" },
     received:  { label: "Received",  color: "bg-[#10B981]/10 text-[#10B981]" },
-    completed: { label: "Completed", color: "bg-[#10B981]/10 text-[#10B981]" },
+    cancelled: { label: "Cancelled", color: "bg-red-100 text-red-700" },
 };
 
 const statusFilter        = document.getElementById('statusFilter');
@@ -90,8 +91,10 @@ function renderTable() {
         const bgClass   = i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50';
         const cfg       = statusConfig[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-700' };
         const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
-        const canEdit = !isStaff && order.status !== 'received' && order.status !== 'completed' && order.status !== 'cancelled';
-        const canReceive = order.status === 'ordered' || order.status === 'approved' || order.status === 'shipped';
+        const canEdit = !isStaff && order.status !== 'received' && order.status !== 'cancelled';
+        const canReceive = order.status === 'approved' || order.status === 'shipped';
+        const canApprove = !isStaff && order.status === 'pending';
+        const canShip = !isStaff && order.status === 'approved';
         const createdAt = order.created_at || order.order_date;
 
         const tr = document.createElement('tr');
@@ -117,9 +120,19 @@ function renderTable() {
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                     ` : ''}
+                    ${canApprove ? `
+                    <button onclick="approveOrder(${order.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Approve Order">
+                        <i data-lucide="check-circle" class="w-4 h-4"></i>
+                    </button>
+                    ` : ''}
                     ${canReceive ? `
                     <button onclick="openConfirmReceive(${order.id})" class="p-2 text-gray-600 hover:text-[#10B981] hover:bg-green-50 rounded-lg transition-all" title="Confirm Receive">
                         <i data-lucide="package-check" class="w-4 h-4"></i>
+                    </button>
+                    ` : ''}
+                    ${canShip ? `
+                    <button onclick="shipOrder(${order.id})" class="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-all" title="Mark as Shipped">
+                        <i data-lucide="truck" class="w-4 h-4"></i>
                     </button>
                     ` : ''}
                 </div>
@@ -152,24 +165,80 @@ function hideModal(overlayId, modalId) {
 }
 
 // RECEIVE MODAL
-window.openConfirmReceive = function(id) {
+window.openConfirmReceive = async function(id) {
     currentPOIdToReceive = id;
+    
+    const listUI = document.getElementById('receiveItemsList');
+    if (listUI) listUI.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-gray-500">Loading items...</td></tr>';
     showModal('confirmReceiveOverlay', 'confirmReceiveModal');
+
+    try {
+        const res = await API.orders.getDetail(id);
+        const details = res.data || [];
+        
+        window.receiveOrderItems = details.map(d => ({
+            product_id: d.product_id,
+            product_name: d.product_name,
+            quantity: d.quantity,
+            received_quantity: d.quantity
+        }));
+        
+        renderReceiveItems();
+    } catch (e) {
+        if (listUI) listUI.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-red-500">Failed to load items</td></tr>';
+    }
 };
+
+window.renderReceiveItems = function() {
+    const listUI = document.getElementById('receiveItemsList');
+    if (!listUI) return;
+
+    if (!window.receiveOrderItems || window.receiveOrderItems.length === 0) {
+        listUI.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-gray-500">No items found</td></tr>';
+        return;
+    }
+    
+    listUI.innerHTML = window.receiveOrderItems.map((item, index) => `
+        <tr class="hover:bg-gray-50 transition-colors">
+            <td class="px-4 py-3 border-b text-gray-900">${item.product_name}</td>
+            <td class="px-4 py-3 border-b text-center font-medium text-gray-700">${item.quantity}</td>
+            <td class="px-4 py-3 border-b text-center">
+                <input type="number" min="0" value="${item.received_quantity}" onchange="updateReceiveItem(${index}, this.value)" 
+                    class="w-20 px-2 py-1.5 text-center border-2 border-gray-200 rounded-lg focus:outline-none focus:border-[#10B981] transition-colors">
+            </td>
+        </tr>
+    `).join('');
+};
+
+window.updateReceiveItem = function(index, value) {
+    const val = parseInt(value) || 0;
+    if (window.receiveOrderItems && window.receiveOrderItems[index]) {
+        window.receiveOrderItems[index].received_quantity = val >= 0 ? val : 0;
+    }
+};
+
 window.closeConfirmReceive = function() {
     hideModal('confirmReceiveOverlay', 'confirmReceiveModal');
     currentPOIdToReceive = null;
+    window.receiveOrderItems = [];
 };
+
 document.getElementById('btnProceedReceive').addEventListener('click', async () => {
     if (!currentPOIdToReceive) return;
     const btn = document.getElementById('btnProceedReceive');
     btn.disabled = true;
     btn.textContent = 'Processing...';
     try {
-        const res = await API.orders.receive(currentPOIdToReceive);
-        showToast('Inventory successfully updated!', 'success');
+        const payload = {
+            items: (window.receiveOrderItems || []).map(item => ({
+                product_id: item.product_id,
+                received_quantity: item.received_quantity
+            }))
+        };
+        await API.orders.receive(currentPOIdToReceive, payload);
+        showToast('✅ Inventory successfully updated!', 'success');
         closeConfirmReceive();
-        loadOrders();
+        await loadOrders();
     } catch (e) {
         showToast(e.message, 'error');
     } finally {
@@ -491,6 +560,28 @@ function formatDate(str) {
     const d = new Date(str);
     return isNaN(d) ? str : d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
+
+window.shipOrder = async function(id) {
+    if (!confirm('Xác nhận chuyển đơn hàng này sang trạng thái Đang giao (Shipped)?')) return;
+    try {
+        await API.orders.ship(id);
+        showToast('✅ Đơn hàng đã được chuyển sang trạng thái Đang giao (Shipped)!', 'success');
+        await loadOrders();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+};
+
+window.approveOrder = async function(id) {
+    if (!confirm('Xác nhận duyệt đơn hàng này?')) return;
+    try {
+        await API.orders.approve(id);
+        showToast('✅ Đơn hàng đã được duyệt (Approved)!', 'success');
+        await loadOrders();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+};
 
 if (statusFilter) statusFilter.addEventListener('change', renderTable);
 loadOrders();

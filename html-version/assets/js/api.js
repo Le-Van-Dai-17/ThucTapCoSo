@@ -123,7 +123,9 @@ const API = {
         async create(data)  { return apiFetch('/purchases/create', { method: 'POST', body: JSON.stringify(data) }); },
         async update(id, data) { return apiFetch(`/purchases/update/${id}`, { method: 'PUT', body: JSON.stringify(data) }); },
         async delete(id)    { return apiFetch(`/purchases/delete/${id}`, { method: 'DELETE' }); },
-        async receive(id)   { return apiFetch(`/purchases/receive/${id}`, { method: 'PUT' }); }
+        async approve(id)   { return apiFetch(`/purchases/approve/${id}`, { method: 'PUT' }); },
+        async ship(id)      { return apiFetch(`/purchases/ship/${id}`, { method: 'PUT' }); },
+        async receive(id, data)   { return apiFetch(`/purchases/receive/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
     },
 
     users: {

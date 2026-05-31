@@ -21,17 +21,33 @@
     
     <!-- Confirm Receive Modal -->
     <div id="confirmReceiveOverlay" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden overlay-enter">
-        <div id="confirmReceiveModal" class="bg-white rounded-[16px] p-8 max-w-md w-full shadow-xl modal-enter" onclick="event.stopPropagation()">
-            <div class="flex items-center gap-4 mb-4">
+        <div id="confirmReceiveModal" class="bg-white rounded-[16px] p-8 max-w-2xl w-full max-h-[90vh] flex flex-col shadow-xl modal-enter" onclick="event.stopPropagation()">
+            <div class="flex items-center gap-4 mb-4 shrink-0">
                 <div class="w-12 h-12 bg-[#10B981]/10 rounded-xl flex items-center justify-center">
                     <i data-lucide="package-check" class="w-6 h-6 text-[#10B981]"></i>
                 </div>
-                <h3 class="text-xl font-semibold text-gray-900">Confirm Receipt</h3>
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900">Confirm Receipt</h3>
+                    <p class="text-sm text-gray-500">Enter actual received quantities for each item</p>
+                </div>
             </div>
-            <p class="text-gray-600 mb-6">
-                Are you sure you want to receive this order? This will instantly add the purchased items to your current stock inventory. This action cannot be undone.
-            </p>
-            <div class="flex items-center gap-3">
+            
+            <div class="flex-1 overflow-y-auto min-h-0 mb-6 border border-gray-200 rounded-xl">
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-gray-50 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3 font-medium text-gray-700 border-b">Product</th>
+                            <th class="px-4 py-3 font-medium text-gray-700 border-b text-center w-32">Ordered Qty</th>
+                            <th class="px-4 py-3 font-medium text-gray-700 border-b text-center w-32">Received Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody id="receiveItemsList" class="divide-y divide-gray-100">
+                        <!-- JS fills this -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex items-center gap-3 shrink-0">
                 <button onclick="closeConfirmReceive()" class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium">Cancel</button>
                 <button id="btnProceedReceive" class="flex-1 px-4 py-3 bg-[#10B981] text-white rounded-xl hover:bg-[#059669] transition-all font-medium shadow-sm">Confirm Receipt</button>
             </div>
@@ -108,7 +124,6 @@
                             <option value="draft">Draft</option>
                             <option value="pending">Pending</option>
                             <option value="approved">Approved</option>
-                            <option value="ordered">Ordered</option>
                             <option value="shipped">Shipped</option>
                         </select>
                     </div>

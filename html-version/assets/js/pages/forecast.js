@@ -49,16 +49,29 @@ function renderTable() {
         const bgClass = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50';
         tr.className = `hover:bg-gray-50 transition-colors duration-150 ${bgClass}`;
 
-        const lower = f.lower_bound != null ? f.lower_bound : 0;
-        const upper = f.upper_bound != null ? f.upper_bound : 0;
-        const dateGen = formatDate(f.created_at);
+        const currentStock = f.current_stock || 0;
+        const minStock = f.min_stock_level || 0;
+        const predicted = f.predicted_demand || f.predicted_quantity || 0;
+        const recommended = f.recommended_order || 0;
+
+        let statusHtml = '';
+        if (currentStock === 0) {
+            statusHtml = `<span class="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">Out of Stock</span>`;
+        } else if (currentStock <= minStock) {
+            statusHtml = `<span class="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">Low Stock</span>`;
+        } else if (currentStock > predicted * 1.5) {
+            statusHtml = `<span class="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">Overstock</span>`;
+        } else {
+            statusHtml = `<span class="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Normal</span>`;
+        }
 
         tr.innerHTML = `
             <td class="px-6 py-4"><span class="font-medium text-gray-900">${f.product_name || `Product ID: ${f.product_id}`}</span></td>
-            <td class="px-6 py-4 text-center text-gray-600">${dateGen}</td>
-            <td class="px-6 py-4 text-center text-[#2563EB] font-bold text-lg">${f.predicted_quantity || 0}</td>
-            <td class="px-6 py-4 text-center text-gray-500 text-sm">${lower} - ${upper}</td>
-            <td class="px-6 py-4 text-center text-[#10B981] font-bold text-lg">${f.recommended_order || 0}</td>
+            <td class="px-6 py-4 text-center text-gray-700">${currentStock}</td>
+            <td class="px-6 py-4 text-center text-gray-700">${minStock}</td>
+            <td class="px-6 py-4 text-center text-[#2563EB] font-bold text-lg">${predicted}</td>
+            <td class="px-6 py-4 text-center text-[#10B981] font-bold text-lg">${recommended}</td>
+            <td class="px-6 py-4 text-center">${statusHtml}</td>
         `;
         tableBody.appendChild(tr);
     });

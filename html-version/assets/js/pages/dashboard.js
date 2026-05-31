@@ -234,7 +234,7 @@ function renderChart(data) {
             labels: data.map(d => d.month),
             datasets: [
                 {
-                    label: 'Actual Sales',
+                    label: 'Actual Demand',
                     data: data.map(d => d.actual),
                     borderColor: '#2563EB', backgroundColor: 'rgba(37,99,235,0.1)',
                     borderWidth: 2, tension: 0.4, pointRadius: 4, spanGaps: true, fill: true

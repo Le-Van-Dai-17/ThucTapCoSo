@@ -137,7 +137,7 @@ function renderSalesTrendChart(data) {
             labels: safeData.map(d => d.date),
             datasets: [
                 {
-                    label: 'Actual Sales',
+                    label: 'Actual Demand',
                     data: safeData.map(d => d.sales),
                     borderColor: '#2563EB',
                     backgroundColor: 'transparent',

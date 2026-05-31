@@ -24,25 +24,12 @@ window.Auth = window.Auth || {
 
 const state = {
     settings: {
-        defaultTimePeriod: 30,
-        forecastHorizon: 90,
-
-        autoReorder: true,
-        includeSeasonal: true,
+        forecastHorizon: 30,
+        errorAlertThreshold: 10,
         useMLPrediction: true,
-
-        lowStockRange: 20,
-        criticalStockRange: 10,
-        overStockRange: 150,
-        reorderPoint: 50,
-        safetyStockDays: 7,
-
-        enableEmail: true,
-        enablePush: false,
         autoGeneratePo: true,
         requireApproval: true,
-        enableAuditLog: true,
-        showAdvancedMetrics: false
+        enableAuditLog: true
     }
 };
 
@@ -99,54 +86,28 @@ function applySettingsToForm(settings) {
 
     state.settings = merged;
 
-    document.getElementById('defaultTimePeriod').value = merged.defaultTimePeriod;
-    document.getElementById('forecastHorizon').value = merged.forecastHorizon;
+    document.getElementById('forecastHorizon').value = merged.forecastHorizon || 30;
 
-    document.getElementById('lowStockRange').value = merged.lowStockRange;
-    document.getElementById('lowStockValue').textContent = `${merged.lowStockRange}%`;
+    const errorAlertEl = document.getElementById('errorAlertThreshold');
+    if (errorAlertEl) {
+        errorAlertEl.value = merged.errorAlertThreshold || 10;
+        document.getElementById('errorAlertValue').textContent = `${merged.errorAlertThreshold || 10}%`;
+    }
 
-    document.getElementById('criticalStockRange').value = merged.criticalStockRange;
-    document.getElementById('criticalStockValue').textContent = `${merged.criticalStockRange}%`;
-
-    document.getElementById('overStockRange').value = merged.overStockRange;
-    document.getElementById('overStockValue').textContent = `${merged.overStockRange}%`;
-
-    document.getElementById('reorderPoint').value = merged.reorderPoint;
-    document.getElementById('safetyStockDays').value = merged.safetyStockDays;
-
-    setSwitchState('autoReorder', merged.autoReorder);
-    setSwitchState('includeSeasonal', merged.includeSeasonal);
     setSwitchState('useMLPrediction', merged.useMLPrediction);
-
-    setSwitchState('enableEmail', merged.enableEmail);
-    setSwitchState('enablePush', merged.enablePush);
     setSwitchState('autoGeneratePo', merged.autoGeneratePo);
     setSwitchState('requireApproval', merged.requireApproval);
     setSwitchState('enableAuditLog', merged.enableAuditLog);
-    setSwitchState('showAdvancedMetrics', merged.showAdvancedMetrics);
 }
 
 function collectSettingsFromForm() {
     return {
-        defaultTimePeriod: Number(document.getElementById('defaultTimePeriod').value),
         forecastHorizon: Number(document.getElementById('forecastHorizon').value),
-
-        autoReorder: getSwitchState('autoReorder'),
-        includeSeasonal: getSwitchState('includeSeasonal'),
+        errorAlertThreshold: Number(document.getElementById('errorAlertThreshold').value),
         useMLPrediction: getSwitchState('useMLPrediction'),
-
-        lowStockRange: Number(document.getElementById('lowStockRange').value),
-        criticalStockRange: Number(document.getElementById('criticalStockRange').value),
-        overStockRange: Number(document.getElementById('overStockRange').value),
-        reorderPoint: Number(document.getElementById('reorderPoint').value),
-        safetyStockDays: Number(document.getElementById('safetyStockDays').value),
-
-        enableEmail: getSwitchState('enableEmail'),
-        enablePush: getSwitchState('enablePush'),
         autoGeneratePo: getSwitchState('autoGeneratePo'),
         requireApproval: getSwitchState('requireApproval'),
-        enableAuditLog: getSwitchState('enableAuditLog'),
-        showAdvancedMetrics: getSwitchState('showAdvancedMetrics')
+        enableAuditLog: getSwitchState('enableAuditLog')
     };
 }
 

@@ -38,10 +38,11 @@ async function loadProducts() {
 function formatCurrency(v) {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0);
 }
-function getStockColor(stock, minStock) {
-    if (stock === 0)              return 'text-red-600 font-bold';
-    if (stock < (minStock || 50)) return 'text-orange-500 font-semibold';
-    return 'text-gray-900';
+function getStockHtml(stock, minStock, maxStock) {
+    if (stock === 0) return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Out of Stock (${stock})</span>`;
+    if (stock <= (minStock || 0)) return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Low Stock (${stock})</span>`;
+    if (maxStock && stock > maxStock) return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Overstock (${stock})</span>`;
+    return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Normal (${stock})</span>`;
 }
 function renderStats(data) {
     const active = data.filter(p => p.status === 'active').length;
@@ -88,7 +89,7 @@ function renderTable() {
         </div></td></tr>`;
     } else {
         filtered.forEach(p => {
-            const stockColor  = getStockColor(p.current_stock, p.min_stock);
+            const stockHtml   = getStockHtml(p.current_stock, p.min_stock_level, p.max_stock_level);
             const statusClass = p.status === 'active' ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-gray-100 text-gray-500';
             const statusText  = p.status === 'active' ? 'Active' : 'Discontinued';
             const tr = document.createElement('tr');
@@ -98,7 +99,7 @@ function renderTable() {
                 <td class="px-4 py-4"><span class="font-medium text-gray-900">${p.name}</span></td>
                 <td class="px-4 py-4"><span class="text-sm text-gray-600">${p.category}</span></td>
                 <td class="px-4 py-4 text-right"><span class="font-semibold text-gray-900">${formatCurrency(p.selling_price)}</span></td>
-                <td class="px-4 py-4 text-center"><span class="${stockColor}">${p.current_stock}</span></td>
+                <td class="px-4 py-4 text-center">${stockHtml}</td>
                 <td class="px-4 py-4 text-center">
                     <span class="inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium ${statusClass}">${statusText}</span>
                 </td>

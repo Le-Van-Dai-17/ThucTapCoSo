@@ -80,7 +80,7 @@ function renderUI() {
     if (statsCards) {
         statsCards.innerHTML = `
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <div class="text-sm text-gray-500 mb-1">Total Sales</div>
+                <div class="text-sm text-gray-500 mb-1">Total Demand</div>
                 <div class="text-2xl font-semibold text-gray-900">${filtered.length}</div>
             </div>
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
