@@ -128,7 +128,7 @@ function renderTable() {
                     </button>
                     ` : ''}
                     ${canReceive ? `
-                    <button onclick="openConfirmReceive(${order.id})" class="p-2 text-gray-600 hover:text-[#10B981] hover:bg-green-50 rounded-lg transition-all" title="Confirm Receive">
+                    <button onclick="openConfirmReceive(${order.id})" class="p-2 text-[#10B981] hover:bg-green-50 rounded-lg transition-all" title="Confirm Receive">
                         <i data-lucide="package-check" class="w-4 h-4"></i>
                     </button>
                     ` : ''}
