@@ -199,6 +199,28 @@ exports.approvePurchase = async (req, res) => {
   }
 };
 
+// Thêm hàm chuyển trạng thái từ Approved sang Shipped
+exports.shipPurchase = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const actorId = getActorId(req);
+    const [result] = await pool.query(
+      `UPDATE purchase_orders SET status = 'Shipped' WHERE po_id = ? AND status = 'Approved'`,
+      [id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(400).json({ success: false, message: 'Chỉ có thể chuyển sang Đang giao (Shipped) khi đơn hàng đã được Duyệt (Approved).' });
+    }
+
+    await safeLogAction(actorId, 'SHIP_PURCHASE_ORDER', `Chuyển đơn hàng ID: ${id} sang trạng thái Đang giao`, 'purchase_orders', id, req.ip);
+    res.status(200).json({ success: true, message: 'Cập nhật trạng thái Đang giao thành công!' });
+  } catch (error) {
+    console.error('Error shipping purchase:', error);
+    res.status(500).json({ success: false, message: 'Lỗi hệ thống khi chuyển trạng thái Đang giao' });
+  }
+};
+
 // BE-03: Cho phép Staff truyền mảng items chứa số lượng thực nhận lên để kiểm kho thực tế
 exports.receiveOrder = async (req, res) => {
   const { id } = req.params;
