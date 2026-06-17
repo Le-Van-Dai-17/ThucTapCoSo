@@ -65,7 +65,6 @@ router.delete('/suppliers/delete/:id', authMiddleware.verifyToken, authMiddlewar
 // ==========================================
 router.get('/sales/list', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), salesController.getSalesList);
 router.post('/sales/create', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), salesController.createSale);
-router.post('/sales/pos-checkout', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff'), salesController.posCheckout);
 router.post(
     '/sales/import',
     authMiddleware.verifyToken,

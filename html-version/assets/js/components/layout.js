@@ -21,10 +21,7 @@ const ROLE_PERMISSIONS = {
         'dashboard.html',
         'products.html',
         'categories.html',
-        'sales-data.html',
-        'import.html',
         'reports.html',
-        'inventory.html',
         'purchase-orders.html',
         'suppliers.html',
         'forecast.html',
@@ -42,78 +39,77 @@ const NAV_ITEMS = [
         href: 'dashboard.html',
         label: 'Dashboard',
         icon: 'bar-chart-3',
+        group: 'Overview',
         roles: ['Manager']
     },
     {
         href: 'products.html',
         label: 'Products',
         icon: 'box',
+        group: 'Catalog',
         roles: ['Manager']
     },
     {
         href: 'categories.html',
         label: 'Categories',
         icon: 'tags',
+        group: 'Catalog',
         roles: ['Manager']
     },
     {
-        href: 'sales-data.html',
-        label: 'Demand Data',
-        icon: 'line-chart',
-        roles: ['Manager']
-    },
-    {
-        href: 'import.html',
-        label: 'Import Data',
-        icon: 'upload',
-        roles: ['Manager']
-    },
-    {
-        href: 'reports.html',
-        label: 'Reports',
-        icon: 'file-text',
-        roles: ['Manager']
-    },
-    {
-        href: 'inventory.html',
-        label: 'Inventory',
-        icon: 'package',
+        href: 'suppliers.html',
+        label: 'Suppliers',
+        icon: 'truck',
+        group: 'Catalog',
         roles: ['Manager']
     },
     {
         href: 'purchase-orders.html',
         label: 'Purchase Orders',
         icon: 'shopping-cart',
+        group: 'Operations',
         roles: ['Manager', 'Staff']
-    },
-    {
-        href: 'suppliers.html',
-        label: 'Suppliers',
-        icon: 'truck',
-        roles: ['Manager']
     },
     {
         href: 'forecast.html',
         label: 'Forecast',
         icon: 'trending-up',
+        group: 'Planning',
         roles: ['Manager']
+    },
+    {
+        href: 'reports.html',
+        label: 'Reports',
+        icon: 'file-text',
+        group: 'Planning',
+        roles: ['Manager']
+    },
+    {
+        href: 'purchase-orders.html',
+        label: 'Purchase Orders',
+        icon: 'shopping-cart',
+        group: 'Work',
+        roles: ['Staff']
     },
     {
         href: 'users.html',
         label: 'Users',
         icon: 'users',
+        group: 'Admin',
         roles: ['Admin']
     },
     {
         href: 'activity-log.html',
         label: 'Activity Log',
         icon: 'activity',
+        group: 'Admin',
         roles: ['Admin']
     },
     {
         href: 'settings.html',
         label: 'Settings',
         icon: 'settings',
+        group: 'Admin',
         roles: ['Admin']
     }
 ];
@@ -225,22 +221,33 @@ const initials = displayName
 
 const currentPath = window.location.pathname.split('/').pop() || 'dashboard.html';
 
-const navHtml = NAV_ITEMS
-    .filter(item => item.roles.includes(displayRole))
-    .map(item => {
-        const isActive = item.href === currentPath;
+const visibleNavItems = NAV_ITEMS.filter(item => item.roles.includes(displayRole));
+const navGroups = visibleNavItems.reduce((groups, item) => {
+    const group = item.group || 'Menu';
+    if (!groups[group]) groups[group] = [];
+    groups[group].push(item);
+    return groups;
+}, {});
 
-        const activeClass = isActive
-            ? 'bg-[#2563EB]/10 text-[#2563EB]'
-            : 'text-gray-700 hover:bg-gray-100';
+const navHtml = Object.entries(navGroups)
+    .map(([group, items]) => `
+        <div class="space-y-1">
+            <div class="px-3 pt-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">${group}</div>
+            ${items.map(item => {
+                const isActive = item.href === currentPath;
+                const activeClass = isActive
+                    ? 'bg-[#2563EB]/10 text-[#2563EB] font-semibold'
+                    : 'text-gray-700 hover:bg-gray-100';
 
-        return `
-            <a href="${item.href}" class="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-200 ${activeClass}">
-                <i data-lucide="${item.icon}" class="w-5 h-5"></i>
-                <span>${item.label}</span>
-            </a>
-        `;
-    })
+                return `
+                    <a href="${item.href}" class="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-200 ${activeClass}">
+                        <i data-lucide="${item.icon}" class="w-5 h-5"></i>
+                        <span class="text-sm">${item.label}</span>
+                    </a>
+                `;
+            }).join('')}
+        </div>
+    `)
     .join('');
 
 
@@ -259,7 +266,7 @@ const layoutHtml = `
             </div>
         </div>
 
-        <nav class="px-4 space-y-1 flex-1 overflow-y-auto">
+        <nav class="px-4 pb-4 flex-1 overflow-y-auto">
             ${navHtml}
         </nav>
 
