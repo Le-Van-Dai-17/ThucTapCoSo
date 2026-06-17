@@ -1,8 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-
-const upload = multer({ dest: 'uploads/' });
+// multer removed (BE-01)
 
 // Import controllers
 const apiController = require('../controllers/apiController');
@@ -43,8 +41,9 @@ router.put('/users/update/:id', authMiddleware.verifyToken, authMiddleware.requi
 router.delete('/users/delete/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Admin'), userController.deleteUser);
 
 // ==========================================
-// 3. PRODUCTS API — Chỉ dành cho Manager [BE-01]
+// 3. PRODUCTS API — Manager & Staff [BE-03]
 // ==========================================
+router.get('/products/available', authMiddleware.verifyToken, authMiddleware.requireRole('Staff', 'Manager'), productController.getAvailableProducts);
 router.get('/products/list', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), productController.getAllProducts);
 router.get('/products/get/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), productController.getProductById);
 router.post('/products/create', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), productController.createProduct);
@@ -63,14 +62,7 @@ router.delete('/suppliers/delete/:id', authMiddleware.verifyToken, authMiddlewar
 // 5. SALES API — Chỉ dành cho Manager [BE-01]
 // ==========================================
 router.get('/sales/list', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), salesController.getSalesList);
-router.post('/sales/create', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), salesController.createSale);
-router.post(
-    '/sales/import',
-    authMiddleware.verifyToken,
-    authMiddleware.requireRole('Manager'), // Hạ quyền Admin xuống theo đúng BA v13
-    upload.single('file'),
-    salesController.importSalesCSV
-);
+router.post('/sales/create', authMiddleware.verifyToken, authMiddleware.requireRole('Staff'), salesController.createSale);
 
 // ==========================================
 // 6. PURCHASE ORDERS & INVENTORY API — Phân quyền chuẩn cho Manager & Staff [BE-01]
@@ -80,6 +72,7 @@ router.get('/purchases/detail/:id', authMiddleware.verifyToken, authMiddleware.r
 router.post('/purchases/create', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), purchaseController.createPurchase);
 router.put('/purchases/approve/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), purchaseController.approvePurchase);
 router.put('/purchases/receive/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff'), purchaseController.receiveOrder);
+router.put('/purchase-orders/:id/receive', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff'), purchaseController.receiveOrder);
 router.put('/purchases/update/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), purchaseController.updatePurchase);
 router.delete('/purchases/delete/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), purchaseController.deletePurchase);
 
@@ -90,6 +83,7 @@ router.get('/forecast/latest', authMiddleware.verifyToken, authMiddleware.requir
 router.post('/forecast/run', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), forecastController.runForecast);
 router.get('/forecast/saved', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), forecastController.getSavedForecasts);
 router.get('/forecast/product/:productId', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), forecastController.getForecastByProduct);
+router.post('/forecast/create-purchase-order', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), forecastController.createPurchaseOrderFromForecast);
 
 // ==========================================
 // 8. REPORTS API — Chỉ dành cho Manager [BE-01]

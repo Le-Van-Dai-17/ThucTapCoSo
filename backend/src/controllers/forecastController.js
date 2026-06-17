@@ -419,3 +419,149 @@ exports.getForecastByProduct = async (req, res) => {
         res.status(500).json({ success: false, message: 'Lỗi server khi lấy forecast theo sản phẩm' });
     }
 };
+
+/**
+ * Sinh mã đơn nhập hàng duy nhất (PO-code).
+ */
+const generatePoCode = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const random = String(Date.now()).slice(-5);
+    return `PO-${year}${month}${day}-${random}`;
+};
+
+/**
+ * POST /api/forecast/create-purchase-order
+ * Tạo đơn nhập hàng (Purchase Order) trực tiếp từ các kết quả dự báo.
+ * Tự động gom nhóm sản phẩm theo nhà cung cấp và tạo các đơn hàng tương ứng.
+ */
+exports.createPurchaseOrderFromForecast = async (req, res) => {
+    const { forecast_ids } = req.body;
+
+    if (!forecast_ids || !Array.isArray(forecast_ids) || forecast_ids.length === 0) {
+        return res.status(400).json({ success: false, message: 'Danh sách forecast_ids không được trống.' });
+    }
+
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // Truy vấn thông tin dự báo, sản phẩm và nhà cung cấp
+        const [forecastRows] = await connection.query(`
+            SELECT 
+                df.forecast_id,
+                df.product_id,
+                df.predicted_quantity,
+                df.recommended_order,
+                p.name AS product_name,
+                p.sku,
+                p.cost_price,
+                p.current_stock,
+                p.min_stock_level,
+                p.supplier_id
+            FROM demand_forecasts df
+            JOIN products p ON df.product_id = p.product_id
+            WHERE df.forecast_id IN (?)
+        `, [forecast_ids]);
+
+        if (forecastRows.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ success: false, message: 'Không tìm thấy kết quả dự báo nào tương ứng.' });
+        }
+
+        // Kiểm tra nhà cung cấp của sản phẩm
+        for (const row of forecastRows) {
+            if (!row.supplier_id) {
+                await connection.rollback();
+                return res.status(400).json({
+                    success: false,
+                    message: `Sản phẩm "${row.product_name}" (SKU: ${row.sku}) chưa cấu hình nhà cung cấp. Vui lòng thiết lập nhà cung cấp cho sản phẩm trước.`
+                });
+            }
+        }
+
+        // Nhóm sản phẩm theo supplier_id
+        const supplierGroups = {};
+        for (const row of forecastRows) {
+            const supId = row.supplier_id;
+            if (!supplierGroups[supId]) {
+                supplierGroups[supId] = [];
+            }
+            supplierGroups[supId].push(row);
+        }
+
+        const managerId = getActorId(req);
+        const createdOrders = [];
+
+        // Tạo đơn nhập hàng cho từng nhà cung cấp
+        for (const supplierId of Object.keys(supplierGroups)) {
+            const poCode = generatePoCode();
+            
+            // Insert bảng purchase_orders
+            const [poResult] = await connection.query(
+                `INSERT INTO purchase_orders (po_code, supplier_id, created_by, status, order_date, total_value) 
+                 VALUES (?, ?, ?, ?, NOW(), ?)`,
+                [poCode, Number(supplierId), managerId, 'Pending', 0]
+            );
+            const poId = poResult.insertId;
+
+            let totalValue = 0;
+            const itemsInserted = [];
+
+            // Insert bảng po_items
+            for (const item of supplierGroups[supplierId]) {
+                const forecastedQuantity = item.recommended_order > 0 ? item.recommended_order : item.predicted_quantity;
+                const orderedQuantity = forecastedQuantity;
+                const receivedQuantity = 0;
+                const unitCost = Number(item.cost_price || 0);
+                const lineTotal = orderedQuantity * unitCost;
+                totalValue += lineTotal;
+
+                await connection.query(
+                    `INSERT INTO po_items (po_id, product_id, forecast_id, forecasted_quantity, ordered_quantity, received_quantity, unit_cost, line_total)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [poId, item.product_id, item.forecast_id, forecastedQuantity, orderedQuantity, receivedQuantity, unitCost, lineTotal]
+                );
+
+                itemsInserted.push({
+                    product_id: item.product_id,
+                    product_name: item.product_name,
+                    forecasted_quantity: forecastedQuantity,
+                    ordered_quantity: orderedQuantity,
+                    unit_cost: unitCost,
+                    line_total: lineTotal
+                });
+            }
+
+            // Cập nhật lại tổng giá trị đơn nhập hàng
+            await connection.query('UPDATE purchase_orders SET total_value = ? WHERE po_id = ?', [totalValue, poId]);
+
+            // Ghi nhật ký hoạt động
+            await safeLogAction(managerId, 'CREATE_PURCHASE_ORDER', `Tạo đơn nhập hàng ${poCode} từ kết quả dự báo AI`, 'purchase_orders', poId, req.ip);
+
+            createdOrders.push({
+                po_id: poId,
+                po_code: poCode,
+                supplier_id: Number(supplierId),
+                total_value: totalValue,
+                items: itemsInserted
+            });
+        }
+
+        await connection.commit();
+
+        res.status(201).json({
+            success: true,
+            message: `Tạo đơn nhập hàng thành công! Đã tạo ${createdOrders.length} đơn nhập.`,
+            orders: createdOrders
+        });
+    } catch (error) {
+        await connection.rollback();
+        console.error('Error creating purchase order from forecast:', error);
+        res.status(500).json({ success: false, message: 'Lỗi server khi tạo đơn nhập hàng từ kết quả dự báo' });
+    } finally {
+        connection.release();
+    }
+};

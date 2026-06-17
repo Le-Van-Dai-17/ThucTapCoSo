@@ -220,6 +220,11 @@ exports.receiveOrder = async (req, res) => {
     const order = orders[0];
     const currentStatus = normalizeStatus(order.status);
 
+    if (currentStatus === 'Received') {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: 'Đơn nhập hàng này đã được nhập kho trước đó rồi. Không thể nhận hai lần.' });
+    }
+
     if (!['Approved', 'Shipped'].includes(currentStatus)) {
       await connection.rollback();
       return res.status(400).json({ success: false, message: 'Chỉ được xác nhận nhập kho với đơn đã được duyệt hoặc đang giao.' });
