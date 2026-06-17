@@ -202,6 +202,8 @@ function showRightPanel(id) {
     if (titleEl)    titleEl.textContent    = product.name;
     if (categoryEl) categoryEl.textContent = product.category;
 
+    
+
     // Chỉ vẽ chart nếu có historical data thật
     if (product.historicalData && product.historicalData.length > 0) {
         renderChart(product.historicalData);

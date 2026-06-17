@@ -44,6 +44,8 @@ function renderTable() {
             <td class="px-6 py-4 text-gray-700">${s.contact_person || '--'}</td>
             <td class="px-6 py-4 text-gray-600">${s.phone || '--'}</td>
             <td class="px-6 py-4 text-gray-600">${s.email || '--'}</td>
+            <td class="px-6 py-4 text-sm"><div class="flex flex-wrap gap-1 max-w-xs">${(s.supplied_categories || []).map(c => `<span class="px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs border border-blue-100">${c}</span>`).join('') || '--'}</div></td>
+            <td class="px-6 py-4 text-sm"><div class="flex flex-wrap gap-1 max-w-xs">${(s.supplied_products || []).map(p => `<span class="px-2 py-1 bg-gray-50 text-gray-700 rounded-md text-xs border border-gray-200">${p}</span>`).join('') || '--'}</div></td>
             <td class="px-6 py-4 text-center text-gray-900 font-semibold">${s.lead_time_days || 0}</td>
             <td class="px-6 py-4">
                 <div class="flex justify-center gap-2">

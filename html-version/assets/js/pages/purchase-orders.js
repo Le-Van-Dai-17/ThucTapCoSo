@@ -234,6 +234,8 @@ document.getElementById('btnProceedReceive')?.addEventListener('click', async ()
         showToast('✅ Inventory successfully updated with actual count!', 'success');
         closeConfirmReceive();
         await loadOrders();
+
+
     } catch (e) {
         showToast(e.message, 'error');
     } finally {
@@ -424,20 +426,110 @@ window.closeCreatePOModal = function () {
     }
 };
 
-document.getElementById('poItemProductName')?.addEventListener('input', function(e) {
+
+document.getElementById('poSupplier')?.addEventListener('input', function(e) {
     const val = e.target.value.trim().toLowerCase();
-    const hintEl = document.getElementById('productStockHint');
-    if(!val) { hintEl.textContent = ''; return; }
+    const datalist = document.getElementById('productsDatalist');
+    if (!datalist) return;
+    datalist.innerHTML = '';
     
-    if(window.dbProductsList) {
-        const prod = window.dbProductsList.find(p => p.name.toLowerCase() === val);
-        if(prod) {
-            hintEl.textContent = `In Stock: ${prod.current_stock || 0}`;
+    if (window.dbSuppliersList && window.dbProductsList) {
+        const supplier = window.dbSuppliersList.find(s => s.name.toLowerCase() === val);
+        if (supplier) {
+            window.currentSupplierId = supplier.id || supplier.supplier_id;
+            const filteredProducts = window.dbProductsList.filter(p => p.supplier_id == window.currentSupplierId);
+            filteredProducts.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.name;
+                datalist.appendChild(opt);
+            });
         } else {
-            hintEl.textContent = 'New Product';
+            window.currentSupplierId = null;
         }
     }
 });
+
+function updatePricePreview() {
+    const qty = parseInt(document.getElementById('poItemQty').value) || 0;
+    const price = parseFloat(document.getElementById('poItemUnitPrice').value) || 0;
+    const preview = document.getElementById('poItemPricePreview');
+    if (preview) {
+        if (qty > 0 && price >= 0) {
+            preview.textContent = `Quantity: ${qty} x ${price.toFixed(2)} = ${(qty * price).toFixed(2)}`;
+        } else {
+            preview.textContent = '';
+        }
+    }
+}
+
+document.getElementById('poItemQty')?.addEventListener('input', updatePricePreview);
+document.getElementById('poItemUnitPrice')?.addEventListener('input', updatePricePreview);
+
+document.getElementById('poItemProductName')?.addEventListener('input', function(e) {
+    const val = e.target.value.trim().toLowerCase();
+    const hintEl = document.getElementById('productStockHint');
+    const priceEl = document.getElementById('poItemUnitPrice');
+    
+    if(!val) { 
+        if (hintEl) hintEl.textContent = ''; 
+        if (priceEl) priceEl.value = '';
+        updatePricePreview();
+        
+        // Reset supplier datalist if product is cleared
+        const supplierDatalist = document.getElementById('suppliersDatalist');
+        if (supplierDatalist && window.dbSuppliersList) {
+            supplierDatalist.innerHTML = '';
+            window.dbSuppliersList.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.name;
+                supplierDatalist.appendChild(opt);
+            });
+        }
+        return; 
+    }
+    
+    if(window.dbProductsList && window.dbSuppliersList) {
+        let prodList = window.dbProductsList;
+        if (window.currentSupplierId) {
+             prodList = prodList.filter(p => p.supplier_id == window.currentSupplierId);
+        }
+        const prod = prodList.find(p => p.name.toLowerCase() === val);
+        
+        if(prod) {
+            if (hintEl) hintEl.textContent = `In Stock: ${prod.current_stock || 0}`;
+            if (priceEl) priceEl.value = prod.cost_price || prod.selling_price || 0;
+        } else {
+            if (hintEl) hintEl.textContent = 'New Product';
+            if (priceEl && !priceEl.value) priceEl.value = ''; // Let user type
+        }
+        updatePricePreview();
+        
+        // DUAL FILTERING: Filter suppliers datalist based on product
+        const supplierDatalist = document.getElementById('suppliersDatalist');
+        if (supplierDatalist && !window.currentSupplierId) {
+            const matchingProducts = window.dbProductsList.filter(p => p.name.toLowerCase() === val);
+            const matchingSupplierIds = [...new Set(matchingProducts.map(p => p.supplier_id))];
+            
+            supplierDatalist.innerHTML = '';
+            const matchingSuppliers = window.dbSuppliersList.filter(s => matchingSupplierIds.includes(s.id || s.supplier_id));
+            matchingSuppliers.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.name;
+                supplierDatalist.appendChild(opt);
+            });
+            
+            // Auto-fill supplier if exactly 1
+            if (matchingSuppliers.length === 1) {
+                const supplierInput = document.getElementById('poSupplier');
+                if (supplierInput && !supplierInput.value) {
+                    supplierInput.value = matchingSuppliers[0].name;
+                    supplierInput.dispatchEvent(new Event('input'));
+                }
+            }
+        }
+    }
+});
+
 
 document.getElementById('createPOForm')?.addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -446,15 +538,14 @@ document.getElementById('createPOForm')?.addEventListener('submit', async functi
     if (errEl) errEl.classList.add('hidden');
 
     const payload = {
-        order_number:  document.getElementById('poOrderNumber').value.trim(),
         supplier_name: document.getElementById('poSupplier').value.trim(),
         total_amount:  parseFloat(document.getElementById('poTotalAmount').value) || 0,
         status:        document.getElementById('poStatus').value,
         items: window.currentOrderItems || []
     };
 
-    if (!payload.order_number || payload.items.length === 0) {
-        if (errEl) { errEl.textContent = 'Order number and at least 1 item required.'; errEl.classList.remove('hidden'); }
+    if (!payload.supplier_name || payload.items.length === 0) {
+        if (errEl) { errEl.textContent = 'Supplier and at least 1 item required.'; errEl.classList.remove('hidden'); }
         return;
     }
 
@@ -463,15 +554,22 @@ document.getElementById('createPOForm')?.addEventListener('submit', async functi
     try {
         if(editingOrderId) {
             await API.orders.update(editingOrderId, payload);
-            showToast('✅ Purchase order updated!', 'success');
+            showToast('🔄 Purchase order updated!', 'success');
         } else {
             await API.orders.create(payload);
             showToast('✅ Purchase order created!', 'success');
         }
         closeCreatePOModal();
+        // Remove openAdd from URL if exists
+        const url = new URL(window.location);
+        if (url.searchParams.has('openAdd')) {
+            url.searchParams.delete('openAdd');
+            window.history.replaceState({}, '', url);
+        }
         await loadOrders();
-    } catch (err) {
-        if (errEl) { errEl.textContent = err.message || 'Failed to save order.'; errEl.classList.remove('hidden'); }
+    } catch (error) {
+        if (errEl) { errEl.textContent = error.message; errEl.classList.remove('hidden'); }
+        else showToast(error.message, 'error');
     } finally {
         btn.disabled = false;
         btn.textContent = editingOrderId ? 'Update Order' : 'Create Order';
@@ -652,4 +750,20 @@ document.getElementById('btnProceedAction')?.addEventListener('click', async () 
 });
 
 if (statusFilter) statusFilter.addEventListener('change', renderTable);
+
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('openAdd') === 'true') {
+    openCreatePOModal();
+    const productName = urlParams.get('product');
+    if (productName) {
+        setTimeout(() => {
+            const nameInput = document.getElementById('poItemProductName');
+            if (nameInput) {
+                nameInput.value = productName;
+                nameInput.dispatchEvent(new Event('input')); // Trigger product change logic
+            }
+        }, 500);
+    }
+}
+
 loadOrders();

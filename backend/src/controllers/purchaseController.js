@@ -99,7 +99,7 @@ exports.createPurchase = async (req, res) => {
     );
 
     const poId = result.insertId;
-    const totalValue = await insertPoItems(connection, poId, items);
+    const totalValue = await insertPoItems(connection, poId, items, supplierId);
     await connection.commit();
 
     await safeLogAction(createdBy, 'CREATE_PURCHASE_ORDER', `Tạo đơn nhập hàng ${poCode}`, 'purchase_orders', poId, req.ip);
@@ -316,7 +316,7 @@ exports.updatePurchase = async (req, res) => {
       values.push(id); await connection.query(`UPDATE purchase_orders SET ${updates.join(', ')} WHERE po_id = ?`, values);
     }
     if (items !== undefined) {
-      validateItems(items); await connection.query('DELETE FROM po_items WHERE po_id = ?', [id]); await insertPoItems(connection, id, items);
+      validateItems(items); await connection.query('DELETE FROM po_items WHERE po_id = ?', [id]); await insertPoItems(connection, id, items, order.supplier_id);
     }
 
     await connection.commit();

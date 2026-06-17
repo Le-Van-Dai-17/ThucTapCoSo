@@ -76,7 +76,7 @@ function renderTable() {
     const cat   = categoryFilter?.value || 'All Categories';
     const filtered = allProducts.filter(p => {
         const matchSearch = (p.name || '').toLowerCase().includes(query) || (p.sku || '').toLowerCase().includes(query);
-        const matchCat    = cat === 'All Categories' || p.category === cat;
+        const matchCat = cat === 'All Categories' || String(p.category_id) === String(cat) || p.category === cat;
         return matchSearch && matchCat;
     });
 
@@ -148,7 +148,20 @@ document.getElementById('addProductForm')?.addEventListener('submit', async func
     const payload = {
         sku:           document.getElementById('addSku').value.trim(),
         name:          document.getElementById('addName').value.trim(),
-        category:      document.getElementById('addCategory').value,
+        category_id:      document.getElementById('addCategory').value,
+        supplier_id:      document.getElementById('addSupplier').value || null,
+        description:   document.getElementById('addDescription').value.trim(),
+        selling_price: parseFloat(document.getElementById('addSellingPrice').value) || 0,
+        cost_price:    parseFloat(document.getElementById('addCostPrice').value)    || 0,
+        current_stock: parseInt(document.getElementById('addStock').value)           || 0,
+        min_stock:     parseInt(document.getElementById('addMinStock').value)        || 0,
+        status:        document.getElementById('addStatus').value,
+    };
+
+    if (!payload.sku || !payload.name) {
+        if (errEl) { errEl.textContent = 'SKU and Product Name are required.'; errEl.classList.remove('hidden'); }
+        return;
+        supplier_id:      document.getElementById('addSupplier').value || null,
         description:   document.getElementById('addDescription').value.trim(),
         selling_price: parseFloat(document.getElementById('addSellingPrice').value) || 0,
         cost_price:    parseFloat(document.getElementById('addCostPrice').value)    || 0,
@@ -196,7 +209,8 @@ window.openEditModal = async function (id) {
         const s = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val ?? ''; };
         s('editSku',          product.sku);
         s('editName',         product.name);
-        s('editCategory',     product.category);
+        s('editCategory',     product.category_id || product.category);
+        s('editSupplier',     product.supplier_id || '');
         s('editDescription',  product.description);
         s('editSellingPrice', product.selling_price);
         s('editCostPrice',    product.cost_price);
@@ -231,7 +245,8 @@ document.getElementById('editProductForm')?.addEventListener('submit', async fun
     const payload = {
         sku:           document.getElementById('editSku').value.trim(),
         name:          document.getElementById('editName').value.trim(),
-        category:      document.getElementById('editCategory').value,
+        category_id:      document.getElementById('editCategory').value,
+        supplier_id:      document.getElementById('editSupplier').value || null,
         description:   document.getElementById('editDescription').value.trim(),
         selling_price: parseFloat(document.getElementById('editSellingPrice').value) || 0,
         cost_price:    parseFloat(document.getElementById('editCostPrice').value)    || 0,
@@ -301,4 +316,48 @@ window.confirmDeleteProduct = async function () {
 if (searchInput)    searchInput.addEventListener('input', renderTable);
 if (categoryFilter) categoryFilter.addEventListener('change', renderTable);
 
-loadProducts();
+fetchAndPopulateCategories().then(() => loadProducts());
+// Populate Categories dynamically
+async function fetchAndPopulateCategories() {
+    try {
+        
+        const catRes = await API.categories.getAll();
+        
+        let suppliers = [];
+        try {
+            const supRes = await API.suppliers.getAll();
+            suppliers = supRes.data || supRes;
+        } catch(e) { console.warn('Could not load suppliers', e); }
+        
+        let supHtml = '<option value="">No Supplier</option>';
+        suppliers.forEach(s => {
+            supHtml += `<option value="${s.supplier_id}">${s.name}</option>`;
+        });
+        const addSup = document.getElementById('addSupplier');
+        if (addSup) addSup.innerHTML = supHtml;
+        const editSup = document.getElementById('editSupplier');
+        if (editSup) editSup.innerHTML = supHtml;
+
+        const cats = catRes.data || catRes;
+        
+        let filterHtml = '<option value="All Categories">All Categories</option>';
+        let formHtml = '';
+        
+        cats.forEach(c => {
+            filterHtml += `<option value="${c.category_id}">${c.name}</option>`;
+            formHtml += `<option value="${c.category_id}">${c.name}</option>`;
+        });
+
+        const catFilter = document.getElementById('categoryFilter');
+        if (catFilter) catFilter.innerHTML = filterHtml;
+        
+        const addCat = document.getElementById('addCategory');
+        if (addCat) addCat.innerHTML = formHtml;
+        
+        const editCat = document.getElementById('editCategory');
+        if (editCat) editCat.innerHTML = formHtml;
+        
+    } catch (e) {
+        console.warn('Could not load categories:', e);
+    }
+}

@@ -23,7 +23,7 @@ const ROLE_PERMISSIONS = {
         'sales-data.html',
         'import.html',
         'reports.html',
-        'inventory.html',
+        'pos.html',
         'purchase-orders.html',
         'suppliers.html',
         'forecast.html',
@@ -31,6 +31,7 @@ const ROLE_PERMISSIONS = {
     ],
 
     Staff: [
+        'pos.html',
         'purchase-orders.html',
         'profile.html'
     ]
@@ -45,7 +46,7 @@ const NAV_ITEMS = [
     },
     {
         href: 'products.html',
-        label: 'Products',
+        label: 'Products & Inventory',
         icon: 'box',
         roles: ['Manager']
     },
@@ -68,10 +69,10 @@ const NAV_ITEMS = [
         roles: ['Manager']
     },
     {
-        href: 'inventory.html',
-        label: 'Inventory',
-        icon: 'package',
-        roles: ['Manager']
+        href: 'pos.html',
+        label: 'Sales (POS)',
+        icon: 'shopping-bag',
+        roles: ['Manager', 'Staff']
     },
     {
         href: 'purchase-orders.html',

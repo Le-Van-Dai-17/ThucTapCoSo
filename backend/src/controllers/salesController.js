@@ -402,3 +402,109 @@ exports.importSalesCSV = async (req, res) => {
         connection.release();
     }
 };
+
+
+exports.posCheckout = async (req, res) => {
+    const connection = await pool.getConnection();
+
+    try {
+        const { items } = req.body;
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ success: false, message: 'Giỏ hàng trống!' });
+        }
+
+        const userId = req.user ? req.user.id : null;
+        const transactionDate = new Date();
+        const transactionCode = 'POS-' + Date.now();
+        
+        await connection.beginTransaction();
+
+        let totalAmount = 0;
+
+        // 1. Verify stock for all items
+        for (const item of items) {
+            const qty = parsePositiveNumber(item.quantity, 'quantity');
+            const price = parseNonNegativeNumber(item.unit_price, 'unit_price');
+            
+            const [productRows] = await connection.query(
+                'SELECT name, current_stock, is_discontinued FROM products WHERE product_id = ? FOR UPDATE',
+                [item.product_id]
+            );
+
+            if (productRows.length === 0) {
+                await connection.rollback();
+                return res.status(404).json({ success: false, message: `Sản phẩm ID ${item.product_id} không tồn tại.` });
+            }
+
+            const p = productRows[0];
+            if (Number(p.is_discontinued) === 1) {
+                await connection.rollback();
+                return res.status(400).json({ success: false, message: `Sản phẩm "${p.name}" đã ngừng kinh doanh.` });
+            }
+            if (Number(p.current_stock || 0) < qty) {
+                await connection.rollback();
+                return res.status(400).json({ success: false, message: `Sản phẩm "${p.name}" không đủ tồn kho (Còn ${p.current_stock}, cần ${qty}).` });
+            }
+
+            totalAmount += qty * price;
+        }
+
+        // 2. Insert transaction
+        const [transResult] = await connection.query(
+            `INSERT INTO sales_transactions 
+            (transaction_code, transaction_date, total_amount, discount_amount, created_by) 
+            VALUES (?, ?, ?, 0, ?)`,
+            [transactionCode, transactionDate, totalAmount, userId]
+        );
+        const transactionId = transResult.insertId;
+
+        // 3. Insert details and update stock
+        for (const item of items) {
+            const qty = parsePositiveNumber(item.quantity, 'quantity');
+            const price = parseNonNegativeNumber(item.unit_price, 'unit_price');
+            const lineTotal = qty * price;
+
+            await connection.query(
+                `INSERT INTO sale_details 
+                (transaction_id, product_id, quantity, unit_price, line_total) 
+                VALUES (?, ?, ?, ?, ?)`,
+                [transactionId, item.product_id, qty, price, lineTotal]
+            );
+
+            await connection.query(
+                'UPDATE products SET current_stock = current_stock - ? WHERE product_id = ?',
+                [qty, item.product_id]
+            );
+        }
+
+        // 4. Log activity
+        if (userId) {
+            await connection.query(
+                `INSERT INTO activity_logs (user_id, action, entity_type, entity_id, details, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)`,
+                [
+                    userId,
+                    'CREATE',
+                    'SALES',
+                    transactionId,
+                    `Thanh toán POS cho ${items.length} mặt hàng, tổng tiền $${totalAmount.toFixed(2)}`,
+                    transactionDate
+                ]
+            );
+        }
+
+        await connection.commit();
+        res.status(201).json({
+            success: true,
+            message: 'Thanh toán thành công.',
+            transactionId: transactionId,
+            transactionCode: transactionCode
+        });
+    } catch (error) {
+        await connection.rollback();
+        console.error('[salesController.posCheckout] Error:', error);
+        res.status(500).json({ success: false, message: 'Lỗi server khi thanh toán POS.', error: error.message });
+    } finally {
+        connection.release();
+    }
+};

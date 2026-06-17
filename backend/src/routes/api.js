@@ -7,6 +7,7 @@ const upload = multer({ dest: 'uploads/' });
 // Import controllers
 const apiController = require('../controllers/apiController');
 const authController = require('../controllers/authController');
+const categoryController = require('../controllers/categoryController');
 const userController = require('../controllers/userController');
 const productController = require('../controllers/productController');
 const salesController = require('../controllers/salesController');
@@ -64,6 +65,7 @@ router.delete('/suppliers/delete/:id', authMiddleware.verifyToken, authMiddlewar
 // ==========================================
 router.get('/sales/list', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), salesController.getSalesList);
 router.post('/sales/create', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), salesController.createSale);
+router.post('/sales/pos-checkout', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff'), salesController.posCheckout);
 router.post(
     '/sales/import',
     authMiddleware.verifyToken,
@@ -115,5 +117,8 @@ router.get('/activity-logs/list', authMiddleware.verifyToken, authMiddleware.req
 router.get('/settings', authMiddleware.verifyToken, authMiddleware.requireRole('Admin'), settingsController.getSettings);
 router.put('/settings', authMiddleware.verifyToken, authMiddleware.requireRole('Admin'), settingsController.updateSettings);
 router.post('/settings/reset', authMiddleware.verifyToken, authMiddleware.requireRole('Admin'), settingsController.resetSettings);
+
+// Categories
+router.get('/categories', authMiddleware.verifyToken, categoryController.getAllCategories);
 
 module.exports = router;
