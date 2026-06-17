@@ -84,14 +84,14 @@ const insertPoItems = async (connection, poId, items) => {
 exports.createPurchase = async (req, res) => {
   const connection = await pool.getConnection();
   try {
-    const { po_code, order_number, supplier_id, supplier_name, status, expected_delivery_date, items } = req.body;
+    const { po_code, order_number, supplier_id, supplier_name, expected_delivery_date, items } = req.body;
     validateItems(items);
     await connection.beginTransaction();
 
     const supplierId = await getSupplierId(connection, supplier_id, supplier_name);
     const poCode = po_code || order_number || generatePoCode();
     const createdBy = getActorId(req);
-    const orderStatus = normalizeStatus(status || 'Pending');
+    const orderStatus = 'Pending';
 
     const [result] = await connection.query(
       `INSERT INTO purchase_orders (po_code, supplier_id, created_by, status, expected_delivery_date, total_value) VALUES (?, ?, ?, ?, ?, ?)`,

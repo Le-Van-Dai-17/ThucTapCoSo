@@ -161,18 +161,6 @@ document.getElementById('addProductForm')?.addEventListener('submit', async func
     if (!payload.sku || !payload.name) {
         if (errEl) { errEl.textContent = 'SKU and Product Name are required.'; errEl.classList.remove('hidden'); }
         return;
-        supplier_id:      document.getElementById('addSupplier').value || null,
-        description:   document.getElementById('addDescription').value.trim(),
-        selling_price: parseFloat(document.getElementById('addSellingPrice').value) || 0,
-        cost_price:    parseFloat(document.getElementById('addCostPrice').value)    || 0,
-        current_stock: parseInt(document.getElementById('addStock').value)           || 0,
-        min_stock:     parseInt(document.getElementById('addMinStock').value)        || 0,
-        status:        document.getElementById('addStatus').value,
-    };
-
-    if (!payload.sku || !payload.name) {
-        if (errEl) { errEl.textContent = 'SKU and Product Name are required.'; errEl.classList.remove('hidden'); }
-        return;
     }
 
     btn.disabled = true;

@@ -119,6 +119,9 @@ router.put('/settings', authMiddleware.verifyToken, authMiddleware.requireRole('
 router.post('/settings/reset', authMiddleware.verifyToken, authMiddleware.requireRole('Admin'), settingsController.resetSettings);
 
 // Categories
-router.get('/categories', authMiddleware.verifyToken, categoryController.getAllCategories);
+router.get('/categories', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), categoryController.getAllCategories);
+router.post('/categories', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), categoryController.createCategory);
+router.put('/categories/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), categoryController.updateCategory);
+router.delete('/categories/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager'), categoryController.deleteCategory);
 
 module.exports = router;

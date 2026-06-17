@@ -20,6 +20,7 @@ const ROLE_PERMISSIONS = {
     Manager: [
         'dashboard.html',
         'products.html',
+        'categories.html',
         'sales-data.html',
         'import.html',
         'reports.html',
@@ -48,6 +49,12 @@ const NAV_ITEMS = [
         href: 'products.html',
         label: 'Products & Inventory',
         icon: 'box',
+        roles: ['Manager']
+    },
+    {
+        href: 'categories.html',
+        label: 'Categories',
+        icon: 'tags',
         roles: ['Manager']
     },
     {

@@ -328,6 +328,7 @@ window.openCreatePOModal = async function () {
     editingOrderId = null;
     document.getElementById('poModalTitle').textContent = 'New Purchase Order';
     document.getElementById('createPOBtn').textContent = 'Create Order';
+    document.getElementById('poStatus').value = 'pending';
     
     const poInput = document.getElementById('poOrderNumber');
     if (poInput) {
@@ -413,6 +414,7 @@ function resetCreateForm() {
     const errEl = document.getElementById('createPOError');
     if (errEl) errEl.classList.add('hidden');
     window.currentOrderItems = [];
+    window.currentSupplierId = null;
     document.getElementById('poItemsListUI').innerHTML = '<li class="py-2 text-gray-400 italic">No products selected yet.</li>';
     document.getElementById('poTotalAmount').value = "0.00";
     document.getElementById('productStockHint').textContent = '';
@@ -465,6 +467,16 @@ function updatePricePreview() {
 document.getElementById('poItemQty')?.addEventListener('input', updatePricePreview);
 document.getElementById('poItemUnitPrice')?.addEventListener('input', updatePricePreview);
 
+function getSelectedSupplier() {
+    const supplierName = document.getElementById('poSupplier')?.value.trim().toLowerCase();
+    if (!supplierName || !window.dbSuppliersList) return null;
+    return window.dbSuppliersList.find(s => String(s.name || '').toLowerCase() === supplierName) || null;
+}
+
+function getSupplierId(supplier) {
+    return supplier ? (supplier.id || supplier.supplier_id) : null;
+}
+
 document.getElementById('poItemProductName')?.addEventListener('input', function(e) {
     const val = e.target.value.trim().toLowerCase();
     const hintEl = document.getElementById('productStockHint');
@@ -490,17 +502,19 @@ document.getElementById('poItemProductName')?.addEventListener('input', function
     
     if(window.dbProductsList && window.dbSuppliersList) {
         let prodList = window.dbProductsList;
-        if (window.currentSupplierId) {
-             prodList = prodList.filter(p => p.supplier_id == window.currentSupplierId);
+        const selectedSupplier = getSelectedSupplier();
+        const selectedSupplierId = getSupplierId(selectedSupplier) || window.currentSupplierId;
+        if (selectedSupplierId) {
+             prodList = prodList.filter(p => p.supplier_id == selectedSupplierId);
         }
         const prod = prodList.find(p => p.name.toLowerCase() === val);
         
         if(prod) {
             if (hintEl) hintEl.textContent = `In Stock: ${prod.current_stock || 0}`;
-            if (priceEl) priceEl.value = prod.cost_price || prod.selling_price || 0;
+            if (priceEl) priceEl.value = prod.cost_price || 0;
         } else {
-            if (hintEl) hintEl.textContent = 'New Product';
-            if (priceEl && !priceEl.value) priceEl.value = ''; // Let user type
+            if (hintEl) hintEl.textContent = selectedSupplierId ? 'Product does not belong to selected supplier' : 'Select a supplier first';
+            if (priceEl) priceEl.value = '';
         }
         updatePricePreview();
         
@@ -540,7 +554,7 @@ document.getElementById('createPOForm')?.addEventListener('submit', async functi
     const payload = {
         supplier_name: document.getElementById('poSupplier').value.trim(),
         total_amount:  parseFloat(document.getElementById('poTotalAmount').value) || 0,
-        status:        document.getElementById('poStatus').value,
+        status:        editingOrderId ? document.getElementById('poStatus').value : 'pending',
         items: window.currentOrderItems || []
     };
 
@@ -581,30 +595,48 @@ window.currentOrderItems = [];
 document.getElementById('addPOItemBtn')?.addEventListener('click', function() {
     const nameInput = document.getElementById('poItemProductName');
     const qtyInput = document.getElementById('poItemQty');
+    const priceInput = document.getElementById('poItemUnitPrice');
     
     const productName = nameInput.value.trim();
     const quantity = parseInt(qtyInput.value) || 0;
+    const unitPrice = parseFloat(priceInput?.value) || 0;
     
     if (!productName || quantity <= 0) {
         showToast('Invalid product name or quantity!', 'info');
         return;
     }
 
-    const existingProd = window.dbProductsList ? window.dbProductsList.find(p => p.name.toLowerCase() === productName.toLowerCase()) : null;
+    const selectedSupplier = getSelectedSupplier();
+    const selectedSupplierId = getSupplierId(selectedSupplier);
+    if (!selectedSupplierId) {
+        showToast('Please select a valid supplier before adding products.', 'error');
+        return;
+    }
+
+    const existingProd = window.dbProductsList
+        ? window.dbProductsList.find(p => p.name.toLowerCase() === productName.toLowerCase() && p.supplier_id == selectedSupplierId)
+        : null;
+
+    if (!existingProd) {
+        showToast('Product does not belong to the selected supplier.', 'error');
+        return;
+    }
+
     let itemData = {
         product_name: productName,
         quantity: quantity,
         received_quantity: 0,
-        unit_price: existingProd ? parseFloat(existingProd.selling_price || 0) : 10.00
+        unit_price: unitPrice
     };
-    if (existingProd) itemData.product_id = existingProd.id || existingProd.product_id;
-    else itemData.is_new_product = true;
+    itemData.product_id = existingProd.id || existingProd.product_id;
 
     window.currentOrderItems.push(itemData);
     renderSelectedItemsUI();
     nameInput.value = '';
     qtyInput.value = '1';
+    if (priceInput) priceInput.value = '';
     document.getElementById('productStockHint').textContent = '';
+    updatePricePreview();
 });
 
 function renderSelectedItemsUI() {
