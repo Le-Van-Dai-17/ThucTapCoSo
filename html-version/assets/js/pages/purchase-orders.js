@@ -234,6 +234,8 @@ document.getElementById('btnProceedReceive')?.addEventListener('click', async ()
         showToast('✅ Inventory successfully updated with actual count!', 'success');
         closeConfirmReceive();
         await loadOrders();
+
+
     } catch (e) {
         showToast(e.message, 'error');
     } finally {
@@ -326,6 +328,7 @@ window.openCreatePOModal = async function () {
     editingOrderId = null;
     document.getElementById('poModalTitle').textContent = 'New Purchase Order';
     document.getElementById('createPOBtn').textContent = 'Create Order';
+    document.getElementById('poStatus').value = 'pending';
     
     const poInput = document.getElementById('poOrderNumber');
     if (poInput) {
@@ -411,6 +414,7 @@ function resetCreateForm() {
     const errEl = document.getElementById('createPOError');
     if (errEl) errEl.classList.add('hidden');
     window.currentOrderItems = [];
+    window.currentSupplierId = null;
     document.getElementById('poItemsListUI').innerHTML = '<li class="py-2 text-gray-400 italic">No products selected yet.</li>';
     document.getElementById('poTotalAmount').value = "0.00";
     document.getElementById('productStockHint').textContent = '';
@@ -424,20 +428,122 @@ window.closeCreatePOModal = function () {
     }
 };
 
-document.getElementById('poItemProductName')?.addEventListener('input', function(e) {
+
+document.getElementById('poSupplier')?.addEventListener('input', function(e) {
     const val = e.target.value.trim().toLowerCase();
-    const hintEl = document.getElementById('productStockHint');
-    if(!val) { hintEl.textContent = ''; return; }
+    const datalist = document.getElementById('productsDatalist');
+    if (!datalist) return;
+    datalist.innerHTML = '';
     
-    if(window.dbProductsList) {
-        const prod = window.dbProductsList.find(p => p.name.toLowerCase() === val);
-        if(prod) {
-            hintEl.textContent = `In Stock: ${prod.current_stock || 0}`;
+    if (window.dbSuppliersList && window.dbProductsList) {
+        const supplier = window.dbSuppliersList.find(s => s.name.toLowerCase() === val);
+        if (supplier) {
+            window.currentSupplierId = supplier.id || supplier.supplier_id;
+            const filteredProducts = window.dbProductsList.filter(p => p.supplier_id == window.currentSupplierId);
+            filteredProducts.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.name;
+                datalist.appendChild(opt);
+            });
         } else {
-            hintEl.textContent = 'New Product';
+            window.currentSupplierId = null;
         }
     }
 });
+
+function updatePricePreview() {
+    const qty = parseInt(document.getElementById('poItemQty').value) || 0;
+    const price = parseFloat(document.getElementById('poItemUnitPrice').value) || 0;
+    const preview = document.getElementById('poItemPricePreview');
+    if (preview) {
+        if (qty > 0 && price >= 0) {
+            preview.textContent = `Quantity: ${qty} x ${price.toFixed(2)} = ${(qty * price).toFixed(2)}`;
+        } else {
+            preview.textContent = '';
+        }
+    }
+}
+
+document.getElementById('poItemQty')?.addEventListener('input', updatePricePreview);
+document.getElementById('poItemUnitPrice')?.addEventListener('input', updatePricePreview);
+
+function getSelectedSupplier() {
+    const supplierName = document.getElementById('poSupplier')?.value.trim().toLowerCase();
+    if (!supplierName || !window.dbSuppliersList) return null;
+    return window.dbSuppliersList.find(s => String(s.name || '').toLowerCase() === supplierName) || null;
+}
+
+function getSupplierId(supplier) {
+    return supplier ? (supplier.id || supplier.supplier_id) : null;
+}
+
+document.getElementById('poItemProductName')?.addEventListener('input', function(e) {
+    const val = e.target.value.trim().toLowerCase();
+    const hintEl = document.getElementById('productStockHint');
+    const priceEl = document.getElementById('poItemUnitPrice');
+    
+    if(!val) { 
+        if (hintEl) hintEl.textContent = ''; 
+        if (priceEl) priceEl.value = '';
+        updatePricePreview();
+        
+        // Reset supplier datalist if product is cleared
+        const supplierDatalist = document.getElementById('suppliersDatalist');
+        if (supplierDatalist && window.dbSuppliersList) {
+            supplierDatalist.innerHTML = '';
+            window.dbSuppliersList.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.name;
+                supplierDatalist.appendChild(opt);
+            });
+        }
+        return; 
+    }
+    
+    if(window.dbProductsList && window.dbSuppliersList) {
+        let prodList = window.dbProductsList;
+        const selectedSupplier = getSelectedSupplier();
+        const selectedSupplierId = getSupplierId(selectedSupplier) || window.currentSupplierId;
+        if (selectedSupplierId) {
+             prodList = prodList.filter(p => p.supplier_id == selectedSupplierId);
+        }
+        const prod = prodList.find(p => p.name.toLowerCase() === val);
+        
+        if(prod) {
+            if (hintEl) hintEl.textContent = `In Stock: ${prod.current_stock || 0}`;
+            if (priceEl) priceEl.value = prod.cost_price || 0;
+        } else {
+            if (hintEl) hintEl.textContent = selectedSupplierId ? 'Product does not belong to selected supplier' : 'Select a supplier first';
+            if (priceEl) priceEl.value = '';
+        }
+        updatePricePreview();
+        
+        // DUAL FILTERING: Filter suppliers datalist based on product
+        const supplierDatalist = document.getElementById('suppliersDatalist');
+        if (supplierDatalist && !window.currentSupplierId) {
+            const matchingProducts = window.dbProductsList.filter(p => p.name.toLowerCase() === val);
+            const matchingSupplierIds = [...new Set(matchingProducts.map(p => p.supplier_id))];
+            
+            supplierDatalist.innerHTML = '';
+            const matchingSuppliers = window.dbSuppliersList.filter(s => matchingSupplierIds.includes(s.id || s.supplier_id));
+            matchingSuppliers.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.name;
+                supplierDatalist.appendChild(opt);
+            });
+            
+            // Auto-fill supplier if exactly 1
+            if (matchingSuppliers.length === 1) {
+                const supplierInput = document.getElementById('poSupplier');
+                if (supplierInput && !supplierInput.value) {
+                    supplierInput.value = matchingSuppliers[0].name;
+                    supplierInput.dispatchEvent(new Event('input'));
+                }
+            }
+        }
+    }
+});
+
 
 document.getElementById('createPOForm')?.addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -446,15 +552,14 @@ document.getElementById('createPOForm')?.addEventListener('submit', async functi
     if (errEl) errEl.classList.add('hidden');
 
     const payload = {
-        order_number:  document.getElementById('poOrderNumber').value.trim(),
         supplier_name: document.getElementById('poSupplier').value.trim(),
         total_amount:  parseFloat(document.getElementById('poTotalAmount').value) || 0,
-        status:        document.getElementById('poStatus').value,
+        status:        editingOrderId ? document.getElementById('poStatus').value : 'pending',
         items: window.currentOrderItems || []
     };
 
-    if (!payload.order_number || payload.items.length === 0) {
-        if (errEl) { errEl.textContent = 'Order number and at least 1 item required.'; errEl.classList.remove('hidden'); }
+    if (!payload.supplier_name || payload.items.length === 0) {
+        if (errEl) { errEl.textContent = 'Supplier and at least 1 item required.'; errEl.classList.remove('hidden'); }
         return;
     }
 
@@ -463,15 +568,22 @@ document.getElementById('createPOForm')?.addEventListener('submit', async functi
     try {
         if(editingOrderId) {
             await API.orders.update(editingOrderId, payload);
-            showToast('✅ Purchase order updated!', 'success');
+            showToast('🔄 Purchase order updated!', 'success');
         } else {
             await API.orders.create(payload);
             showToast('✅ Purchase order created!', 'success');
         }
         closeCreatePOModal();
+        // Remove openAdd from URL if exists
+        const url = new URL(window.location);
+        if (url.searchParams.has('openAdd')) {
+            url.searchParams.delete('openAdd');
+            window.history.replaceState({}, '', url);
+        }
         await loadOrders();
-    } catch (err) {
-        if (errEl) { errEl.textContent = err.message || 'Failed to save order.'; errEl.classList.remove('hidden'); }
+    } catch (error) {
+        if (errEl) { errEl.textContent = error.message; errEl.classList.remove('hidden'); }
+        else showToast(error.message, 'error');
     } finally {
         btn.disabled = false;
         btn.textContent = editingOrderId ? 'Update Order' : 'Create Order';
@@ -483,30 +595,48 @@ window.currentOrderItems = [];
 document.getElementById('addPOItemBtn')?.addEventListener('click', function() {
     const nameInput = document.getElementById('poItemProductName');
     const qtyInput = document.getElementById('poItemQty');
+    const priceInput = document.getElementById('poItemUnitPrice');
     
     const productName = nameInput.value.trim();
     const quantity = parseInt(qtyInput.value) || 0;
+    const unitPrice = parseFloat(priceInput?.value) || 0;
     
     if (!productName || quantity <= 0) {
         showToast('Invalid product name or quantity!', 'info');
         return;
     }
 
-    const existingProd = window.dbProductsList ? window.dbProductsList.find(p => p.name.toLowerCase() === productName.toLowerCase()) : null;
+    const selectedSupplier = getSelectedSupplier();
+    const selectedSupplierId = getSupplierId(selectedSupplier);
+    if (!selectedSupplierId) {
+        showToast('Please select a valid supplier before adding products.', 'error');
+        return;
+    }
+
+    const existingProd = window.dbProductsList
+        ? window.dbProductsList.find(p => p.name.toLowerCase() === productName.toLowerCase() && p.supplier_id == selectedSupplierId)
+        : null;
+
+    if (!existingProd) {
+        showToast('Product does not belong to the selected supplier.', 'error');
+        return;
+    }
+
     let itemData = {
         product_name: productName,
         quantity: quantity,
         received_quantity: 0,
-        unit_price: existingProd ? parseFloat(existingProd.selling_price || 0) : 10.00
+        unit_price: unitPrice
     };
-    if (existingProd) itemData.product_id = existingProd.id || existingProd.product_id;
-    else itemData.is_new_product = true;
+    itemData.product_id = existingProd.id || existingProd.product_id;
 
     window.currentOrderItems.push(itemData);
     renderSelectedItemsUI();
     nameInput.value = '';
     qtyInput.value = '1';
+    if (priceInput) priceInput.value = '';
     document.getElementById('productStockHint').textContent = '';
+    updatePricePreview();
 });
 
 function renderSelectedItemsUI() {
@@ -652,4 +782,20 @@ document.getElementById('btnProceedAction')?.addEventListener('click', async () 
 });
 
 if (statusFilter) statusFilter.addEventListener('change', renderTable);
+
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('openAdd') === 'true') {
+    openCreatePOModal();
+    const productName = urlParams.get('product');
+    if (productName) {
+        setTimeout(() => {
+            const nameInput = document.getElementById('poItemProductName');
+            if (nameInput) {
+                nameInput.value = productName;
+                nameInput.dispatchEvent(new Event('input')); // Trigger product change logic
+            }
+        }, 500);
+    }
+}
+
 loadOrders();
