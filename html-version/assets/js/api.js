@@ -161,6 +161,16 @@ const API = {
         async delete(id)       { return apiFetch(`/suppliers/delete/${id}`, { method: 'DELETE' }); }
     },
 
+    categories: {
+        async getAll() {
+            const res = await apiFetch('/categories');
+            return res.data || res;
+        },
+        async create(data)     { return apiFetch('/categories',       { method: 'POST',   body: JSON.stringify(data) }); },
+        async update(id, data) { return apiFetch(`/categories/${id}`, { method: 'PUT',    body: JSON.stringify(data) }); },
+        async delete(id)       { return apiFetch(`/categories/${id}`, { method: 'DELETE' }); }
+    },
+
     forecast: {
         async getLatest() { 
             const res = await apiFetch('/forecast/latest');
