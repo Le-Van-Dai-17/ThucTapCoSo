@@ -138,10 +138,13 @@ const getForecastProducts = async (connection) => {
             p.cost_price,
             p.selling_price,
             p.is_discontinued,
-            COALESCE(c.name, 'General') AS category
+            COALESCE(c.name, 'General') AS category,
+            IFNULL(s.lead_time_days, 7) AS lead_time_days
         FROM products p
         LEFT JOIN categories c
             ON p.category_id = c.category_id
+        LEFT JOIN suppliers s
+            ON p.supplier_id = s.supplier_id
         WHERE p.is_discontinued = 0
         ${buildAiProductWhereSql()}
         ORDER BY p.sku ASC
@@ -358,10 +361,15 @@ const calculateProductForecast = async (
 
     const currentStock = Number(product.current_stock || 0);
     const minStockLevel = Number(product.min_stock_level || 0);
+    const leadTimeDays = Number(product.lead_time_days || 7);
 
+    // Công thức nâng cao: Lead Time Demand = (Số lượng dự báo trong 30 ngày / 30) * Số ngày giao hàng
+    const leadTimeDemand = (predictedDemand / 30) * leadTimeDays;
+
+    // Đề xuất nhập = Số lượng dự báo + Số lượng giao hàng dự kiến + Tồn kho an toàn (min_stock) - Tồn kho hiện tại
     const recommendedOrder = Math.max(
         0,
-        predictedDemand + minStockLevel - currentStock
+        Math.round(predictedDemand + leadTimeDemand + minStockLevel - currentStock)
     );
 
     let stockStatus;
@@ -543,75 +551,35 @@ exports.runForecast = async (req, res) => {
                 predictedDemand
             );
 
-            const [existingRows] = await connection.query(
+            // Luôn INSERT để lưu lịch sử mỗi lần chạy
+            const [insertResult] = await connection.query(
                 `
-                SELECT forecast_id
-                FROM demand_forecasts
-                WHERE product_id = ?
-                  AND target_period = ?
-                LIMIT 1
+                INSERT INTO demand_forecasts
+                    (
+                        product_id,
+                        model_id,
+                        target_period,
+                        predicted_quantity,
+                        lower_bound,
+                        upper_bound,
+                        recommended_order,
+                        created_by
+                    )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 `,
-                [product.product_id, targetPeriod]
+                [
+                    product.product_id,
+                    modelId,
+                    targetPeriod,
+                    forecast.predicted_quantity,
+                    forecast.lower_bound,
+                    forecast.upper_bound,
+                    forecast.recommended_order,
+                    actorId
+                ]
             );
 
-            let forecastId;
-
-            if (existingRows.length > 0) {
-                forecastId = existingRows[0].forecast_id;
-
-                await connection.query(
-                    `
-                    UPDATE demand_forecasts
-                    SET
-                        model_id = ?,
-                        forecast_date = CURRENT_TIMESTAMP,
-                        predicted_quantity = ?,
-                        lower_bound = ?,
-                        upper_bound = ?,
-                        recommended_order = ?,
-                        created_by = ?
-                    WHERE forecast_id = ?
-                    `,
-                    [
-                        modelId,
-                        forecast.predicted_quantity,
-                        forecast.lower_bound,
-                        forecast.upper_bound,
-                        forecast.recommended_order,
-                        actorId,
-                        forecastId
-                    ]
-                );
-            } else {
-                const [insertResult] = await connection.query(
-                    `
-                    INSERT INTO demand_forecasts
-                        (
-                            product_id,
-                            model_id,
-                            target_period,
-                            predicted_quantity,
-                            lower_bound,
-                            upper_bound,
-                            recommended_order,
-                            created_by
-                        )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    `,
-                    [
-                        product.product_id,
-                        modelId,
-                        targetPeriod,
-                        forecast.predicted_quantity,
-                        forecast.lower_bound,
-                        forecast.upper_bound,
-                        forecast.recommended_order,
-                        actorId
-                    ]
-                );
-
-                forecastId = insertResult.insertId;
-            }
+            const forecastId = insertResult.insertId;
 
             savedForecasts.push({
                 forecast_id: forecastId,

@@ -25,7 +25,7 @@ exports.getAllSuppliers = async (req, res) => {
                 `SELECT p.product_id, p.name, c.name as category_name, c.category_id 
                  FROM products p 
                  LEFT JOIN categories c ON p.category_id = c.category_id 
-                 WHERE p.supplier_id = ?`, 
+                 WHERE p.supplier_id = ? AND p.is_discontinued = 0`, 
                  [supplier.supplier_id]
             );
             supplier.supplied_products = products.map(p => p.name);

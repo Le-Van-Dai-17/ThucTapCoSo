@@ -132,18 +132,36 @@ exports.login = async (req, res) => {
         const secretKey = process.env.JWT_SECRET;
         if (!secretKey) throw new Error("LỖI: Chưa cài đặt JWT_SECRET trong file .env!");
 
+        const originalRole = user.role_name; 
+        // 2. Chuyển về chữ thường để khớp với logic logic v1 (Ví dụ: "staff", "admin")
+        const lowerRole = String(user.role_name).toLowerCase(); 
+
+        // Đóng gói Object User chứa mọi kịch bản thuộc tính mà Frontend có thể quét
         const userData = {
+            // Kiểu DB v3
+            user_id: user.user_id,
+            role_name: originalRole,
+
+            // Kiểu DB v1 cũ (Frontend đang cắn chặt vào đây)
             id: user.user_id,
             username: user.username,
             full_name: user.full_name,
             email: user.email,
             phone: user.phone,
-            role: user.role_name
+            role: lowerRole, // Trả về chữ thường "staff" để lệnh check (user.role === 'staff') của Thanh chạy đúng
+            status: user.is_active ? 'active' : 'inactive'
         };
 
         // Chốt cứng cấu hình JWT hết hạn sau đúng 8 giờ [BE-06]
         const token = jwt.sign(
-            { id: userData.id, username: userData.username, role: userData.role },
+            {
+                id: userData.id,
+                user_id: userData.user_id,
+                username: userData.username,
+                role: userData.role,
+                role_name: userData.role_name,
+                role_lower: userData.role
+            },
             secretKey,
             { expiresIn: '8h' }
         );

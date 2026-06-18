@@ -464,12 +464,7 @@ exports.posCheckout = async (req, res) => {
             const price = parseNonNegativeNumber(item.unit_price, 'unit_price');
             const lineTotal = qty * price;
 
-            await connection.query(
-                `INSERT INTO sale_details 
-                (transaction_id, product_id, quantity, unit_price, line_total) 
-                VALUES (?, ?, ?, ?, ?)`,
-                [transactionId, item.product_id, qty, price, lineTotal]
-            );
+            await insertSaleDetail(connection, transactionId, item.product_id, qty, price, lineTotal);
 
             await connection.query(
                 'UPDATE products SET current_stock = current_stock - ? WHERE product_id = ?',
@@ -479,17 +474,14 @@ exports.posCheckout = async (req, res) => {
 
         // 4. Log activity
         if (userId) {
-            await connection.query(
-                `INSERT INTO activity_logs (user_id, action, entity_type, entity_id, details, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)`,
-                [
-                    userId,
-                    'CREATE',
-                    'SALES',
-                    transactionId,
-                    `Thanh toán POS cho ${items.length} mặt hàng, tổng tiền $${totalAmount.toFixed(2)}`,
-                    transactionDate
-                ]
+            const { safeLogAction } = require('../utils/controllerUtils');
+            await safeLogAction(
+                userId,
+                'CREATE',
+                `Thanh toán POS cho ${items.length} mặt hàng, tổng tiền $${totalAmount.toFixed(2)}`,
+                'SALES',
+                transactionId,
+                req.ip
             );
         }
 

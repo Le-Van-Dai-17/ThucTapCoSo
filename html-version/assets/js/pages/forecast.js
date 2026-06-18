@@ -67,6 +67,8 @@ function renderTable() {
 
         tr.innerHTML = `
             <td class="px-6 py-4"><span class="font-medium text-gray-900">${f.product_name || `Product ID: ${f.product_id}`}</span></td>
+            <td class="px-6 py-4 text-center text-gray-700">${f.target_period || '--'}</td>
+            <td class="px-6 py-4 text-center text-gray-500 text-sm">${formatDate(f.forecast_date || f.created_at)}</td>
             <td class="px-6 py-4 text-center text-gray-700">${currentStock}</td>
             <td class="px-6 py-4 text-center text-gray-700">${minStock}</td>
             <td class="px-6 py-4 text-center text-[#2563EB] font-bold text-lg">${predicted}</td>
