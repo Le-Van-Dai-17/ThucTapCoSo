@@ -138,10 +138,13 @@ const getForecastProducts = async (connection) => {
             p.cost_price,
             p.selling_price,
             p.is_discontinued,
-            COALESCE(c.name, 'General') AS category
+            COALESCE(c.name, 'General') AS category,
+            IFNULL(s.lead_time_days, 7) AS lead_time_days
         FROM products p
         LEFT JOIN categories c
             ON p.category_id = c.category_id
+        LEFT JOIN suppliers s
+            ON p.supplier_id = s.supplier_id
         WHERE p.is_discontinued = 0
         ${buildAiProductWhereSql()}
         ORDER BY p.sku ASC
@@ -358,10 +361,15 @@ const calculateProductForecast = async (
 
     const currentStock = Number(product.current_stock || 0);
     const minStockLevel = Number(product.min_stock_level || 0);
+    const leadTimeDays = Number(product.lead_time_days || 7);
 
+    // Công thức nâng cao: Lead Time Demand = (Số lượng dự báo trong 30 ngày / 30) * Số ngày giao hàng
+    const leadTimeDemand = (predictedDemand / 30) * leadTimeDays;
+
+    // Đề xuất nhập = Số lượng dự báo + Số lượng giao hàng dự kiến + Tồn kho an toàn (min_stock) - Tồn kho hiện tại
     const recommendedOrder = Math.max(
         0,
-        predictedDemand + minStockLevel - currentStock
+        Math.round(predictedDemand + leadTimeDemand + minStockLevel - currentStock)
     );
 
     let stockStatus;
