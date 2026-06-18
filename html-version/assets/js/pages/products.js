@@ -304,7 +304,9 @@ window.confirmDeleteProduct = async function () {
 if (searchInput)    searchInput.addEventListener('input', renderTable);
 if (categoryFilter) categoryFilter.addEventListener('change', renderTable);
 
-fetchAndPopulateCategories().then(() => loadProducts());
+  document.addEventListener('DOMContentLoaded', () => {
+      fetchAndPopulateCategories().then(() => loadProducts());
+  });
 // Populate Categories dynamically
 async function fetchAndPopulateCategories() {
     try {

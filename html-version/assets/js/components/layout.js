@@ -162,7 +162,11 @@ const displayName = currentUser
     ? (currentUser.full_name || currentUser.fullName || currentUser.username || 'User')
     : 'User';
 
-const displayRole = currentUser ? currentUser.role : 'Guest';
+function capitalizeFirstLayout(str) {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+const displayRole = currentUser ? capitalizeFirstLayout(currentUser.role || currentUser.role_name) : 'Guest';
 
 
 // ===============================

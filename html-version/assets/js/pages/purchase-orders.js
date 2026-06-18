@@ -7,7 +7,6 @@ let currentPOIdToDelete = null;
 let editingOrderId = null;
 
 const statusConfig = {
-    draft:     { label: "Draft",     color: "bg-gray-100 text-gray-700" },
     pending:   { label: "Pending",   color: "bg-orange-100 text-orange-700" },
     approved:  { label: "Approved",  color: "bg-blue-100 text-blue-700" },
     shipped:   { label: "Shipped",   color: "bg-yellow-100 text-yellow-700" },
@@ -53,7 +52,7 @@ async function loadOrders() {
 
 function renderStats() {
     const total     = allOrders.length;
-    const pending   = allOrders.filter(o => o.status === 'pending' || o.status === 'draft').length;
+    const pending   = allOrders.filter(o => o.status === 'pending').length;
     const received  = allOrders.filter(o => o.status === 'received' || o.status === 'completed').length;
     const totalVal  = allOrders.reduce((s, o) => s + o.total_amount, 0);
 
@@ -64,7 +63,7 @@ function renderStats() {
             <div class="text-2xl font-semibold text-gray-900">${total}</div>
         </div>
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div class="text-sm text-gray-500 mb-1">Pending & Draft</div>
+            <div class="text-sm text-gray-500 mb-1">Pending</div>
             <div class="text-2xl font-semibold text-orange-600">${pending}</div>
         </div>
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -590,12 +589,30 @@ document.getElementById('addPOItemBtn')?.addEventListener('click', function() {
         return;
     }
 
+    const supplierName = document.getElementById('poSupplier').value.trim();
+    let supplierId = null;
+    if (window.dbSuppliersList && supplierName) {
+        const sup = window.dbSuppliersList.find(s => s.name.toLowerCase() === supplierName.toLowerCase());
+        if (sup) supplierId = sup.id || sup.supplier_id;
+    }
+
     const existingProd = window.dbProductsList ? window.dbProductsList.find(p => p.name.toLowerCase() === productName.toLowerCase()) : null;
+
+    if (!existingProd) {
+        showToast('Chỉ có thể nhập các sản phẩm đã có trong hệ thống!', 'error');
+        return;
+    }
+
+    if (supplierId && existingProd.supplier_id != supplierId) {
+        showToast('Sản phẩm này không thuộc về Nhà cung cấp đã chọn!', 'error');
+        return;
+    }
+
     let itemData = {
         product_name: productName,
         quantity: quantity,
         received_quantity: 0,
-        unit_price: existingProd ? parseFloat(existingProd.selling_price || 0) : 10.00
+        unit_price: existingProd ? parseFloat(existingProd.cost_price || 0) : 10.00
     };
     if (existingProd) itemData.product_id = existingProd.id || existingProd.product_id;
     else itemData.is_new_product = true;

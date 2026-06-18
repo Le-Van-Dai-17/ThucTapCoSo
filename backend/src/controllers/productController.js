@@ -500,6 +500,8 @@ exports.getAvailableProducts = async (req, res) => {
                 name,
                 unit,
                 selling_price,
+                cost_price,
+                supplier_id,
                 current_stock
             FROM products 
             WHERE is_discontinued = 0

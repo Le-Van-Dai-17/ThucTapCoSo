@@ -49,13 +49,13 @@ document.getElementById('loginForm').addEventListener('submit', async function (
             Auth.setToken(result.token);
             Auth.setUser(result.user);
 
-            const role = result.user.role;
+            const role = String(result.user.role || '').toLowerCase();
 
-            if (role === 'Admin') {
+            if (role === 'admin') {
                 window.location.href = 'users.html';
-            } else if (role === 'Manager') {
+            } else if (role === 'manager') {
                 window.location.href = 'dashboard.html';
-            } else if (role === 'Staff') {
+            } else if (role === 'staff') {
                 window.location.href = 'purchase-orders.html';
             } else {
                 showToast('Tài khoản chưa được phân quyền hợp lệ.', 'info');

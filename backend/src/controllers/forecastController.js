@@ -551,75 +551,35 @@ exports.runForecast = async (req, res) => {
                 predictedDemand
             );
 
-            const [existingRows] = await connection.query(
+            // Luôn INSERT để lưu lịch sử mỗi lần chạy
+            const [insertResult] = await connection.query(
                 `
-                SELECT forecast_id
-                FROM demand_forecasts
-                WHERE product_id = ?
-                  AND target_period = ?
-                LIMIT 1
+                INSERT INTO demand_forecasts
+                    (
+                        product_id,
+                        model_id,
+                        target_period,
+                        predicted_quantity,
+                        lower_bound,
+                        upper_bound,
+                        recommended_order,
+                        created_by
+                    )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 `,
-                [product.product_id, targetPeriod]
+                [
+                    product.product_id,
+                    modelId,
+                    targetPeriod,
+                    forecast.predicted_quantity,
+                    forecast.lower_bound,
+                    forecast.upper_bound,
+                    forecast.recommended_order,
+                    actorId
+                ]
             );
 
-            let forecastId;
-
-            if (existingRows.length > 0) {
-                forecastId = existingRows[0].forecast_id;
-
-                await connection.query(
-                    `
-                    UPDATE demand_forecasts
-                    SET
-                        model_id = ?,
-                        forecast_date = CURRENT_TIMESTAMP,
-                        predicted_quantity = ?,
-                        lower_bound = ?,
-                        upper_bound = ?,
-                        recommended_order = ?,
-                        created_by = ?
-                    WHERE forecast_id = ?
-                    `,
-                    [
-                        modelId,
-                        forecast.predicted_quantity,
-                        forecast.lower_bound,
-                        forecast.upper_bound,
-                        forecast.recommended_order,
-                        actorId,
-                        forecastId
-                    ]
-                );
-            } else {
-                const [insertResult] = await connection.query(
-                    `
-                    INSERT INTO demand_forecasts
-                        (
-                            product_id,
-                            model_id,
-                            target_period,
-                            predicted_quantity,
-                            lower_bound,
-                            upper_bound,
-                            recommended_order,
-                            created_by
-                        )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    `,
-                    [
-                        product.product_id,
-                        modelId,
-                        targetPeriod,
-                        forecast.predicted_quantity,
-                        forecast.lower_bound,
-                        forecast.upper_bound,
-                        forecast.recommended_order,
-                        actorId
-                    ]
-                );
-
-                forecastId = insertResult.insertId;
-            }
+            const forecastId = insertResult.insertId;
 
             savedForecasts.push({
                 forecast_id: forecastId,
