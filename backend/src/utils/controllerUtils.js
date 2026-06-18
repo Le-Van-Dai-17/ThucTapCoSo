@@ -43,10 +43,11 @@ const clampInteger = (value, min, max, defaultValue) => {
 const safeLogAction = async (userId, action, description, entityType, entityId, ipAddress) => {
     try {
         if (!userId) return;
-        
-        const { logAction } = require('../controllers/activityLogController');
-        
-        await logAction(userId, action, description, entityType, entityId, ipAddress);
+        const { pool } = require('../db');
+        await pool.query(
+            `INSERT INTO activity_logs (user_id, action, description, entity_type, entity_id, ip_address) VALUES (?, ?, ?, ?, ?, ?)`,
+            [userId, action, description || null, entityType || null, entityId || null, ipAddress || null]
+        );
     } catch (error) {
         console.error('Lỗi ghi activity log âm thầm:', error.message);
     }

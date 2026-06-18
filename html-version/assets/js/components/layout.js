@@ -20,10 +20,11 @@ const ROLE_PERMISSIONS = {
     Manager: [
         'dashboard.html',
         'products.html',
+        'categories.html',
         'sales-data.html',
         'import.html',
         'reports.html',
-        'inventory.html',
+        'pos.html',
         'purchase-orders.html',
         'suppliers.html',
         'forecast.html',
@@ -31,6 +32,7 @@ const ROLE_PERMISSIONS = {
     ],
 
     Staff: [
+        'pos.html',
         'purchase-orders.html',
         'profile.html'
     ]
@@ -45,13 +47,19 @@ const NAV_ITEMS = [
     },
     {
         href: 'products.html',
-        label: 'Products',
+        label: 'Products & Inventory',
         icon: 'box',
         roles: ['Manager']
     },
     {
+        href: 'categories.html',
+        label: 'Categories',
+        icon: 'tags',
+        roles: ['Manager']
+    },
+    {
         href: 'sales-data.html',
-        label: 'Sales Data',
+        label: 'Demand Data',
         icon: 'line-chart',
         roles: ['Manager']
     },
@@ -68,10 +76,10 @@ const NAV_ITEMS = [
         roles: ['Manager']
     },
     {
-        href: 'inventory.html',
-        label: 'Inventory',
-        icon: 'package',
-        roles: ['Manager']
+        href: 'pos.html',
+        label: 'Sales (POS)',
+        icon: 'shopping-bag',
+        roles: ['Manager', 'Staff']
     },
     {
         href: 'purchase-orders.html',
@@ -161,7 +169,11 @@ const displayName = currentUser
     ? (currentUser.full_name || currentUser.fullName || currentUser.username || 'User')
     : 'User';
 
-const displayRole = currentUser ? currentUser.role : 'Guest';
+function capitalizeFirstLayout(str) {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+const displayRole = currentUser ? capitalizeFirstLayout(currentUser.role || currentUser.role_name) : 'Guest';
 
 
 // ===============================
@@ -182,7 +194,7 @@ const displayRole = currentUser ? currentUser.role : 'Guest';
     const allowedPages = ROLE_PERMISSIONS[displayRole] || [];
 
     if (!allowedPages.includes(currentPage)) {
-        alert('Bạn không có quyền truy cập trang này. Vui lòng đăng nhập lại.');
+        showToast('Bạn không có quyền truy cập trang này. Vui lòng đăng nhập lại.', 'info');
 
         if (typeof Auth !== 'undefined' && typeof Auth.clear === 'function') {
             Auth.clear();

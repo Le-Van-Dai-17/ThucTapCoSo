@@ -2,6 +2,8 @@ const { pool } = require('../db');
 const { getActorId, safeLogAction } = require('../utils/controllerUtils');
 const { predictDemandBatch } = require('../services/mlForecastService');
 
+const AI_SKU_PREFIXES = ['FOODS_', 'HOBBIES_', 'HOUSEHOLD_'];
+
 const getNextMonthDate = () => {
     const now = new Date();
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -17,12 +19,12 @@ const normalizeTargetPeriod = (targetPeriod) => {
         return getNextMonthDate();
     }
 
-    // Cho phép gửi dạng "2026-06"
+    // Cho phép frontend gửi "2026-06"
     if (/^\d{4}-\d{2}$/.test(targetPeriod)) {
         return `${targetPeriod}-01`;
     }
 
-    // Cho phép gửi dạng "2026-06-01"
+    // Cho phép frontend gửi "2026-06-01"
     if (/^\d{4}-\d{2}-\d{2}$/.test(targetPeriod)) {
         return targetPeriod;
     }
@@ -30,12 +32,17 @@ const normalizeTargetPeriod = (targetPeriod) => {
     return getNextMonthDate();
 };
 
+const getMonthKeyFromDateString = (dateString) => {
+    return dateString.slice(0, 7);
+};
+
 const getTargetMonthNumber = (targetPeriod) => {
     return Number(targetPeriod.slice(5, 7));
 };
 
 const getPreviousMonthKeys = (targetPeriod) => {
-    const [yearStr, monthStr] = targetPeriod.slice(0, 7).split('-');
+    const monthKey = getMonthKeyFromDateString(targetPeriod);
+    const [yearStr, monthStr] = monthKey.split('-');
 
     let year = Number(yearStr);
     let month = Number(monthStr);
@@ -57,7 +64,17 @@ const getPreviousMonthKeys = (targetPeriod) => {
     return keys;
 };
 
-const getOrCreateDefaultModel = async (connection) => {
+const buildAiProductWhereSql = () => {
+    return `
+        AND (
+            p.sku LIKE 'FOODS\\_%'
+            OR p.sku LIKE 'HOBBIES\\_%'
+            OR p.sku LIKE 'HOUSEHOLD\\_%'
+        )
+    `;
+};
+
+const getOrCreateDefaultModel = async (connection, actorId = null) => {
     const [models] = await connection.query(
         `
         SELECT model_id
@@ -80,9 +97,10 @@ const getOrCreateDefaultModel = async (connection) => {
                 model_path,
                 algorithm_type,
                 hyperparameters,
-                is_deployed
+                is_deployed,
+                created_by
             )
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?)
         `,
         [
             `rf-m5-pipeline-${Date.now()}`,
@@ -99,7 +117,8 @@ const getOrCreateDefaultModel = async (connection) => {
                 source: 'M5 Forecasting CA_1',
                 integration: 'Node.js calls Python sklearn Pipeline'
             }),
-            1
+            1,
+            actorId
         ]
     );
 
@@ -119,16 +138,15 @@ const getForecastProducts = async (connection) => {
             p.cost_price,
             p.selling_price,
             p.is_discontinued,
-            COALESCE(c.name, 'General') AS category
+            COALESCE(c.name, 'General') AS category,
+            IFNULL(s.lead_time_days, 7) AS lead_time_days
         FROM products p
         LEFT JOIN categories c
             ON p.category_id = c.category_id
+        LEFT JOIN suppliers s
+            ON p.supplier_id = s.supplier_id
         WHERE p.is_discontinued = 0
-          AND (
-              p.sku LIKE 'FOODS\\_%'
-              OR p.sku LIKE 'HOBBIES\\_%'
-              OR p.sku LIKE 'HOUSEHOLD\\_%'
-          )
+        ${buildAiProductWhereSql()}
         ORDER BY p.sku ASC
         `
     );
@@ -234,15 +252,17 @@ const buildFallbackPredictionMap = (products, lagMap) => {
             lag_3: 0
         };
 
-        const values = [
+        const lagValues = [
             Number(lags.lag_1 || 0),
             Number(lags.lag_2 || 0),
             Number(lags.lag_3 || 0)
-        ].filter(value => value > 0);
+        ];
 
-        if (values.length > 0) {
-            const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
-            predictionMap[product.sku] = Math.max(0, Math.round(avg));
+        const positiveValues = lagValues.filter(value => value > 0);
+
+        if (positiveValues.length > 0) {
+            const average = positiveValues.reduce((sum, value) => sum + value, 0) / positiveValues.length;
+            predictionMap[product.sku] = Math.max(0, Math.round(average));
         } else {
             predictionMap[product.sku] = Number(product.min_stock_level || 10) * 2;
         }
@@ -252,8 +272,9 @@ const buildFallbackPredictionMap = (products, lagMap) => {
 };
 
 const predictProductsWithAI = async (products, lagMap, targetPeriod) => {
+    const aiInputs = buildAiInputs(products, lagMap, targetPeriod);
+
     try {
-        const aiInputs = buildAiInputs(products, lagMap, targetPeriod);
         const predictions = await predictDemandBatch(aiInputs);
 
         const predictionMap = {};
@@ -265,13 +286,11 @@ const predictProductsWithAI = async (products, lagMap, targetPeriod) => {
             );
         });
 
+        // Nếu thiếu prediction cho sản phẩm nào thì fallback riêng sản phẩm đó
         const fallbackMap = buildFallbackPredictionMap(products, lagMap);
 
         products.forEach(product => {
-            if (
-                predictionMap[product.sku] === undefined ||
-                Number.isNaN(predictionMap[product.sku])
-            ) {
+            if (predictionMap[product.sku] === undefined || Number.isNaN(predictionMap[product.sku])) {
                 predictionMap[product.sku] = fallbackMap[product.sku];
             }
         });
@@ -342,10 +361,15 @@ const calculateProductForecast = async (
 
     const currentStock = Number(product.current_stock || 0);
     const minStockLevel = Number(product.min_stock_level || 0);
+    const leadTimeDays = Number(product.lead_time_days || 7);
 
+    // Công thức nâng cao: Lead Time Demand = (Số lượng dự báo trong 30 ngày / 30) * Số ngày giao hàng
+    const leadTimeDemand = (predictedDemand / 30) * leadTimeDays;
+
+    // Đề xuất nhập = Số lượng dự báo + Số lượng giao hàng dự kiến + Tồn kho an toàn (min_stock) - Tồn kho hiện tại
     const recommendedOrder = Math.max(
         0,
-        predictedDemand + minStockLevel - currentStock
+        Math.round(predictedDemand + leadTimeDemand + minStockLevel - currentStock)
     );
 
     let stockStatus;
@@ -424,7 +448,6 @@ exports.getLatestForecast = async (req, res) => {
         if (products.length === 0) {
             return res.status(200).json({
                 success: true,
-                target_period: targetPeriod,
                 data: [],
                 message: 'Không có sản phẩm phù hợp để dự báo'
             });
@@ -480,7 +503,7 @@ exports.getLatestForecast = async (req, res) => {
 /**
  * POST /api/forecast/run
  *
- * Chạy dự báo AI và lưu kết quả vào bảng demand_forecasts.
+ * Chạy dự báo bằng model AI và lưu kết quả vào bảng demand_forecasts.
  */
 exports.runForecast = async (req, res) => {
     const connection = await pool.getConnection();
@@ -488,7 +511,8 @@ exports.runForecast = async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        const modelId = await getOrCreateDefaultModel(connection);
+        const actorId = getActorId(req);
+        const modelId = await getOrCreateDefaultModel(connection, actorId);
         const targetPeriod = normalizeTargetPeriod(req.body?.target_period);
 
         const products = await getForecastProducts(connection);
@@ -498,7 +522,6 @@ exports.runForecast = async (req, res) => {
 
             return res.status(200).json({
                 success: true,
-                target_period: targetPeriod,
                 message: 'Không có sản phẩm phù hợp để chạy dự báo',
                 data: []
             });
@@ -528,67 +551,35 @@ exports.runForecast = async (req, res) => {
                 predictedDemand
             );
 
-            const [existingRows] = await connection.query(
+            // Luôn INSERT để lưu lịch sử mỗi lần chạy
+            const [insertResult] = await connection.query(
                 `
-                SELECT forecast_id
-                FROM demand_forecasts
-                WHERE product_id = ?
-                  AND target_period = ?
-                LIMIT 1
+                INSERT INTO demand_forecasts
+                    (
+                        product_id,
+                        model_id,
+                        target_period,
+                        predicted_quantity,
+                        lower_bound,
+                        upper_bound,
+                        recommended_order,
+                        created_by
+                    )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 `,
-                [product.product_id, targetPeriod]
+                [
+                    product.product_id,
+                    modelId,
+                    targetPeriod,
+                    forecast.predicted_quantity,
+                    forecast.lower_bound,
+                    forecast.upper_bound,
+                    forecast.recommended_order,
+                    actorId
+                ]
             );
 
-            let forecastId;
-
-            if (existingRows.length > 0) {
-                forecastId = existingRows[0].forecast_id;
-
-                await connection.query(
-                    `
-                    UPDATE demand_forecasts
-                    SET
-                        model_id = ?,
-                        forecast_date = CURRENT_TIMESTAMP,
-                        predicted_quantity = ?,
-                        lower_bound = ?,
-                        upper_bound = ?
-                    WHERE forecast_id = ?
-                    `,
-                    [
-                        modelId,
-                        forecast.predicted_quantity,
-                        forecast.lower_bound,
-                        forecast.upper_bound,
-                        forecastId
-                    ]
-                );
-            } else {
-                const [insertResult] = await connection.query(
-                    `
-                    INSERT INTO demand_forecasts
-                        (
-                            product_id,
-                            model_id,
-                            target_period,
-                            predicted_quantity,
-                            lower_bound,
-                            upper_bound
-                        )
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    `,
-                    [
-                        product.product_id,
-                        modelId,
-                        targetPeriod,
-                        forecast.predicted_quantity,
-                        forecast.lower_bound,
-                        forecast.upper_bound
-                    ]
-                );
-
-                forecastId = insertResult.insertId;
-            }
+            const forecastId = insertResult.insertId;
 
             savedForecasts.push({
                 forecast_id: forecastId,
@@ -601,7 +592,7 @@ exports.runForecast = async (req, res) => {
         await connection.commit();
 
         await safeLogAction(
-            getActorId(req),
+            actorId,
             'RUN_FORECAST',
             `Chạy dự báo AI nhu cầu nhập hàng cho kỳ ${targetPeriod}`,
             'demand_forecasts',
@@ -664,12 +655,9 @@ exports.getSavedForecasts = async (req, res) => {
                 df.predicted_quantity AS predicted_demand,
                 df.lower_bound,
                 df.upper_bound,
+                df.recommended_order,
                 p.current_stock,
-                p.min_stock_level,
-                GREATEST(
-                    df.predicted_quantity + p.min_stock_level - p.current_stock,
-                    0
-                ) AS recommended_order
+                p.min_stock_level
             FROM demand_forecasts df
             JOIN products p
                 ON df.product_id = p.product_id
@@ -759,7 +747,8 @@ exports.getForecastByProduct = async (req, res) => {
                 df.target_period,
                 df.predicted_quantity,
                 df.lower_bound,
-                df.upper_bound
+                df.upper_bound,
+                df.recommended_order
             FROM demand_forecasts df
             LEFT JOIN ml_models m
                 ON df.model_id = m.model_id

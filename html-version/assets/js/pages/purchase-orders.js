@@ -7,11 +7,11 @@ let currentPOIdToDelete = null;
 let editingOrderId = null;
 
 const statusConfig = {
-    draft:     { label: "Draft",     color: "bg-gray-100 text-gray-700" },
     pending:   { label: "Pending",   color: "bg-orange-100 text-orange-700" },
-    ordered:   { label: "Ordered",   color: "bg-blue-100 text-blue-700" },
+    approved:  { label: "Approved",  color: "bg-blue-100 text-blue-700" },
+    shipped:   { label: "Shipped",   color: "bg-yellow-100 text-yellow-700" },
     received:  { label: "Received",  color: "bg-[#10B981]/10 text-[#10B981]" },
-    completed: { label: "Completed", color: "bg-[#10B981]/10 text-[#10B981]" },
+    cancelled: { label: "Cancelled", color: "bg-red-100 text-red-700" },
 };
 
 const statusFilter        = document.getElementById('statusFilter');
@@ -52,17 +52,18 @@ async function loadOrders() {
 
 function renderStats() {
     const total     = allOrders.length;
-    const pending   = allOrders.filter(o => o.status === 'pending' || o.status === 'draft').length;
+    const pending   = allOrders.filter(o => o.status === 'pending').length;
     const received  = allOrders.filter(o => o.status === 'received' || o.status === 'completed').length;
     const totalVal  = allOrders.reduce((s, o) => s + o.total_amount, 0);
 
+    if (!statsCardsContainer) return;
     statsCardsContainer.innerHTML = `
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div class="text-sm text-gray-500 mb-1">Total Orders</div>
             <div class="text-2xl font-semibold text-gray-900">${total}</div>
         </div>
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div class="text-sm text-gray-500 mb-1">Pending & Draft</div>
+            <div class="text-sm text-gray-500 mb-1">Pending</div>
             <div class="text-2xl font-semibold text-orange-600">${pending}</div>
         </div>
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -79,6 +80,7 @@ function renderTable() {
     const filter   = statusFilter?.value || 'all';
     const filtered = filter === 'all' ? allOrders : allOrders.filter(o => o.status === filter);
 
+    if (!tableBody) return;
     tableBody.innerHTML = '';
     if (filtered.length === 0) {
         if (emptyState) emptyState.classList.remove('hidden');
@@ -90,8 +92,10 @@ function renderTable() {
         const bgClass   = i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50';
         const cfg       = statusConfig[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-700' };
         const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
-        const canEdit = !isStaff && order.status !== 'received' && order.status !== 'completed' && order.status !== 'cancelled';
-        const canReceive = order.status === 'ordered' || order.status === 'approved' || order.status === 'shipped';
+        const canEdit = !isStaff && !['approved', 'shipped', 'received', 'completed', 'cancelled'].includes(order.status);
+        const canApprove = !isStaff && order.status === 'pending';
+        const canShip = !isStaff && order.status === 'approved';
+        const canReceive = order.status === 'approved' || order.status === 'shipped';
         const createdAt = order.created_at || order.order_date;
 
         const tr = document.createElement('tr');
@@ -106,20 +110,30 @@ function renderTable() {
             <td class="px-6 py-4 text-right"><span class="font-semibold text-gray-900">${formatCurrency(order.total_amount)}</span></td>
             <td class="px-6 py-4">
                 <div class="flex items-center justify-center gap-2">
-                    <button onclick="viewDetail(${order.id})" class="p-2 text-gray-600 hover:text-[#2563EB] hover:bg-blue-50 rounded-lg transition-all" title="View Invoice">
+                    <button onclick="viewDetail(${order.id})" class="p-2 text-gray-600 hover:text-[#2563EB] hover:bg-blue-50 rounded-lg transition-all" title="View Details">
                         <i data-lucide="file-text" class="w-4 h-4"></i>
                     </button>
+                    ${canApprove ? `
+                    <button onclick="openActionModal(${order.id}, 'approve')" class="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all" title="Approve Plan">
+                        <i data-lucide="check-circle" class="w-4 h-4"></i>
+                    </button>
+                    ` : ''}
                     ${canEdit ? `
                     <button onclick="editOrder(${order.id})" class="p-2 text-gray-600 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all" title="Edit Order">
                         <i data-lucide="edit" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="openConfirmDelete(${order.id})" class="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Delete Order">
+                    <button onclick="openActionModal(${order.id}, 'delete')" class="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Delete Order">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                     ` : ''}
                     ${canReceive ? `
-                    <button onclick="openConfirmReceive(${order.id})" class="p-2 text-gray-600 hover:text-[#10B981] hover:bg-green-50 rounded-lg transition-all" title="Confirm Receive">
+                    <button onclick="openConfirmReceive(${order.id})" class="p-2 text-[#10B981] hover:bg-green-50 rounded-lg transition-all" title="Confirm Receive">
                         <i data-lucide="package-check" class="w-4 h-4"></i>
+                    </button>
+                    ` : ''}
+                    ${canShip ? `
+                    <button onclick="openActionModal(${order.id}, 'ship')" class="p-2 text-yellow-600 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-all" title="Mark as Shipped">
+                        <i data-lucide="truck" class="w-4 h-4"></i>
                     </button>
                     ` : ''}
                 </div>
@@ -135,6 +149,7 @@ function renderTable() {
 function showModal(overlayId, modalId) {
     const overlay = document.getElementById(overlayId);
     const modal = document.getElementById(modalId);
+    if (!overlay || !modal) return;
     overlay.classList.remove('hidden');
     overlay.classList.remove('overlay-leave', 'overlay-leave-active');
     overlay.classList.add('overlay-enter', 'overlay-enter-active');
@@ -144,32 +159,82 @@ function showModal(overlayId, modalId) {
 function hideModal(overlayId, modalId) {
     const overlay = document.getElementById(overlayId);
     const modal = document.getElementById(modalId);
+    if (!overlay || !modal) return;
     overlay.classList.remove('overlay-enter', 'overlay-enter-active');
     overlay.classList.add('overlay-leave', 'overlay-leave-active');
     modal.classList.remove('modal-enter', 'modal-enter-active');
     modal.classList.add('modal-leave', 'modal-leave-active');
     setTimeout(() => overlay.classList.add('hidden'), 200);
 }
+// BE-04: HÀM PHÊ DUYỆT ĐƠN HÀNG DÀNH CHO MANAGER
 
-// RECEIVE MODAL
-window.openConfirmReceive = function(id) {
+
+
+
+// BE-03: HIỂN THỊ DANH SÁCH Ô NHẬP ĐỂ STAFF ĐẾM KHO THỰC TẾ
+window.openConfirmReceive = async function(id) {
     currentPOIdToReceive = id;
+    const container = document.getElementById('receiveItemsContainer');
+    if (container) container.innerHTML = '<p class="text-sm text-gray-400 py-2">Loading items for inventory count...</p>';
+    
     showModal('confirmReceiveOverlay', 'confirmReceiveModal');
+    
+    try {
+        const res = await API.orders.getDetail(id);
+        const details = res.data || [];
+        window.receiveItemsData = details.map(d => ({
+            product_id: d.product_id,
+            product_name: d.product_name,
+            ordered_quantity: d.quantity || d.ordered_quantity || 0
+        }));
+        
+        if (container) {
+            if (window.receiveItemsData.length === 0) {
+                container.innerHTML = '<p class="text-sm text-gray-500">No products found in this order.</p>';
+            } else {
+                container.innerHTML = window.receiveItemsData.map((item, idx) => `
+                    <div class="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-200 mb-2">
+                        <div class="text-xs font-semibold text-gray-800 truncate max-w-[200px]" title="${item.product_name}">${item.product_name}</div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[11px] text-gray-400 font-mono">Ordered: ${item.ordered_quantity}</span>
+                            <input type="number" id="actualQtyInput_${idx}" min="0" value="${item.ordered_quantity}" 
+                                class="w-16 px-2 py-1 text-xs border-2 border-gray-200 rounded-lg text-right font-bold focus:outline-none focus:border-[#10B981]" />
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+    } catch (e) {
+        if (container) container.innerHTML = '<p class="text-sm text-red-500">Failed to load items for verification.</p>';
+    }
 };
 window.closeConfirmReceive = function() {
     hideModal('confirmReceiveOverlay', 'confirmReceiveModal');
     currentPOIdToReceive = null;
+    window.receiveItemsData = null;
 };
-document.getElementById('btnProceedReceive').addEventListener('click', async () => {
-    if (!currentPOIdToReceive) return;
+
+document.getElementById('btnProceedReceive')?.addEventListener('click', async () => {
+    if (!currentPOIdToReceive || !window.receiveItemsData) return;
     const btn = document.getElementById('btnProceedReceive');
     btn.disabled = true;
     btn.textContent = 'Processing...';
     try {
-        const res = await API.orders.receive(currentPOIdToReceive);
-        showToast('Inventory successfully updated!', 'success');
+        const payloadItems = window.receiveItemsData.map((item, idx) => {
+            const inputEl = document.getElementById(`actualQtyInput_${idx}`);
+            const val = inputEl ? parseInt(inputEl.value) : item.ordered_quantity;
+            return {
+                product_id: item.product_id,
+                received_quantity: isNaN(val) || val < 0 ? 0 : val
+            };
+        });
+
+        await API.orders.receive(currentPOIdToReceive, { items: payloadItems });
+        showToast('✅ Inventory successfully updated with actual count!', 'success');
         closeConfirmReceive();
-        loadOrders();
+        await loadOrders();
+
+
     } catch (e) {
         showToast(e.message, 'error');
     } finally {
@@ -179,31 +244,9 @@ document.getElementById('btnProceedReceive').addEventListener('click', async () 
 });
 
 // DELETE MODAL
-window.openConfirmDelete = function(id) {
-    currentPOIdToDelete = id;
-    showModal('confirmDeleteOverlay', 'confirmDeleteModal');
-};
-window.closeConfirmDelete = function() {
-    hideModal('confirmDeleteOverlay', 'confirmDeleteModal');
-    currentPOIdToDelete = null;
-};
-document.getElementById('btnProceedDelete').addEventListener('click', async () => {
-    if (!currentPOIdToDelete) return;
-    const btn = document.getElementById('btnProceedDelete');
-    btn.disabled = true;
-    btn.textContent = 'Deleting...';
-    try {
-        await API.orders.delete(currentPOIdToDelete);
-        showToast('Purchase Order deleted!', 'success');
-        closeConfirmDelete();
-        loadOrders();
-    } catch (e) {
-        showToast(e.message, 'error');
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Yes, Delete';
-    }
-});
+
+
+
 
 // VIEW INVOICE DETAIL
 window.viewDetail = async function (id) {
@@ -227,9 +270,10 @@ window.viewDetail = async function (id) {
             <tr class="border-b border-gray-100">
                 <td class="py-4 text-center text-gray-500">${i+1}</td>
                 <td class="py-4 text-gray-900 font-medium">${d.product_name || 'N/A'}</td>
-                <td class="py-4 text-center text-gray-700">${d.quantity}</td>
-                <td class="py-4 text-right text-gray-700">${formatCurrency(d.unit_price)}</td>
-                <td class="py-4 text-right font-semibold text-gray-900">${formatCurrency(d.total_amount)}</td>
+                <td class="py-4 text-center text-gray-700 font-semibold">${d.quantity || d.ordered_quantity}</td>
+                <td class="py-4 text-center text-[#10B981] font-semibold">${d.received_quantity || 0}</td>
+                <td class="py-4 text-right text-gray-700">${formatCurrency(d.unit_price || d.unit_cost)}</td>
+                <td class="py-4 text-right font-bold text-gray-900">${formatCurrency(d.total_amount || d.line_total)}</td>
             </tr>`).join('');
 
         content.innerHTML = `
@@ -251,7 +295,8 @@ window.viewDetail = async function (id) {
                     <tr class="border-b-2 border-gray-200 bg-white">
                         <th class="py-3 text-center text-gray-500 font-semibold w-12">#</th>
                         <th class="py-3 text-left text-gray-500 font-semibold">Product Description</th>
-                        <th class="py-3 text-center text-gray-500 font-semibold w-24">Qty</th>
+                        <th class="py-3 text-center text-gray-500 font-semibold w-32">Ordered Quantity</th>
+                        <th class="py-3 text-center text-gray-500 font-semibold w-32">Received Quantity</th>
                         <th class="py-3 text-right text-gray-500 font-semibold w-32">Unit Price</th>
                         <th class="py-3 text-right text-gray-500 font-semibold w-32">Total</th>
                     </tr>
@@ -259,7 +304,7 @@ window.viewDetail = async function (id) {
                 <tbody>${rows}</tbody>
                 <tfoot>
                     <tr>
-                        <td colspan="4" class="py-6 text-right font-semibold text-gray-500 uppercase tracking-wider text-xs">Total Amount:</td>
+                        <td colspan="5" class="py-6 text-right font-semibold text-gray-500 uppercase tracking-wider text-xs">Total Amount:</td>
                         <td class="py-6 text-right font-bold text-2xl text-[#2563EB]">${formatCurrency(order.total_amount)}</td>
                     </tr>
                 </tfoot>
@@ -282,6 +327,14 @@ window.openCreatePOModal = async function () {
     editingOrderId = null;
     document.getElementById('poModalTitle').textContent = 'New Purchase Order';
     document.getElementById('createPOBtn').textContent = 'Create Order';
+    document.getElementById('poStatus').value = 'pending';
+    
+    const poInput = document.getElementById('poOrderNumber');
+    if (poInput) {
+        poInput.readOnly = false;
+        poInput.className = "w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#2563EB] transition-all";
+    }
+
     resetCreateForm();
     showCreateModal();
 };
@@ -294,7 +347,12 @@ window.editOrder = async function(id) {
     
     const order = allOrders.find(o => o.id === id);
     if(order) {
-        document.getElementById('poOrderNumber').value = order.order_number;
+        const poInput = document.getElementById('poOrderNumber');
+        if (poInput) {
+            poInput.value = order.order_number;
+            poInput.readOnly = true;
+            poInput.className = "w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500 focus:outline-none cursor-not-allowed transition-all";
+        }
         document.getElementById('poSupplier').value = order.supplier_name;
         document.getElementById('poStatus').value = order.status;
     }
@@ -305,9 +363,9 @@ window.editOrder = async function(id) {
         window.currentOrderItems = details.map(d => ({
             product_id: d.product_id,
             product_name: d.product_name,
-            quantity: d.quantity,
+            quantity: d.quantity || d.ordered_quantity,
             received_quantity: d.received_quantity || 0,
-            unit_price: parseFloat(d.unit_price)
+            unit_price: parseFloat(d.unit_price || d.unit_cost || 0)
         }));
         renderSelectedItemsUI();
     } catch(e) {
@@ -344,8 +402,10 @@ async function showCreateModal() {
         } catch (e) {}
     }
     const modal = document.getElementById('createPOModal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
 }
 
 function resetCreateForm() {
@@ -353,6 +413,7 @@ function resetCreateForm() {
     const errEl = document.getElementById('createPOError');
     if (errEl) errEl.classList.add('hidden');
     window.currentOrderItems = [];
+    window.currentSupplierId = null;
     document.getElementById('poItemsListUI').innerHTML = '<li class="py-2 text-gray-400 italic">No products selected yet.</li>';
     document.getElementById('poTotalAmount').value = "0.00";
     document.getElementById('productStockHint').textContent = '';
@@ -360,24 +421,128 @@ function resetCreateForm() {
 
 window.closeCreatePOModal = function () {
     const modal = document.getElementById('createPOModal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
 };
+
+
+document.getElementById('poSupplier')?.addEventListener('input', function(e) {
+    const val = e.target.value.trim().toLowerCase();
+    const datalist = document.getElementById('productsDatalist');
+    if (!datalist) return;
+    datalist.innerHTML = '';
+    
+    if (window.dbSuppliersList && window.dbProductsList) {
+        const supplier = window.dbSuppliersList.find(s => s.name.toLowerCase() === val);
+        if (supplier) {
+            window.currentSupplierId = supplier.id || supplier.supplier_id;
+            const filteredProducts = window.dbProductsList.filter(p => p.supplier_id == window.currentSupplierId);
+            filteredProducts.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.name;
+                datalist.appendChild(opt);
+            });
+        } else {
+            window.currentSupplierId = null;
+        }
+    }
+});
+
+function updatePricePreview() {
+    const qty = parseInt(document.getElementById('poItemQty').value) || 0;
+    const price = parseFloat(document.getElementById('poItemUnitPrice').value) || 0;
+    const preview = document.getElementById('poItemPricePreview');
+    if (preview) {
+        if (qty > 0 && price >= 0) {
+            preview.textContent = `Quantity: ${qty} x ${price.toFixed(2)} = ${(qty * price).toFixed(2)}`;
+        } else {
+            preview.textContent = '';
+        }
+    }
+}
+
+document.getElementById('poItemQty')?.addEventListener('input', updatePricePreview);
+document.getElementById('poItemUnitPrice')?.addEventListener('input', updatePricePreview);
+
+function getSelectedSupplier() {
+    const supplierName = document.getElementById('poSupplier')?.value.trim().toLowerCase();
+    if (!supplierName || !window.dbSuppliersList) return null;
+    return window.dbSuppliersList.find(s => String(s.name || '').toLowerCase() === supplierName) || null;
+}
+
+function getSupplierId(supplier) {
+    return supplier ? (supplier.id || supplier.supplier_id) : null;
+}
 
 document.getElementById('poItemProductName')?.addEventListener('input', function(e) {
     const val = e.target.value.trim().toLowerCase();
     const hintEl = document.getElementById('productStockHint');
-    if(!val) { hintEl.textContent = ''; return; }
+    const priceEl = document.getElementById('poItemUnitPrice');
     
-    if(window.dbProductsList) {
-        const prod = window.dbProductsList.find(p => p.name.toLowerCase() === val);
+    if(!val) { 
+        if (hintEl) hintEl.textContent = ''; 
+        if (priceEl) priceEl.value = '';
+        updatePricePreview();
+        
+        // Reset supplier datalist if product is cleared
+        const supplierDatalist = document.getElementById('suppliersDatalist');
+        if (supplierDatalist && window.dbSuppliersList) {
+            supplierDatalist.innerHTML = '';
+            window.dbSuppliersList.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.name;
+                supplierDatalist.appendChild(opt);
+            });
+        }
+        return; 
+    }
+    
+    if(window.dbProductsList && window.dbSuppliersList) {
+        let prodList = window.dbProductsList;
+        const selectedSupplier = getSelectedSupplier();
+        const selectedSupplierId = getSupplierId(selectedSupplier) || window.currentSupplierId;
+        if (selectedSupplierId) {
+             prodList = prodList.filter(p => p.supplier_id == selectedSupplierId);
+        }
+        const prod = prodList.find(p => p.name.toLowerCase() === val);
+        
         if(prod) {
-            hintEl.textContent = `In Stock: ${prod.current_stock || 0}`;
+            if (hintEl) hintEl.textContent = `In Stock: ${prod.current_stock || 0}`;
+            if (priceEl) priceEl.value = prod.cost_price || 0;
         } else {
-            hintEl.textContent = 'New Product';
+            if (hintEl) hintEl.textContent = selectedSupplierId ? 'Product does not belong to selected supplier' : 'Select a supplier first';
+            if (priceEl) priceEl.value = '';
+        }
+        updatePricePreview();
+        
+        // DUAL FILTERING: Filter suppliers datalist based on product
+        const supplierDatalist = document.getElementById('suppliersDatalist');
+        if (supplierDatalist && !window.currentSupplierId) {
+            const matchingProducts = window.dbProductsList.filter(p => p.name.toLowerCase() === val);
+            const matchingSupplierIds = [...new Set(matchingProducts.map(p => p.supplier_id))];
+            
+            supplierDatalist.innerHTML = '';
+            const matchingSuppliers = window.dbSuppliersList.filter(s => matchingSupplierIds.includes(s.id || s.supplier_id));
+            matchingSuppliers.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.name;
+                supplierDatalist.appendChild(opt);
+            });
+            
+            // Auto-fill supplier if exactly 1
+            if (matchingSuppliers.length === 1) {
+                const supplierInput = document.getElementById('poSupplier');
+                if (supplierInput && !supplierInput.value) {
+                    supplierInput.value = matchingSuppliers[0].name;
+                    supplierInput.dispatchEvent(new Event('input'));
+                }
+            }
         }
     }
 });
+
 
 document.getElementById('createPOForm')?.addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -386,15 +551,14 @@ document.getElementById('createPOForm')?.addEventListener('submit', async functi
     if (errEl) errEl.classList.add('hidden');
 
     const payload = {
-        order_number:  document.getElementById('poOrderNumber').value.trim(),
         supplier_name: document.getElementById('poSupplier').value.trim(),
         total_amount:  parseFloat(document.getElementById('poTotalAmount').value) || 0,
-        status:        document.getElementById('poStatus').value,
+        status:        editingOrderId ? document.getElementById('poStatus').value : 'pending',
         items: window.currentOrderItems || []
     };
 
-    if (!payload.order_number || payload.items.length === 0) {
-        if (errEl) { errEl.textContent = 'Order number and at least 1 item required.'; errEl.classList.remove('hidden'); }
+    if (!payload.supplier_name || payload.items.length === 0) {
+        if (errEl) { errEl.textContent = 'Supplier and at least 1 item required.'; errEl.classList.remove('hidden'); }
         return;
     }
 
@@ -403,15 +567,22 @@ document.getElementById('createPOForm')?.addEventListener('submit', async functi
     try {
         if(editingOrderId) {
             await API.orders.update(editingOrderId, payload);
-            showToast('✅ Purchase order updated!', 'success');
+            showToast('🔄 Purchase order updated!', 'success');
         } else {
             await API.orders.create(payload);
             showToast('✅ Purchase order created!', 'success');
         }
         closeCreatePOModal();
+        // Remove openAdd from URL if exists
+        const url = new URL(window.location);
+        if (url.searchParams.has('openAdd')) {
+            url.searchParams.delete('openAdd');
+            window.history.replaceState({}, '', url);
+        }
         await loadOrders();
-    } catch (err) {
-        if (errEl) { errEl.textContent = err.message || 'Failed to save order.'; errEl.classList.remove('hidden'); }
+    } catch (error) {
+        if (errEl) { errEl.textContent = error.message; errEl.classList.remove('hidden'); }
+        else showToast(error.message, 'error');
     } finally {
         btn.disabled = false;
         btn.textContent = editingOrderId ? 'Update Order' : 'Create Order';
@@ -423,30 +594,48 @@ window.currentOrderItems = [];
 document.getElementById('addPOItemBtn')?.addEventListener('click', function() {
     const nameInput = document.getElementById('poItemProductName');
     const qtyInput = document.getElementById('poItemQty');
+    const priceInput = document.getElementById('poItemUnitPrice');
     
     const productName = nameInput.value.trim();
     const quantity = parseInt(qtyInput.value) || 0;
+    const unitPrice = parseFloat(priceInput?.value) || 0;
     
     if (!productName || quantity <= 0) {
-        alert('Invalid product name or quantity!');
+        showToast('Invalid product name or quantity!', 'info');
         return;
     }
 
-    const existingProd = window.dbProductsList ? window.dbProductsList.find(p => p.name.toLowerCase() === productName.toLowerCase()) : null;
+    const selectedSupplier = getSelectedSupplier();
+    const selectedSupplierId = getSupplierId(selectedSupplier);
+    if (!selectedSupplierId) {
+        showToast('Please select a valid supplier before adding products.', 'error');
+        return;
+    }
+
+    const existingProd = window.dbProductsList
+        ? window.dbProductsList.find(p => p.name.toLowerCase() === productName.toLowerCase() && p.supplier_id == selectedSupplierId)
+        : null;
+
+    if (!existingProd) {
+        showToast('Product does not belong to the selected supplier.', 'error');
+        return;
+    }
+
     let itemData = {
         product_name: productName,
         quantity: quantity,
         received_quantity: 0,
-        unit_price: existingProd ? parseFloat(existingProd.selling_price || 0) : 10.00
+        unit_price: unitPrice
     };
-    if (existingProd) itemData.product_id = existingProd.id;
-    else itemData.is_new_product = true;
+    itemData.product_id = existingProd.id || existingProd.product_id;
 
     window.currentOrderItems.push(itemData);
     renderSelectedItemsUI();
     nameInput.value = '';
     qtyInput.value = '1';
+    if (priceInput) priceInput.value = '';
     document.getElementById('productStockHint').textContent = '';
+    updatePricePreview();
 });
 
 function renderSelectedItemsUI() {
@@ -468,7 +657,7 @@ function renderSelectedItemsUI() {
                 <div>
                     <span class="font-medium">${item.product_name}</span>
                     ${item.is_new_product ? `<span class="ml-1 text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-bold">NEW</span>` : ''}
-                    <span class="text-gray-400 block text-[11px]">Qty: ${item.quantity} x $${item.unit_price.toFixed(2)}</span>
+                    <span class="text-gray-400 block text-[11px]">Quantity: ${item.quantity} x $${item.unit_price.toFixed(2)}</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <span class="font-semibold">$${itemTotal.toFixed(2)}</span>
@@ -492,5 +681,120 @@ function formatDate(str) {
     return isNaN(d) ? str : d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+
+
+
+
+
+// ============================================================
+// GENERIC ACTION MODAL LOGIC
+// ============================================================
+let currentActionType = null;
+let currentActionId = null;
+
+window.openActionModal = function(id, type) {
+    currentActionId = id;
+    currentActionType = type;
+    
+    const titleEl = document.getElementById('confirmActionTitle');
+    const descEl = document.getElementById('confirmActionDesc');
+    const iconBg = document.getElementById('confirmActionIconBg');
+    const icon = document.getElementById('confirmActionIcon');
+    const btn = document.getElementById('btnProceedAction');
+    
+    if(!titleEl) return;
+
+    btn.className = 'flex-1 px-4 py-3 text-white rounded-xl transition-all font-medium shadow-sm ';
+    
+    if (type === 'delete') {
+        titleEl.textContent = 'Xóa đơn hàng';
+        descEl.textContent = 'Bạn có chắc chắn muốn xóa đơn hàng này? Hành động này không thể hoàn tác.';
+        iconBg.className = 'w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center';
+        icon.className = 'w-6 h-6 text-red-600';
+        icon.setAttribute('data-lucide', 'trash-2');
+        btn.textContent = 'Xóa đơn hàng';
+        btn.classList.add('bg-red-600', 'hover:bg-red-700');
+    } else if (type === 'cancel') {
+        titleEl.textContent = 'Hủy đơn hàng';
+        descEl.textContent = 'Bạn có chắc chắn muốn hủy đơn hàng này?';
+        iconBg.className = 'w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center';
+        icon.className = 'w-6 h-6 text-red-600';
+        icon.setAttribute('data-lucide', 'x-circle');
+        btn.textContent = 'Hủy đơn hàng';
+        btn.classList.add('bg-red-600', 'hover:bg-red-700');
+    } else if (type === 'approve') {
+        titleEl.textContent = 'Duyệt đơn hàng';
+        descEl.textContent = 'Bạn có chắc chắn muốn duyệt đơn hàng này?';
+        iconBg.className = 'w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center';
+        icon.className = 'w-6 h-6 text-purple-600';
+        icon.setAttribute('data-lucide', 'check-circle');
+        btn.textContent = 'Duyệt đơn hàng';
+        btn.classList.add('bg-purple-600', 'hover:bg-purple-700');
+    } else if (type === 'ship') {
+        titleEl.textContent = 'Giao hàng';
+        descEl.textContent = 'Xác nhận chuyển trạng thái đơn hàng sang Đang giao (Shipped)?';
+        iconBg.className = 'w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center';
+        icon.className = 'w-6 h-6 text-yellow-600';
+        icon.setAttribute('data-lucide', 'truck');
+        btn.textContent = 'Đang giao';
+        btn.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
+    }
+    
+    showModal('confirmActionOverlay', 'confirmActionModal');
+    if(window.lucide) window.lucide.createIcons();
+};
+
+window.closeConfirmAction = function() {
+    hideModal('confirmActionOverlay', 'confirmActionModal');
+    currentActionId = null;
+    currentActionType = null;
+};
+
+document.getElementById('btnProceedAction')?.addEventListener('click', async () => {
+    if (!currentActionId || !currentActionType) return;
+    const btn = document.getElementById('btnProceedAction');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Đang xử lý...';
+    try {
+        if (currentActionType === 'delete') {
+            await API.orders.delete(currentActionId);
+            showToast('Đã xóa đơn hàng!', 'success');
+        } else if (currentActionType === 'cancel') {
+            await API.orders.cancel(currentActionId);
+            showToast('Đã hủy đơn hàng!', 'success');
+        } else if (currentActionType === 'approve') {
+            await API.orders.approve(currentActionId);
+            showToast('Đã duyệt đơn hàng!', 'success');
+        } else if (currentActionType === 'ship') {
+            await API.orders.ship(currentActionId);
+            showToast('Đã chuyển trạng thái Đang giao!', 'success');
+        }
+        closeConfirmAction();
+        await loadOrders();
+    } catch (e) {
+        showToast(e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
+});
+
 if (statusFilter) statusFilter.addEventListener('change', renderTable);
+
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('openAdd') === 'true') {
+    openCreatePOModal();
+    const productName = urlParams.get('product');
+    if (productName) {
+        setTimeout(() => {
+            const nameInput = document.getElementById('poItemProductName');
+            if (nameInput) {
+                nameInput.value = productName;
+                nameInput.dispatchEvent(new Event('input')); // Trigger product change logic
+            }
+        }, 500);
+    }
+}
+
 loadOrders();

@@ -16,7 +16,7 @@ const tableBody      = document.getElementById('tableBody');
 const statsCards     = document.getElementById('statsCards');
 
 // ============================================================
-// LOAD dữ liệu
+// LOAD dữ liệu từ API thật
 // ============================================================
 async function loadProducts() {
     showLoading('tableBody');
@@ -26,7 +26,7 @@ async function loadProducts() {
         console.log(`Loaded ${allProducts.length} products from backend.`);
     } catch (err) {
         console.warn('[Products] Backend error:', err.message);
-        allProducts = []; // Xóa fallback sang MOCK_PRODUCTS
+        allProducts = []; 
         showToast('Cannot load products from server.', 'error');
     }
     renderTable();
@@ -38,10 +38,11 @@ async function loadProducts() {
 function formatCurrency(v) {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0);
 }
-function getStockColor(stock, minStock) {
-    if (stock === 0)              return 'text-red-600 font-bold';
-    if (stock < (minStock || 50)) return 'text-orange-500 font-semibold';
-    return 'text-gray-900';
+function getStockHtml(stock, minStock, maxStock) {
+    if (stock === 0) return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Out of Stock (${stock})</span>`;
+    if (stock <= (minStock || 0)) return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Low Stock (${stock})</span>`;
+    if (maxStock && stock > maxStock) return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Overstock (${stock})</span>`;
+    return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Normal (${stock})</span>`;
 }
 function renderStats(data) {
     const active = data.filter(p => p.status === 'active').length;
@@ -75,7 +76,7 @@ function renderTable() {
     const cat   = categoryFilter?.value || 'All Categories';
     const filtered = allProducts.filter(p => {
         const matchSearch = (p.name || '').toLowerCase().includes(query) || (p.sku || '').toLowerCase().includes(query);
-        const matchCat    = cat === 'All Categories' || p.category === cat;
+        const matchCat = cat === 'All Categories' || String(p.category_id) === String(cat) || p.category === cat;
         return matchSearch && matchCat;
     });
 
@@ -88,7 +89,7 @@ function renderTable() {
         </div></td></tr>`;
     } else {
         filtered.forEach(p => {
-            const stockColor  = getStockColor(p.current_stock, p.min_stock);
+            const stockHtml   = getStockHtml(p.current_stock, p.min_stock_level, p.max_stock_level);
             const statusClass = p.status === 'active' ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-gray-100 text-gray-500';
             const statusText  = p.status === 'active' ? 'Active' : 'Discontinued';
             const tr = document.createElement('tr');
@@ -98,7 +99,7 @@ function renderTable() {
                 <td class="px-4 py-4"><span class="font-medium text-gray-900">${p.name}</span></td>
                 <td class="px-4 py-4"><span class="text-sm text-gray-600">${p.category}</span></td>
                 <td class="px-4 py-4 text-right"><span class="font-semibold text-gray-900">${formatCurrency(p.selling_price)}</span></td>
-                <td class="px-4 py-4 text-center"><span class="${stockColor}">${p.current_stock}</span></td>
+                <td class="px-4 py-4 text-center">${stockHtml}</td>
                 <td class="px-4 py-4 text-center">
                     <span class="inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium ${statusClass}">${statusText}</span>
                 </td>
@@ -120,7 +121,7 @@ function renderTable() {
 }
 
 // ============================================================
-// FE-01: ADD PRODUCT MODAL
+// FE-01: ADD PRODUCT MODAL (Đã vá lỗi nạp API vào DB)
 // ============================================================
 window.openAddModal = function () {
     document.getElementById('addProductForm').reset();
@@ -147,7 +148,8 @@ document.getElementById('addProductForm')?.addEventListener('submit', async func
     const payload = {
         sku:           document.getElementById('addSku').value.trim(),
         name:          document.getElementById('addName').value.trim(),
-        category:      document.getElementById('addCategory').value,
+        category_id:      document.getElementById('addCategory').value,
+        supplier_id:      document.getElementById('addSupplier').value || null,
         description:   document.getElementById('addDescription').value.trim(),
         selling_price: parseFloat(document.getElementById('addSellingPrice').value) || 0,
         cost_price:    parseFloat(document.getElementById('addCostPrice').value)    || 0,
@@ -164,7 +166,8 @@ document.getElementById('addProductForm')?.addEventListener('submit', async func
     btn.disabled = true;
     btn.textContent = 'Adding...';
     try {
-    
+        // GỌI API ĐỂ LƯU SẢN PHẨM THẬT VÀO BACKEND DATABASE
+        await API.products.create(payload);
         closeAddModal();
         await loadProducts();
         showToast('Product added successfully!', 'success');
@@ -177,7 +180,7 @@ document.getElementById('addProductForm')?.addEventListener('submit', async func
 });
 
 // ============================================================
-// FE-02: EDIT PRODUCT MODAL
+// FE-02: EDIT PRODUCT MODAL (Đã dọn sạch đống dữ liệu giả Mock)
 // ============================================================
 window.openEditModal = async function (id) {
     editingId = id;
@@ -185,25 +188,22 @@ window.openEditModal = async function (id) {
     if (errEl) errEl.classList.add('hidden');
 
     try {
-        let product;
-        if (!isUsingMock) {
-            const result = await API.products.getById(id);  // GET /api/products/get/:id
-            product = result.data || result;
-        } else {
-            product = allProducts.find(p => p.id === id);
-        }
+        // Gọi thẳng vào API endpoint lấy dữ liệu trực tiếp từ DB
+        const result = await API.products.getById(id);
+        const product = result.data || result;
+        
         if (!product) { showToast('Product not found.', 'error'); return; }
 
-        // Điền data vào form
         const s = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val ?? ''; };
         s('editSku',          product.sku);
         s('editName',         product.name);
-        s('editCategory',     product.category);
+        s('editCategory',     product.category_id || product.category);
+        s('editSupplier',     product.supplier_id || '');
         s('editDescription',  product.description);
         s('editSellingPrice', product.selling_price);
         s('editCostPrice',    product.cost_price);
         s('editStock',        product.current_stock);
-        s('editMinStock',     product.min_stock);
+        s('editMinStock',     product.min_stock_level || product.min_stock);
         s('editStatus',       product.status);
 
         const modal = document.getElementById('editModalOverlay');
@@ -233,7 +233,8 @@ document.getElementById('editProductForm')?.addEventListener('submit', async fun
     const payload = {
         sku:           document.getElementById('editSku').value.trim(),
         name:          document.getElementById('editName').value.trim(),
-        category:      document.getElementById('editCategory').value,
+        category_id:      document.getElementById('editCategory').value,
+        supplier_id:      document.getElementById('editSupplier').value || null,
         description:   document.getElementById('editDescription').value.trim(),
         selling_price: parseFloat(document.getElementById('editSellingPrice').value) || 0,
         cost_price:    parseFloat(document.getElementById('editCostPrice').value)    || 0,
@@ -250,12 +251,7 @@ document.getElementById('editProductForm')?.addEventListener('submit', async fun
     btn.disabled = true;
     btn.textContent = 'Saving...';
     try {
-        if (!isUsingMock) {
-            await API.products.update(editingId, payload);  // PUT /api/products/update/:id
-        } else {
-            const idx = allProducts.findIndex(p => p.id === editingId);
-            if (idx !== -1) allProducts[idx] = { ...allProducts[idx], ...payload };
-        }
+        await API.products.update(editingId, payload);
         closeEditModal();
         await loadProducts();
         showToast('✅ Product updated successfully!', 'success');
@@ -268,24 +264,90 @@ document.getElementById('editProductForm')?.addEventListener('submit', async fun
 });
 
 // ============================================================
-// XÓA SẢN PHẨM
+// XÓA SẢN PHẨM (Sử dụng Custom Modal)
 // ============================================================
-window.deleteProduct = async function (id) {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+let deletingProductId = null;
+
+window.deleteProduct = function (id) {
+    deletingProductId = id;
+    const p = allProducts.find(x => x.id === id);
+    if (!p) return;
+    
+    document.getElementById('deleteProductName').textContent = p.name;
+    const modal = document.getElementById('deleteModalOverlay');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+};
+
+window.closeDeleteModal = function () {
+    const modal = document.getElementById('deleteModalOverlay');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    deletingProductId = null;
+};
+
+window.confirmDeleteProduct = async function () {
+    if (!deletingProductId) return;
+    const id = deletingProductId;
     try {
-        if (!isUsingMock) await API.products.delete(id);  // DELETE /api/products/delete/:id
+        await API.products.delete(id);
         allProducts = allProducts.filter(p => p.id !== id);
+        closeDeleteModal();
         renderTable();
-        showToast('✅ Product deleted.', 'success');
+        showToast('✅ Product deleted successfully.', 'success');
     } catch (err) {
+        closeDeleteModal();
         showToast('Delete failed: ' + err.message, 'error');
     }
 };
 
-// ============================================================
-// EVENT LISTENERS
-// ============================================================
 if (searchInput)    searchInput.addEventListener('input', renderTable);
 if (categoryFilter) categoryFilter.addEventListener('change', renderTable);
 
-loadProducts();
+  document.addEventListener('DOMContentLoaded', () => {
+      fetchAndPopulateCategories().then(() => loadProducts());
+  });
+// Populate Categories dynamically
+async function fetchAndPopulateCategories() {
+    try {
+        
+        const catRes = await API.categories.getAll();
+        
+        let suppliers = [];
+        try {
+            const supRes = await API.suppliers.getAll();
+            suppliers = supRes.data || supRes;
+        } catch(e) { console.warn('Could not load suppliers', e); }
+        
+        let supHtml = '<option value="">No Supplier</option>';
+        suppliers.forEach(s => {
+            supHtml += `<option value="${s.supplier_id}">${s.name}</option>`;
+        });
+        const addSup = document.getElementById('addSupplier');
+        if (addSup) addSup.innerHTML = supHtml;
+        const editSup = document.getElementById('editSupplier');
+        if (editSup) editSup.innerHTML = supHtml;
+
+        const cats = catRes.data || catRes;
+        
+        let filterHtml = '<option value="All Categories">All Categories</option>';
+        let formHtml = '';
+        
+        cats.forEach(c => {
+            filterHtml += `<option value="${c.category_id}">${c.name}</option>`;
+            formHtml += `<option value="${c.category_id}">${c.name}</option>`;
+        });
+
+        const catFilter = document.getElementById('categoryFilter');
+        if (catFilter) catFilter.innerHTML = filterHtml;
+        
+        const addCat = document.getElementById('addCategory');
+        if (addCat) addCat.innerHTML = formHtml;
+        
+        const editCat = document.getElementById('editCategory');
+        if (editCat) editCat.innerHTML = formHtml;
+        
+    } catch (e) {
+        console.warn('Could not load categories:', e);
+    }
+}

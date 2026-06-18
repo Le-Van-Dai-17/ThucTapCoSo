@@ -390,6 +390,8 @@ exports.updateProduct = async (req, res) => {
                 unit = ?,
                 cost_price = ?,
                 selling_price = ?,
+
+
                 current_stock = ?,
                 min_stock_level = ?,
                 max_stock_level = ?,
@@ -479,6 +481,42 @@ exports.deleteProduct = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Lỗi server khi xóa sản phẩm'
+        });
+    }
+};
+
+/**
+ * GET /api/products/available
+ * Lấy danh sách sản phẩm đang bán (dành cho Staff và Manager).
+ * Không bao gồm cost_price hoặc thông tin lợi nhuận.
+ */
+exports.getAvailableProducts = async (req, res) => {
+    try {
+        const [products] = await pool.query(`
+            SELECT 
+                product_id AS id,
+                product_id,
+                sku,
+                name,
+                unit,
+                selling_price,
+                cost_price,
+                supplier_id,
+                current_stock
+            FROM products 
+            WHERE is_discontinued = 0
+            ORDER BY name ASC
+        `);
+
+        res.status(200).json({
+            success: true,
+            data: products
+        });
+    } catch (error) {
+        console.error('Error fetching available products:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi server khi lấy danh sách sản phẩm còn bán'
         });
     }
 };

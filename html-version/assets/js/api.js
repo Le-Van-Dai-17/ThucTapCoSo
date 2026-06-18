@@ -8,6 +8,18 @@ const Auth = {
         catch { return null; }
     },
     setUser(u)  { localStorage.setItem('forecastai_user', JSON.stringify(u)); },
+    getRole() {
+        const user = this.getUser();
+        return String(user?.role || user?.role_name || '').trim().toLowerCase();
+    },
+    hasRole(...roles) {
+        const currentRole = this.getRole();
+        return roles.some(role => String(role).trim().toLowerCase() === currentRole);
+    },
+    getHomePage() {
+        if (this.hasRole('admin')) return 'users.html';
+        return this.hasRole('staff') ? 'purchase-orders.html' : 'dashboard.html';
+    },
     clear() {
         localStorage.removeItem('forecastai_token');
         localStorage.removeItem('forecastai_user');
@@ -51,7 +63,7 @@ async function apiFetch(endpoint, options = {}, skipAuthRedirect = false) {
         }
 
         // Token hết hạn → về login (nhưng KHÔNG làm vậy ở trang login)
-        if ((res.status === 401 || res.status === 403) && !skipAuthRedirect) {
+        if (res.status === 401 && !skipAuthRedirect) {
             Auth.clear();
             window.location.href = 'login.html';
             return null;
@@ -123,7 +135,10 @@ const API = {
         async create(data)  { return apiFetch('/purchases/create', { method: 'POST', body: JSON.stringify(data) }); },
         async update(id, data) { return apiFetch(`/purchases/update/${id}`, { method: 'PUT', body: JSON.stringify(data) }); },
         async delete(id)    { return apiFetch(`/purchases/delete/${id}`, { method: 'DELETE' }); },
-        async receive(id)   { return apiFetch(`/purchases/receive/${id}`, { method: 'PUT' }); }
+        async approve(id)   { return apiFetch(`/purchases/approve/${id}`, { method: 'PUT' }); },
+        async ship(id)      { return apiFetch(`/purchases/ship/${id}`, { method: 'PUT' }); },
+        async receive(id, data)   { return apiFetch(`/purchases/receive/${id}`, { method: 'PUT', body: JSON.stringify(data) }); },
+        async cancel(id)    { return apiFetch(`/purchases/cancel/${id}`, { method: 'PUT' }); }
     },
 
     users: {
@@ -144,6 +159,16 @@ const API = {
         async create(data)     { return apiFetch('/suppliers/create',       { method: 'POST',   body: JSON.stringify(data) }); },
         async update(id, data) { return apiFetch(`/suppliers/update/${id}`, { method: 'PUT',    body: JSON.stringify(data) }); },
         async delete(id)       { return apiFetch(`/suppliers/delete/${id}`, { method: 'DELETE' }); }
+    },
+
+    categories: {
+        async getAll() {
+            const res = await apiFetch('/categories');
+            return res.data || res;
+        },
+        async create(data)     { return apiFetch('/categories',       { method: 'POST',   body: JSON.stringify(data) }); },
+        async update(id, data) { return apiFetch(`/categories/${id}`, { method: 'PUT',    body: JSON.stringify(data) }); },
+        async delete(id)       { return apiFetch(`/categories/${id}`, { method: 'DELETE' }); }
     },
 
     forecast: {
@@ -195,7 +220,8 @@ const API = {
             return fetch(`${API_BASE_URL}/reports/export/excel`, {
                 headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
             }).then(res => {
-                if (res.status === 401 || res.status === 403) { Auth.logout(); return; }
+                if (res.status === 401) { Auth.logout(); return; }
+                if (res.status === 403) throw new Error('Ban khong co quyen thuc hien thao tac nay.');
                 if (!res.ok) throw new Error('Cannot download Excel');
                 return res.blob();
             });
@@ -204,7 +230,8 @@ const API = {
             return fetch(`${API_BASE_URL}/reports/export/pdf`, {
                 headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
             }).then(res => {
-                if (res.status === 401 || res.status === 403) { Auth.logout(); return; }
+                if (res.status === 401) { Auth.logout(); return; }
+                if (res.status === 403) throw new Error('Ban khong co quyen thuc hien thao tac nay.');
                 if (!res.ok) throw new Error('Cannot download PDF');
                 return res.blob();
             });

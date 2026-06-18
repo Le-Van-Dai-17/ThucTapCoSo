@@ -18,6 +18,21 @@ const normalizeLeadTimeDays = (value, fallback = null) => {
 exports.getAllSuppliers = async (req, res) => {
     try {
         const [suppliers] = await pool.query('SELECT * FROM suppliers ORDER BY supplier_id ASC');
+        
+        // Fetch products and categories for each supplier
+        for (let supplier of suppliers) {
+            const [products] = await pool.query(
+                `SELECT p.product_id, p.name, c.name as category_name, c.category_id 
+                 FROM products p 
+                 LEFT JOIN categories c ON p.category_id = c.category_id 
+                 WHERE p.supplier_id = ? AND p.is_discontinued = 0`, 
+                 [supplier.supplier_id]
+            );
+            supplier.supplied_products = products.map(p => p.name);
+            const cats = [...new Set(products.map(p => p.category_name).filter(Boolean))];
+            supplier.supplied_categories = cats;
+        }
+
         res.status(200).json({
             success: true,
             data: suppliers

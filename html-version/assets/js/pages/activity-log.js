@@ -7,8 +7,10 @@ let activities = [];
 let uniqueUsers = [];
 
 let selectedUser = "All Users";
+let selectedAction = "All Actions";
 let selectedDateRange = "All Time";
 let isUserFilterOpen = false;
+let isActionFilterOpen = false;
 let isDateFilterOpen = false;
 
 // ===============================
@@ -20,6 +22,11 @@ const userFilterMenu = document.getElementById('userFilterMenu');
 const userFilterIcon = document.getElementById('userFilterIcon');
 const userFilterText = document.getElementById('userFilterText');
 const userFilterOptions = document.getElementById('userFilterOptions');
+
+const actionFilterMenu = document.getElementById('actionFilterMenu');
+const actionFilterIcon = document.getElementById('actionFilterIcon');
+const actionFilterText = document.getElementById('actionFilterText');
+const actionFilterOptions = document.getElementById('actionFilterOptions');
 
 const dateFilterMenu = document.getElementById('dateFilterMenu');
 const dateFilterIcon = document.getElementById('dateFilterIcon');
@@ -271,8 +278,9 @@ async function loadActivityLogs() {
 
 function initFilters() {
     uniqueUsers = Array.from(new Set(activities.map(a => a.user))).sort();
+    const uniqueActions = Array.from(new Set(activities.map(a => a.action))).sort();
 
-    let opts = `
+    let optsUser = `
         <button 
             onclick="selectUserFilter('All Users')" 
             class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm bg-[#2563EB]/10 text-[#2563EB] font-medium border-none outline-none">
@@ -281,7 +289,7 @@ function initFilters() {
     `;
 
     uniqueUsers.forEach(user => {
-        opts += `
+        optsUser += `
             <button 
                 onclick="selectUserFilter('${escapeHtml(user)}')" 
                 class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm text-gray-700 border-none outline-none">
@@ -291,12 +299,42 @@ function initFilters() {
     });
 
     if (userFilterOptions) {
-        userFilterOptions.innerHTML = opts;
+        userFilterOptions.innerHTML = optsUser;
+    }
+
+    let optsAction = `
+        <button 
+            onclick="selectActionFilter('All Actions')" 
+            class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm bg-[#2563EB]/10 text-[#2563EB] font-medium border-none outline-none">
+            All Actions
+        </button>
+    `;
+
+    uniqueActions.forEach(action => {
+        optsAction += `
+            <button 
+                onclick="selectActionFilter('${escapeHtml(action)}')" 
+                class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm text-gray-700 border-none outline-none">
+                ${escapeHtml(action)}
+            </button>
+        `;
+    });
+
+    if (actionFilterOptions) {
+        actionFilterOptions.innerHTML = optsAction;
     }
 }
 
 window.toggleUserFilter = function () {
     isUserFilterOpen = !isUserFilterOpen;
+    isActionFilterOpen = false;
+    isDateFilterOpen = false;
+    updateMenus();
+};
+
+window.toggleActionFilter = function () {
+    isActionFilterOpen = !isActionFilterOpen;
+    isUserFilterOpen = false;
     isDateFilterOpen = false;
     updateMenus();
 };
@@ -304,17 +342,25 @@ window.toggleUserFilter = function () {
 window.toggleDateFilter = function () {
     isDateFilterOpen = !isDateFilterOpen;
     isUserFilterOpen = false;
+    isActionFilterOpen = false;
     updateMenus();
 };
 
 window.selectUserFilter = function (user) {
     selectedUser = user;
     userFilterText.textContent = user;
-
     isUserFilterOpen = false;
-
     updateMenus();
     updateUserOptionsVisual();
+    renderData();
+};
+
+window.selectActionFilter = function (action) {
+    selectedAction = action;
+    actionFilterText.textContent = action;
+    isActionFilterOpen = false;
+    updateMenus();
+    updateActionOptionsVisual();
     renderData();
 };
 
@@ -340,6 +386,16 @@ function updateMenus() {
         }
     }
 
+    if (actionFilterMenu && actionFilterIcon) {
+        if (isActionFilterOpen) {
+            actionFilterMenu.classList.remove('hidden');
+            actionFilterIcon.classList.add('rotate-180');
+        } else {
+            actionFilterMenu.classList.add('hidden');
+            actionFilterIcon.classList.remove('rotate-180');
+        }
+    }
+
     if (dateFilterMenu && dateFilterIcon) {
         if (isDateFilterOpen) {
             dateFilterMenu.classList.remove('hidden');
@@ -353,11 +409,21 @@ function updateMenus() {
 
 function updateUserOptionsVisual() {
     if (!userFilterOptions) return;
-
     const buttons = userFilterOptions.querySelectorAll('button');
-
     buttons.forEach(button => {
         if (button.textContent.trim() === selectedUser) {
+            button.className = 'w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm bg-[#2563EB]/10 text-[#2563EB] font-medium border-none outline-none';
+        } else {
+            button.className = 'w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm text-gray-700 border-none outline-none';
+        }
+    });
+}
+
+function updateActionOptionsVisual() {
+    if (!actionFilterOptions) return;
+    const buttons = actionFilterOptions.querySelectorAll('button');
+    buttons.forEach(button => {
+        if (button.textContent.trim() === selectedAction) {
             button.className = 'w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm bg-[#2563EB]/10 text-[#2563EB] font-medium border-none outline-none';
         } else {
             button.className = 'w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm text-gray-700 border-none outline-none';
@@ -397,6 +463,10 @@ function renderData() {
         const matchesUser =
             selectedUser === 'All Users' ||
             activity.user === selectedUser;
+            
+        const matchesAction =
+            selectedAction === 'All Actions' ||
+            activity.action === selectedAction;
 
         let matchesDate = true;
 
@@ -413,7 +483,7 @@ function renderData() {
             matchesDate = activityDate >= minDate;
         }
 
-        return matchesSearch && matchesUser && matchesDate;
+        return matchesSearch && matchesUser && matchesAction && matchesDate;
     });
 
     if (totalActivitiesEl) {

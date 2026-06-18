@@ -2,7 +2,7 @@ lucide.createIcons();
 
 // Đã đăng nhập rồi → không cần vào đây nữa
 if (typeof Auth !== 'undefined' && Auth.isLoggedIn()) {
-    window.location.href = 'dashboard.html';
+    window.location.href = typeof Auth.getHomePage === 'function' ? Auth.getHomePage() : 'dashboard.html';
 }
 
 // Toggle hiện/ẩn mật khẩu
@@ -49,16 +49,16 @@ document.getElementById('loginForm').addEventListener('submit', async function (
             Auth.setToken(result.token);
             Auth.setUser(result.user);
 
-            const role = result.user.role;
+            const role = String(result.user.role || '').toLowerCase();
 
-            if (role === 'Admin') {
+            if (role === 'admin') {
                 window.location.href = 'users.html';
-            } else if (role === 'Manager') {
+            } else if (role === 'manager') {
                 window.location.href = 'dashboard.html';
-            } else if (role === 'Staff') {
+            } else if (role === 'staff') {
                 window.location.href = 'purchase-orders.html';
             } else {
-                alert('Tài khoản chưa được phân quyền hợp lệ.');
+                showToast('Tài khoản chưa được phân quyền hợp lệ.', 'info');
                 Auth.clear();
                 window.location.href = 'login.html';
             }
@@ -85,6 +85,6 @@ function showLoginError(box, msg) {
         box.textContent = msg;
         box.classList.remove('hidden');
     } else {
-        alert(msg);
+        showToast(msg, 'info');
     }
 }

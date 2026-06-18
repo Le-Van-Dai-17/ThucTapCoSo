@@ -8,6 +8,28 @@ const PYTHON_SCRIPT_PATH = path.join(
     '../../ml/predict_forecast.py'
 );
 
+/**
+ * Gọi Python model để dự báo nhiều sản phẩm cùng lúc.
+ *
+ * Input:
+ * [
+ *   {
+ *     product_code: "FOODS_1_001",
+ *     lag_1: 20,
+ *     lag_2: 18,
+ *     lag_3: 25,
+ *     target_month: 6
+ *   }
+ * ]
+ *
+ * Output:
+ * [
+ *   {
+ *     product_code: "FOODS_1_001",
+ *     predicted_quantity: 19
+ *   }
+ * ]
+ */
 function predictDemandBatch(items) {
     return new Promise((resolve, reject) => {
         if (!Array.isArray(items) || items.length === 0) {
@@ -72,6 +94,9 @@ function predictDemandBatch(items) {
     });
 }
 
+/**
+ * Gọi Python model để dự báo 1 sản phẩm.
+ */
 async function predictDemandSingle(item) {
     const predictions = await predictDemandBatch([item]);
     return predictions[0];

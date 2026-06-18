@@ -54,10 +54,10 @@
 
                         <!-- User Filter Dropdown -->
                         <div class="relative">
-                            <button id="userFilterBtn" onclick="toggleUserFilter()" class="flex items-center gap-2 px-4 py-2.5 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-all duration-200 font-medium text-gray-700 bg-white min-w-[180px] justify-between">
+                            <button id="userFilterBtn" onclick="toggleUserFilter()" class="flex items-center gap-2 px-4 py-2.5 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-all duration-200 font-medium text-gray-700 bg-white min-w-[150px] justify-between">
                                 <div class="flex items-center gap-2">
-                                    <i data-lucide="filter" class="w-4 h-4"></i>
-                                    <span class="text-sm" id="userFilterText">All Users</span>
+                                    <i data-lucide="user" class="w-4 h-4"></i>
+                                    <span class="text-sm truncate max-w-[100px]" id="userFilterText">All Users</span>
                                 </div>
                                 <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-200" id="userFilterIcon"></i>
                             </button>
@@ -65,6 +65,24 @@
                             <div id="userFilterMenu" class="absolute top-full mt-2 right-0 w-[200px] bg-white border-2 border-gray-200 rounded-xl shadow-lg z-10 max-h-[300px] overflow-y-auto hidden">
                                 <div class="p-2" id="userFilterOptions">
                                     <button onclick="selectUserFilter('All Users')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm bg-[#2563EB]/10 text-[#2563EB] font-medium">All Users</button>
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Filter Dropdown -->
+                        <div class="relative">
+                            <button id="actionFilterBtn" onclick="toggleActionFilter()" class="flex items-center gap-2 px-4 py-2.5 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-all duration-200 font-medium text-gray-700 bg-white min-w-[160px] justify-between">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="zap" class="w-4 h-4"></i>
+                                    <span class="text-sm truncate max-w-[100px]" id="actionFilterText">All Actions</span>
+                                </div>
+                                <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-200" id="actionFilterIcon"></i>
+                            </button>
+
+                            <div id="actionFilterMenu" class="absolute top-full mt-2 right-0 w-[220px] bg-white border-2 border-gray-200 rounded-xl shadow-lg z-10 max-h-[300px] overflow-y-auto hidden">
+                                <div class="p-2" id="actionFilterOptions">
+                                    <button onclick="selectActionFilter('All Actions')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm bg-[#2563EB]/10 text-[#2563EB] font-medium">All Actions</button>
                                     <!-- Populated by JS -->
                                 </div>
                             </div>
