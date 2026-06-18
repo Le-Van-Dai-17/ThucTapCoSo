@@ -97,6 +97,7 @@ function renderTable() {
             tr.innerHTML = `
                 <td class="px-4 py-4"><span class="font-mono text-sm font-medium text-gray-700">${p.sku}</span></td>
                 <td class="px-4 py-4"><span class="font-medium text-gray-900">${p.name}</span></td>
+                <td class="px-4 py-4"><span class="text-sm text-gray-600">${p.unit || 'pcs'}</span></td>
                 <td class="px-4 py-4"><span class="text-sm text-gray-600">${p.category}</span></td>
                 <td class="px-4 py-4 text-right"><span class="font-semibold text-gray-900">${formatCurrency(p.selling_price)}</span></td>
                 <td class="px-4 py-4 text-center">${stockHtml}</td>
@@ -150,6 +151,7 @@ document.getElementById('addProductForm')?.addEventListener('submit', async func
         name:          document.getElementById('addName').value.trim(),
         category_id:      document.getElementById('addCategory').value,
         supplier_id:      document.getElementById('addSupplier').value || null,
+        unit:          document.getElementById('addUnit').value.trim(),
         description:   document.getElementById('addDescription').value.trim(),
         selling_price: parseFloat(document.getElementById('addSellingPrice').value) || 0,
         cost_price:    parseFloat(document.getElementById('addCostPrice').value)    || 0,
@@ -199,6 +201,7 @@ window.openEditModal = async function (id) {
         s('editName',         product.name);
         s('editCategory',     product.category_id || product.category);
         s('editSupplier',     product.supplier_id || '');
+        s('editUnit',         product.unit || '');
         s('editDescription',  product.description);
         s('editSellingPrice', product.selling_price);
         s('editCostPrice',    product.cost_price);
@@ -235,6 +238,7 @@ document.getElementById('editProductForm')?.addEventListener('submit', async fun
         name:          document.getElementById('editName').value.trim(),
         category_id:      document.getElementById('editCategory').value,
         supplier_id:      document.getElementById('editSupplier').value || null,
+        unit:          document.getElementById('editUnit').value.trim(),
         description:   document.getElementById('editDescription').value.trim(),
         selling_price: parseFloat(document.getElementById('editSellingPrice').value) || 0,
         cost_price:    parseFloat(document.getElementById('editCostPrice').value)    || 0,

@@ -246,14 +246,11 @@ async function loadSupplierProducts(supplierId) {
         currentSupplierProducts.forEach(p => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td class="px-4 py-3 text-gray-600 font-medium">${p.sku}</td>
-                <td class="px-4 py-3"><span class="font-medium text-gray-900">${p.name}</span></td>
-                <td class="px-4 py-3 text-gray-600">${p.category || '--'}</td>
+                <td class="px-4 py-3 font-mono text-xs text-gray-500">${p.sku}</td>
+                <td class="px-4 py-3 font-medium text-gray-900">${p.name}</td>
+                <td class="px-4 py-3 text-gray-600">${p.category || 'General'}</td>
                 <td class="px-4 py-3 text-right text-gray-900">$${(p.cost_price || 0).toLocaleString()}</td>
                 <td class="px-4 py-3 text-right text-gray-900">$${(p.selling_price || 0).toLocaleString()}</td>
-                <td class="px-4 py-3 text-center">
-                    <span class="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">${p.current_stock || 0}</span>
-                </td>
                 <td class="px-4 py-3 text-center">
                     <div class="flex justify-center gap-2">
                         <button onclick="openSupplierProductForm('edit', ${p.product_id || p.id})" class="text-orange-500 hover:text-orange-700" title="Edit"><i data-lucide="edit" class="w-4 h-4"></i></button>
@@ -292,8 +289,6 @@ window.openSupplierProductForm = function(mode, productId = null) {
             document.getElementById('supplierProductUnit').value = p.unit || 'pcs';
             document.getElementById('supplierProductCost').value = p.cost_price || 0;
             document.getElementById('supplierProductSelling').value = p.selling_price || 0;
-            document.getElementById('supplierProductStock').value = p.current_stock || 0;
-            document.getElementById('supplierProductMinStock').value = p.min_stock || p.min_stock_level || 0;
         }
     }
 
@@ -312,8 +307,6 @@ window.openSupplierProductForm = function(mode, productId = null) {
             unit: document.getElementById('supplierProductUnit').value.trim() || 'pcs',
             cost_price: parseFloat(document.getElementById('supplierProductCost').value) || 0,
             selling_price: parseFloat(document.getElementById('supplierProductSelling').value) || 0,
-            current_stock: parseInt(document.getElementById('supplierProductStock').value) || 0,
-            min_stock: parseInt(document.getElementById('supplierProductMinStock').value) || 0,
             status: 'active'
         };
 

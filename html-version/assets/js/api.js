@@ -248,6 +248,12 @@ const API = {
         async reset() {
             return apiFetch('/settings/reset', { method: 'POST' });
         }
+    },
+
+    dashboard: {
+        getStats: () => fetchAPI('/api/dashboard/stats'),
+        getTopProducts: () => fetchAPI('/api/dashboard/top-products'),
+        getLowStockForecast: () => fetchAPI('/api/dashboard/low-stock-forecast')
     }
 };
 
