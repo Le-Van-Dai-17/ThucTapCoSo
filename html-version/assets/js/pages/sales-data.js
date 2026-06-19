@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Requires layout.js to define Auth and current user
-    if (!Auth.isAuthenticated()) {
+    if (!Auth.isLoggedIn()) {
         window.location.href = 'login.html';
         return;
     }

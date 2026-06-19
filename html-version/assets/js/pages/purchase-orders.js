@@ -7,18 +7,28 @@ let currentPOIdToDelete = null;
 let editingOrderId = null;
 
 const statusConfig = {
+    draft:     { label: "Draft",     color: "bg-gray-100 text-gray-700" },
     pending:   { label: "Pending",   color: "bg-orange-100 text-orange-700" },
     approved:  { label: "Approved",  color: "bg-blue-100 text-blue-700" },
-    shipped:   { label: "Shipped",   color: "bg-yellow-100 text-yellow-700" },
-    received:  { label: "Received",  color: "bg-[#10B981]/10 text-[#10B981]" },
+    shipped:   { label: "Shipped",   color: "bg-purple-100 text-purple-700" },
+    received:  { label: "Received",  color: "bg-green-100 text-green-700" },
+    completed: { label: "Received",  color: "bg-green-100 text-green-700" },
     cancelled: { label: "Cancelled", color: "bg-red-100 text-red-700" },
 };
 
 const statusFilter        = document.getElementById('statusFilter');
+const supplierFilter      = document.getElementById('supplierFilter');
+const dateRangeFilter     = document.getElementById('dateRangeFilter');
+const orderSearch         = document.getElementById('orderSearch');
+const rowsPerPageSelect   = document.getElementById('rowsPerPage');
 const tableBody           = document.getElementById('tableBody');
 const emptyState          = document.getElementById('emptyState');
 const statsCardsContainer = document.getElementById('statsCardsContainer');
-
+const paginationInfo      = document.getElementById('paginationInfo');
+const pageButtons         = document.getElementById('pageButtons');
+const prevPageBtn         = document.getElementById('prevPageBtn');
+const nextPageBtn         = document.getElementById('nextPageBtn');
+let currentPage = 1;
 // ============================================================
 // LOAD DATA
 // ============================================================
@@ -39,110 +49,118 @@ async function loadOrders() {
         }));
         
         if (isStaff) {
-            allOrders = allOrders.filter(o => o.status === 'approved' || o.status === 'shipped');
+            allOrders = allOrders.filter(o => o.status === 'pending' || o.status === 'completed');
         }
     } catch (err) {
         console.warn('Backend error:', err.message);
         allOrders = [];
         showToast('Cannot load orders from server.', 'error');
     }
+    populateSupplierFilter();
     renderStats();
     renderTable();
 }
 
-function renderStats() {
-    const total     = allOrders.length;
-    const pending   = allOrders.filter(o => o.status === 'pending').length;
-    const received  = allOrders.filter(o => o.status === 'received' || o.status === 'completed').length;
-    const totalVal  = allOrders.reduce((s, o) => s + o.total_amount, 0);
-
-    if (!statsCardsContainer) return;
-    statsCardsContainer.innerHTML = `
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div class="text-sm text-gray-500 mb-1">Total Orders</div>
-            <div class="text-2xl font-semibold text-gray-900">${total}</div>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div class="text-sm text-gray-500 mb-1">Pending</div>
-            <div class="text-2xl font-semibold text-orange-600">${pending}</div>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div class="text-sm text-gray-500 mb-1">Received</div>
-            <div class="text-2xl font-semibold text-[#10B981]">${received}</div>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div class="text-sm text-gray-500 mb-1">Total Value</div>
-            <div class="text-2xl font-semibold text-gray-900">${formatCurrency(totalVal)}</div>
-        </div>`;
+function populateSupplierFilter() {
+    if (!supplierFilter) return;
+    const current = supplierFilter.value || 'all';
+    const suppliers = Array.from(new Set(allOrders.map(o => o.supplier_name).filter(Boolean))).sort();
+    supplierFilter.innerHTML = '<option value="all">All Suppliers</option>' + suppliers.map(name => `<option value="${name}">${name}</option>`).join('');
+    supplierFilter.value = suppliers.includes(current) ? current : 'all';
 }
 
-function renderTable() {
-    const filter   = statusFilter?.value || 'all';
-    const filtered = filter === 'all' ? allOrders : allOrders.filter(o => o.status === filter);
-
-    if (!tableBody) return;
-    tableBody.innerHTML = '';
-    if (filtered.length === 0) {
-        if (emptyState) emptyState.classList.remove('hidden');
-        return;
-    }
-    if (emptyState) emptyState.classList.add('hidden');
-
-    filtered.forEach((order, i) => {
-        const bgClass   = i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50';
-        const cfg       = statusConfig[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-700' };
-        const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
-        const canEdit = !isStaff && !['approved', 'shipped', 'received', 'completed', 'cancelled'].includes(order.status);
-        const canApprove = !isStaff && order.status === 'pending';
-        const canShip = !isStaff && order.status === 'approved';
-        const canReceive = order.status === 'approved' || order.status === 'shipped';
-        const createdAt = order.created_at || order.order_date;
-
-        const tr = document.createElement('tr');
-        tr.className = `hover:bg-gray-50 transition-colors duration-150 ${bgClass}`;
-        tr.innerHTML = `
-            <td class="px-6 py-4"><span class="font-medium text-gray-900">${order.order_number}</span></td>
-            <td class="px-6 py-4"><span class="text-gray-700">${order.supplier_name || '--'}</span></td>
-            <td class="px-6 py-4"><span class="text-gray-600">${formatDate(createdAt)}</span></td>
-            <td class="px-6 py-4">
-                <span class="inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium ${cfg.color}">${cfg.label}</span>
-            </td>
-            <td class="px-6 py-4 text-right"><span class="font-semibold text-gray-900">${formatCurrency(order.total_amount)}</span></td>
-            <td class="px-6 py-4">
-                <div class="flex items-center justify-center gap-2">
-                    <button onclick="viewDetail(${order.id})" class="p-2 text-gray-600 hover:text-[#2563EB] hover:bg-blue-50 rounded-lg transition-all" title="View Details">
-                        <i data-lucide="file-text" class="w-4 h-4"></i>
-                    </button>
-                    ${canApprove ? `
-                    <button onclick="openActionModal(${order.id}, 'approve')" class="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all" title="Approve Plan">
-                        <i data-lucide="check-circle" class="w-4 h-4"></i>
-                    </button>
-                    ` : ''}
-                    ${canEdit ? `
-                    <button onclick="editOrder(${order.id})" class="p-2 text-gray-600 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all" title="Edit Order">
-                        <i data-lucide="edit" class="w-4 h-4"></i>
-                    </button>
-                    <button onclick="openActionModal(${order.id}, 'delete')" class="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Delete Order">
-                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    </button>
-                    ` : ''}
-                    ${canReceive ? `
-                    <button onclick="openConfirmReceive(${order.id})" class="p-2 text-[#10B981] hover:bg-green-50 rounded-lg transition-all" title="Confirm Receive">
-                        <i data-lucide="package-check" class="w-4 h-4"></i>
-                    </button>
-                    ` : ''}
-                    ${canShip ? `
-                    <button onclick="openActionModal(${order.id}, 'ship')" class="p-2 text-yellow-600 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-all" title="Mark as Shipped">
-                        <i data-lucide="truck" class="w-4 h-4"></i>
-                    </button>
-                    ` : ''}
-                </div>
-            </td>`;
-        tableBody.appendChild(tr);
-    });
+function renderStats() {
+    if (!statsCardsContainer) return;
+    const total = allOrders.length;
+    const pending = allOrders.filter(o => o.status === 'pending').length;
+    const received = allOrders.filter(o => o.status === 'received' || o.status === 'completed').length;
+    const totalVal = allOrders.reduce((sum, o) => sum + Number(o.total_amount || o.total_value || 0), 0);
+    const cards = [
+        { label: 'Total Orders', value: total, icon: 'clipboard-list', color: 'bg-blue-50 text-blue-600 border-blue-100' },
+        { label: 'Pending Approval', value: pending, icon: 'clipboard-clock', color: 'bg-orange-50 text-orange-600 border-orange-100' },
+        { label: 'Received', value: received, icon: 'package-check', color: 'bg-green-50 text-green-600 border-green-100' },
+        { label: 'Total Value', value: formatCurrency(totalVal), icon: 'wallet', color: 'bg-purple-50 text-purple-600 border-purple-100' }
+    ];
+    statsCardsContainer.innerHTML = cards.map(card => `
+        <article class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex items-center gap-5 min-h-[120px]">
+            <div class="w-14 h-14 rounded-full ${card.color} border flex items-center justify-center shrink-0"><i data-lucide="${card.icon}" class="w-7 h-7"></i></div>
+            <div><p class="text-sm font-medium text-gray-500">${card.label}</p><p class="text-3xl font-bold text-gray-950 mt-1">${card.value}</p></div>
+        </article>`).join('');
     lucide.createIcons();
 }
 
+function getFilteredOrders() {
+    const status = statusFilter?.value || 'all';
+    const supplier = supplierFilter?.value || 'all';
+    const days = dateRangeFilter?.value || 'all';
+    const query = (orderSearch?.value || '').trim().toLowerCase();
+    const now = Date.now();
+    return allOrders.filter(order => {
+        if (status !== 'all' && order.status !== status) return false;
+        if (supplier !== 'all' && order.supplier_name !== supplier) return false;
+        if (days !== 'all') {
+            const orderTime = new Date(order.order_date || order.created_at).getTime();
+            if (Number.isFinite(orderTime) && now - orderTime > Number(days) * 24 * 60 * 60 * 1000) return false;
+        }
+        if (query) {
+            const haystack = `${order.order_number || ''} ${order.po_code || ''} ${order.supplier_name || ''}`.toLowerCase();
+            if (!haystack.includes(query)) return false;
+        }
+        return true;
+    });
+}
+
+function renderTable() {
+    const filtered = getFilteredOrders();
+    const rowsPerPage = Number(rowsPerPageSelect?.value || 6);
+    const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
+    currentPage = Math.min(currentPage, totalPages);
+    const start = (currentPage - 1) * rowsPerPage;
+    const pageRows = filtered.slice(start, start + rowsPerPage);
+    if (!tableBody) return;
+    tableBody.innerHTML = '';
+    if (emptyState) emptyState.classList.toggle('hidden', pageRows.length !== 0);
+    pageRows.forEach(order => {
+        const cfg = statusConfig[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-700' };
+        const source = order.source || 'Manual';
+        const sourceClass = source === 'AI Forecast' ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-700';
+        const canComplete = order.status === 'pending';
+        const canCancel = ['draft', 'pending'].includes(order.status);
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50 transition-colors';
+        tr.innerHTML = `
+            <td class="px-5 py-4 font-semibold text-gray-950">${order.order_number || order.po_code || '--'}</td>
+            <td class="px-5 py-4 text-gray-700">${order.supplier_name || '--'}</td>
+            <td class="px-5 py-4 text-gray-700">${order.created_by_name || '--'}</td>
+            <td class="px-5 py-4 text-gray-700">${formatDate(order.expected_delivery_date || order.order_date)}</td>
+            <td class="px-5 py-4 text-center"><span class="inline-flex items-center px-3 py-1 rounded-lg text-sm font-semibold ${cfg.color}">${cfg.label}</span></td>
+            <td class="px-5 py-4 text-right font-semibold text-gray-950">${formatCurrency(order.total_amount || order.total_value)}</td>
+            <td class="px-5 py-4 text-center"><span class="inline-flex items-center px-3 py-1 rounded-lg text-sm font-semibold ${sourceClass}">${source}</span></td>
+            <td class="px-5 py-4"><div class="flex items-center justify-center gap-2">
+                <button onclick="viewDetail(${order.id})" class="w-9 h-9 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 flex items-center justify-center" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>
+                ${canComplete ? `<button onclick="openConfirmReceive(${order.id})" class="w-9 h-9 rounded-lg border border-gray-200 text-green-600 hover:bg-green-50 flex items-center justify-center" title="Receive"><i data-lucide="check-circle" class="w-4 h-4"></i></button>` : ''}
+                ${canCancel ? `<button onclick="openActionModal(${order.id}, 'cancel')" class="w-9 h-9 rounded-lg border border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-600 flex items-center justify-center" title="Cancel"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>` : ''}
+            </div></td>`;
+        tableBody.appendChild(tr);
+    });
+    renderPagination(filtered.length, rowsPerPage, totalPages, start, pageRows.length);
+    lucide.createIcons();
+}
+
+function renderPagination(total, rowsPerPage, totalPages, start, count) {
+    if (paginationInfo) paginationInfo.textContent = total ? `Showing ${start + 1} to ${start + count} of ${total} orders` : 'Showing 0 orders';
+    if (prevPageBtn) prevPageBtn.disabled = currentPage <= 1;
+    if (nextPageBtn) nextPageBtn.disabled = currentPage >= totalPages;
+    if (!pageButtons) return;
+    pageButtons.innerHTML = '';
+    for (let i = 1; i <= totalPages; i++) {
+        const btn = document.createElement('button');
+        btn.className = `w-9 h-9 rounded-lg border text-sm font-semibold ${i === currentPage ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`;
+        btn.textContent = i;
+        btn.onclick = () => { currentPage = i; renderTable(); };
+        pageButtons.appendChild(btn);
+    }
+}
 // ============================================================
 // MODALS LOGIC
 // ============================================================
@@ -327,7 +345,6 @@ window.openCreatePOModal = async function () {
     editingOrderId = null;
     document.getElementById('poModalTitle').textContent = 'New Purchase Order';
     document.getElementById('createPOBtn').textContent = 'Create Order';
-    document.getElementById('poStatus').value = 'pending';
     
     const poInput = document.getElementById('poOrderNumber');
     if (poInput) {
@@ -338,41 +355,6 @@ window.openCreatePOModal = async function () {
     resetCreateForm();
     showCreateModal();
 };
-
-window.editOrder = async function(id) {
-    editingOrderId = id;
-    document.getElementById('poModalTitle').textContent = 'Edit Purchase Order';
-    document.getElementById('createPOBtn').textContent = 'Update Order';
-    resetCreateForm();
-    
-    const order = allOrders.find(o => o.id === id);
-    if(order) {
-        const poInput = document.getElementById('poOrderNumber');
-        if (poInput) {
-            poInput.value = order.order_number;
-            poInput.readOnly = true;
-            poInput.className = "w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500 focus:outline-none cursor-not-allowed transition-all";
-        }
-        document.getElementById('poSupplier').value = order.supplier_name;
-        document.getElementById('poStatus').value = order.status;
-    }
-
-    try {
-        const res = await API.orders.getDetail(id);
-        const details = res.data || [];
-        window.currentOrderItems = details.map(d => ({
-            product_id: d.product_id,
-            product_name: d.product_name,
-            quantity: d.quantity || d.ordered_quantity,
-            received_quantity: d.received_quantity || 0,
-            unit_price: parseFloat(d.unit_price || d.unit_cost || 0)
-        }));
-        renderSelectedItemsUI();
-    } catch(e) {
-        showToast('Error loading details for edit', 'error');
-    }
-    showCreateModal();
-}
 
 async function showCreateModal() {
     const datalist = document.getElementById('productsDatalist');
@@ -413,7 +395,6 @@ function resetCreateForm() {
     const errEl = document.getElementById('createPOError');
     if (errEl) errEl.classList.add('hidden');
     window.currentOrderItems = [];
-    window.currentSupplierId = null;
     document.getElementById('poItemsListUI').innerHTML = '<li class="py-2 text-gray-400 italic">No products selected yet.</li>';
     document.getElementById('poTotalAmount').value = "0.00";
     document.getElementById('productStockHint').textContent = '';
@@ -428,27 +409,7 @@ window.closeCreatePOModal = function () {
 };
 
 
-document.getElementById('poSupplier')?.addEventListener('input', function(e) {
-    const val = e.target.value.trim().toLowerCase();
-    const datalist = document.getElementById('productsDatalist');
-    if (!datalist) return;
-    datalist.innerHTML = '';
-    
-    if (window.dbSuppliersList && window.dbProductsList) {
-        const supplier = window.dbSuppliersList.find(s => s.name.toLowerCase() === val);
-        if (supplier) {
-            window.currentSupplierId = supplier.id || supplier.supplier_id;
-            const filteredProducts = window.dbProductsList.filter(p => p.supplier_id == window.currentSupplierId);
-            filteredProducts.forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p.name;
-                datalist.appendChild(opt);
-            });
-        } else {
-            window.currentSupplierId = null;
-        }
-    }
-});
+
 
 function updatePricePreview() {
     const qty = parseInt(document.getElementById('poItemQty').value) || 0;
@@ -465,16 +426,6 @@ function updatePricePreview() {
 
 document.getElementById('poItemQty')?.addEventListener('input', updatePricePreview);
 document.getElementById('poItemUnitPrice')?.addEventListener('input', updatePricePreview);
-
-function getSelectedSupplier() {
-    const supplierName = document.getElementById('poSupplier')?.value.trim().toLowerCase();
-    if (!supplierName || !window.dbSuppliersList) return null;
-    return window.dbSuppliersList.find(s => String(s.name || '').toLowerCase() === supplierName) || null;
-}
-
-function getSupplierId(supplier) {
-    return supplier ? (supplier.id || supplier.supplier_id) : null;
-}
 
 document.getElementById('poItemProductName')?.addEventListener('input', function(e) {
     const val = e.target.value.trim().toLowerCase();
@@ -501,45 +452,20 @@ document.getElementById('poItemProductName')?.addEventListener('input', function
     
     if(window.dbProductsList && window.dbSuppliersList) {
         let prodList = window.dbProductsList;
-        const selectedSupplier = getSelectedSupplier();
-        const selectedSupplierId = getSupplierId(selectedSupplier) || window.currentSupplierId;
-        if (selectedSupplierId) {
-             prodList = prodList.filter(p => p.supplier_id == selectedSupplierId);
+        if (window.currentSupplierId) {
+             prodList = prodList.filter(p => p.supplier_id == window.currentSupplierId);
         }
         const prod = prodList.find(p => p.name.toLowerCase() === val);
         
         if(prod) {
             if (hintEl) hintEl.textContent = `In Stock: ${prod.current_stock || 0}`;
-            if (priceEl) priceEl.value = prod.cost_price || 0;
+            if (priceEl) priceEl.value = prod.cost_price || prod.selling_price || 0;
         } else {
-            if (hintEl) hintEl.textContent = selectedSupplierId ? 'Product does not belong to selected supplier' : 'Select a supplier first';
-            if (priceEl) priceEl.value = '';
+            if (hintEl) hintEl.textContent = 'New Product';
+            if (priceEl && !priceEl.value) priceEl.value = ''; // Let user type
         }
         updatePricePreview();
         
-        // DUAL FILTERING: Filter suppliers datalist based on product
-        const supplierDatalist = document.getElementById('suppliersDatalist');
-        if (supplierDatalist && !window.currentSupplierId) {
-            const matchingProducts = window.dbProductsList.filter(p => p.name.toLowerCase() === val);
-            const matchingSupplierIds = [...new Set(matchingProducts.map(p => p.supplier_id))];
-            
-            supplierDatalist.innerHTML = '';
-            const matchingSuppliers = window.dbSuppliersList.filter(s => matchingSupplierIds.includes(s.id || s.supplier_id));
-            matchingSuppliers.forEach(s => {
-                const opt = document.createElement('option');
-                opt.value = s.name;
-                supplierDatalist.appendChild(opt);
-            });
-            
-            // Auto-fill supplier if exactly 1
-            if (matchingSuppliers.length === 1) {
-                const supplierInput = document.getElementById('poSupplier');
-                if (supplierInput && !supplierInput.value) {
-                    supplierInput.value = matchingSuppliers[0].name;
-                    supplierInput.dispatchEvent(new Event('input'));
-                }
-            }
-        }
     }
 });
 
@@ -550,28 +476,36 @@ document.getElementById('createPOForm')?.addEventListener('submit', async functi
     const errEl = document.getElementById('createPOError');
     if (errEl) errEl.classList.add('hidden');
 
-    const payload = {
-        supplier_name: document.getElementById('poSupplier').value.trim(),
-        total_amount:  parseFloat(document.getElementById('poTotalAmount').value) || 0,
-        status:        editingOrderId ? document.getElementById('poStatus').value : 'pending',
-        items: window.currentOrderItems || []
-    };
+    const payloadStatus = document.getElementById('poStatus').value;
 
-    if (!payload.supplier_name || payload.items.length === 0) {
-        if (errEl) { errEl.textContent = 'Supplier and at least 1 item required.'; errEl.classList.remove('hidden'); }
+    if (window.currentOrderItems.length === 0) {
+        if (errEl) { errEl.textContent = 'At least 1 item required.'; errEl.classList.remove('hidden'); }
         return;
     }
 
     btn.disabled = true;
     btn.textContent = 'Saving...';
     try {
-        if(editingOrderId) {
-            await API.orders.update(editingOrderId, payload);
-            showToast('🔄 Purchase order updated!', 'success');
-        } else {
-            await API.orders.create(payload);
-            showToast('✅ Purchase order created!', 'success');
-        }
+        // Group items by supplier_id
+        const groups = {};
+        window.currentOrderItems.forEach(item => {
+            const sid = item.supplier_id || 'unknown';
+            if (!groups[sid]) groups[sid] = { items: [], supplier_name: item.supplier_name, total_amount: 0 };
+            groups[sid].items.push(item);
+            groups[sid].total_amount += (item.quantity * item.unit_price);
+        });
+
+        const promises = Object.values(groups).map(g => {
+            return API.orders.create({
+                supplier_name: g.supplier_name || 'Unknown',
+                total_amount: g.total_amount,
+                status: payloadStatus,
+                items: g.items
+            });
+        });
+
+        await Promise.all(promises);
+        showToast('✅ Purchase order(s) created!', 'success');
         closeCreatePOModal();
         // Remove openAdd from URL if exists
         const url = new URL(window.location);
@@ -585,7 +519,7 @@ document.getElementById('createPOForm')?.addEventListener('submit', async functi
         else showToast(error.message, 'error');
     } finally {
         btn.disabled = false;
-        btn.textContent = editingOrderId ? 'Update Order' : 'Create Order';
+        btn.textContent = 'Create Order';
     }
 });
 
@@ -594,48 +528,44 @@ window.currentOrderItems = [];
 document.getElementById('addPOItemBtn')?.addEventListener('click', function() {
     const nameInput = document.getElementById('poItemProductName');
     const qtyInput = document.getElementById('poItemQty');
-    const priceInput = document.getElementById('poItemUnitPrice');
     
     const productName = nameInput.value.trim();
     const quantity = parseInt(qtyInput.value) || 0;
-    const unitPrice = parseFloat(priceInput?.value) || 0;
     
     if (!productName || quantity <= 0) {
         showToast('Invalid product name or quantity!', 'info');
         return;
     }
 
-    const selectedSupplier = getSelectedSupplier();
-    const selectedSupplierId = getSupplierId(selectedSupplier);
-    if (!selectedSupplierId) {
-        showToast('Please select a valid supplier before adding products.', 'error');
+    const existingProd = window.dbProductsList ? window.dbProductsList.find(p => p.name.toLowerCase() === productName.toLowerCase()) : null;
+
+    if (!existingProd) {
+        showToast('Chỉ có thể nhập các sản phẩm đã có trong hệ thống!', 'error');
         return;
     }
 
-    const existingProd = window.dbProductsList
-        ? window.dbProductsList.find(p => p.name.toLowerCase() === productName.toLowerCase() && p.supplier_id == selectedSupplierId)
-        : null;
-
-    if (!existingProd) {
-        showToast('Product does not belong to the selected supplier.', 'error');
-        return;
+    let supName = 'Unknown';
+    if (window.dbSuppliersList && existingProd.supplier_id) {
+        const sup = window.dbSuppliersList.find(s => s.id == existingProd.supplier_id || s.supplier_id == existingProd.supplier_id);
+        if (sup) supName = sup.name;
     }
 
     let itemData = {
         product_name: productName,
         quantity: quantity,
         received_quantity: 0,
-        unit_price: unitPrice
+        unit_price: existingProd ? parseFloat(existingProd.cost_price || 0) : 10.00,
+        supplier_id: existingProd ? existingProd.supplier_id : null,
+        supplier_name: supName
     };
-    itemData.product_id = existingProd.id || existingProd.product_id;
+    if (existingProd) itemData.product_id = existingProd.id || existingProd.product_id;
+    else itemData.is_new_product = true;
 
     window.currentOrderItems.push(itemData);
     renderSelectedItemsUI();
     nameInput.value = '';
     qtyInput.value = '1';
-    if (priceInput) priceInput.value = '';
     document.getElementById('productStockHint').textContent = '';
-    updatePricePreview();
 });
 
 function renderSelectedItemsUI() {
@@ -780,7 +710,13 @@ document.getElementById('btnProceedAction')?.addEventListener('click', async () 
     }
 });
 
-if (statusFilter) statusFilter.addEventListener('change', renderTable);
+if (statusFilter) statusFilter.addEventListener('change', () => { currentPage = 1; renderTable(); });
+if (supplierFilter) supplierFilter.addEventListener('change', () => { currentPage = 1; renderTable(); });
+if (dateRangeFilter) dateRangeFilter.addEventListener('change', () => { currentPage = 1; renderTable(); });
+if (orderSearch) orderSearch.addEventListener('input', () => { currentPage = 1; renderTable(); });
+if (rowsPerPageSelect) rowsPerPageSelect.addEventListener('change', () => { currentPage = 1; renderTable(); });
+if (prevPageBtn) prevPageBtn.addEventListener('click', () => { currentPage = Math.max(1, currentPage - 1); renderTable(); });
+if (nextPageBtn) nextPageBtn.addEventListener('click', () => { currentPage += 1; renderTable(); });
 
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.get('openAdd') === 'true') {

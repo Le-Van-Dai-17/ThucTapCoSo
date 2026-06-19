@@ -17,6 +17,7 @@ const reportController = require('../controllers/reportController');
 const activityLogController = require('../controllers/activityLogController');
 const settingsController = require('../controllers/settingsController');
 const supplierController = require('../controllers/supplierController'); // BE-08
+const dashboardController = require('../controllers/dashboardController');
 
 // Middleware
 const authMiddleware = require('../middleware/authMiddleware');
@@ -97,7 +98,7 @@ router.get('/forecast/saved', authMiddleware.verifyToken, authMiddleware.require
 router.get('/forecast/product/:productId', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), forecastController.getForecastByProduct);
 
 // ==========================================
-// 8. REPORTS API — Chỉ dành cho Manager [BE-01]
+// 8. REPORTS API - Chỉ dành cho Manager [BE-01]
 // ==========================================
 router.get('/reports/sales-summary', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), reportController.getSalesSummary);
 router.get('/reports/top-products', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), reportController.getTopProducts);
@@ -106,6 +107,13 @@ router.get('/reports/inventory-status', authMiddleware.verifyToken, authMiddlewa
 router.get('/reports/export/excel', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), reportController.exportExcel);
 router.get('/reports/export/pdf', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), reportController.exportPDF);
 router.get('/reports/sales-trend', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), reportController.getSalesTrend);
+
+// ==========================================
+// 8.1 DASHBOARD API
+// ==========================================
+router.get('/dashboard/stats', authMiddleware.verifyToken, dashboardController.getDashboardStats);
+router.get('/dashboard/top-products', authMiddleware.verifyToken, dashboardController.getTopProducts);
+router.get('/dashboard/low-stock-forecast', authMiddleware.verifyToken, dashboardController.getLowStockForecast);
 
 // ==========================================
 // 9. ACTIVITY LOG API — Chỉ dành cho Admin [BE-01]

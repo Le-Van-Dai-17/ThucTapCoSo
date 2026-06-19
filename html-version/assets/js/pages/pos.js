@@ -259,7 +259,13 @@ async function handleCheckout() {
         });
 
         if (res.success || res.message) {
-            showToast('Thanh toán thành công! (Checkout successful)', 'success');
+            // Show Success Modal instead of just toast
+            const modal = document.getElementById('checkoutSuccessModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                document.getElementById('checkoutSuccessMessage').textContent = 'Transaction ' + (res.transactionCode || 'completed') + ' was successful.';
+            }
+
             clearCart();
             // Reload products to get updated stock
             await loadProducts(); 
@@ -267,6 +273,17 @@ async function handleCheckout() {
     } catch (err) {
         console.error('[POS Checkout]', err);
         showToast(err.message || 'Thanh toán thất bại!', 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="credit-card" class="w-5 h-5"></i> Checkout';
+        lucide.createIcons();
+    }
+}
+
+window.closeCheckoutModal = function() {
+    const modal = document.getElementById('checkoutSuccessModal');
+    if (modal) modal.classList.add('hidden');
+    const btn = document.getElementById('posCheckoutBtn');
+    if (btn) {
         btn.disabled = false;
         btn.innerHTML = '<i data-lucide="credit-card" class="w-5 h-5"></i> Checkout';
         lucide.createIcons();

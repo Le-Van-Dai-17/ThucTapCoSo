@@ -5,14 +5,14 @@ const normalizeStatus = (status) => {
   if (!status) return 'Draft';
   const value = String(status).trim().toLowerCase();
   const statusMap = {
-    draft: 'Draft', pending: 'Pending', approved: 'Approved', shipped: 'Shipped', received: 'Received', completed: 'Received', cancelled: 'Cancelled', canceled: 'Cancelled'
+    draft: 'Draft', pending: 'Pending', approved: 'Approved', shipped: 'Shipped', received: 'Completed', completed: 'Completed', cancelled: 'Cancelled', canceled: 'Cancelled'
   };
   return statusMap[value] || status;
 };
 
 // BE-05: Định nghĩa danh sách các trạng thái bị khóa cứng (Không cho sửa hoặc xóa)
 const isLockedStatus = (status) => {
-  return ['Approved', 'Shipped', 'Received', 'Cancelled'].includes(normalizeStatus(status));
+  return ['Approved', 'Shipped', 'Completed', 'Cancelled'].includes(normalizeStatus(status));
 };
 
 const generatePoCode = () => {
@@ -62,7 +62,7 @@ const insertPoItems = async (connection, poId, items) => {
     const productId = item.product_id || item.id;
     const orderedQuantity = parsePositiveNumber(item.ordered_quantity ?? item.quantity ?? item.forecasted_quantity, 'ordered_quantity');
     const forecastedQuantity = parseNonNegativeNumber(item.forecasted_quantity ?? item.predicted_quantity ?? orderedQuantity, 'forecasted_quantity');
-    const receivedQuantity = parseNonNegativeNumber(item.received_quantity, 'received_quantity');
+    const receivedQuantity = parseNonNegativeNumber(item.received_quantity, 'received_quantity', 0);
     const unitCost = parseNonNegativeNumber(item.unit_cost ?? item.unit_price ?? item.cost_price, 'unit_cost');
     const lineTotal = item.line_total === undefined || item.line_total === null || item.line_total === '' ? orderedQuantity * unitCost : parseNonNegativeNumber(item.line_total, 'line_total');
 
@@ -84,14 +84,14 @@ const insertPoItems = async (connection, poId, items) => {
 exports.createPurchase = async (req, res) => {
   const connection = await pool.getConnection();
   try {
-    const { po_code, order_number, supplier_id, supplier_name, expected_delivery_date, items } = req.body;
+    const { po_code, order_number, supplier_id, supplier_name, expected_delivery_date, status, items } = req.body;
     validateItems(items);
     await connection.beginTransaction();
 
     const supplierId = await getSupplierId(connection, supplier_id, supplier_name);
     const poCode = po_code || order_number || generatePoCode();
     const createdBy = getActorId(req);
-    const orderStatus = 'Pending';
+    const orderStatus = normalizeStatus(status || 'Draft');
 
     const [result] = await connection.query(
       `INSERT INTO purchase_orders (po_code, supplier_id, created_by, status, expected_delivery_date, total_value) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -128,7 +128,8 @@ exports.getPurchases = async (req, res) => {
         po.po_id AS id, po.po_id, po.po_code, po.po_code AS order_number, po.supplier_id, s.name AS supplier_name,
         po.created_by, creator.full_name AS created_by_name, po.approved_by, approver.full_name AS approved_by_name,
         po.status, LOWER(po.status) AS status_key, po.order_date, po.expected_delivery_date, po.received_date,
-        po.total_value, po.total_value AS total_amount, po.created_at, po.updated_at, COUNT(pi.po_item_id) AS item_count
+        po.total_value, po.total_value AS total_amount, po.created_at, po.updated_at, COUNT(pi.po_item_id) AS item_count,
+        CASE WHEN SUM(CASE WHEN pi.forecasted_quantity IS NOT NULL AND pi.forecasted_quantity > 0 THEN 1 ELSE 0 END) > 0 THEN 'AI Forecast' ELSE 'Manual' END AS source
       FROM purchase_orders po
       INNER JOIN suppliers s ON po.supplier_id = s.supplier_id
       LEFT JOIN users creator ON po.created_by = creator.user_id
@@ -242,14 +243,14 @@ exports.receiveOrder = async (req, res) => {
     const order = orders[0];
     const currentStatus = normalizeStatus(order.status);
 
-    if (currentStatus === 'Received') {
+    if (currentStatus === 'Completed') {
       await connection.rollback();
-      return res.status(400).json({ success: false, message: 'Đơn nhập hàng này đã được nhập kho trước đó rồi. Không thể nhận hai lần.' });
+      return res.status(400).json({ success: false, message: 'Đơn nhập hàng này đã được hoàn thành trước đó rồi. Không thể nhận hai lần.' });
     }
 
-    if (!['Approved', 'Shipped'].includes(currentStatus)) {
+    if (currentStatus !== 'Pending') {
       await connection.rollback();
-      return res.status(400).json({ success: false, message: 'Chỉ được xác nhận nhập kho với đơn đã được duyệt hoặc đang giao.' });
+      return res.status(400).json({ success: false, message: 'Chỉ có thể hoàn thành cho các đơn hàng đang chờ (Pending).' });
     }
 
     for (const item of items) {
@@ -273,7 +274,7 @@ exports.receiveOrder = async (req, res) => {
       }
     }
 
-    await connection.query("UPDATE purchase_orders SET status = 'Received', received_date = CURRENT_TIMESTAMP WHERE po_id = ?", [id]);
+    await connection.query("UPDATE purchase_orders SET status = 'Completed', received_date = CURRENT_TIMESTAMP WHERE po_id = ?", [id]);
     await connection.commit();
 
     await safeLogAction(getActorId(req), 'RECEIVE_PURCHASE_ORDER', `Staff xác nhận nhập kho thực tế thành công cho đơn PO ID: ${id}`, 'purchase_orders', id, req.ip);
@@ -352,10 +353,10 @@ exports.deletePurchase = async (req, res) => {
       return res.status(400).json({ success: false, message: `Không thể xóa đơn nhập hàng khi đã ở trạng thái: ${order.status}` });
     }
 
-    await connection.query('DELETE FROM purchase_orders WHERE po_id = ?', [id]);
+    await connection.query('UPDATE purchase_orders SET status = "Cancelled" WHERE po_id = ?', [id]);
     await connection.commit();
-    await safeLogAction(getActorId(req), 'DELETE_PURCHASE_ORDER', `Xóa đơn nhập hàng ID: ${id}`, 'purchase_orders', id, req.ip);
-    res.status(200).json({ success: true, message: 'Đã xóa đơn hàng thành công' });
+    await safeLogAction(getActorId(req), 'DELETE_PURCHASE_ORDER', `Hủy đơn nhập hàng ID: ${id} (Soft Delete)`, 'purchase_orders', id, req.ip);
+    res.status(200).json({ success: true, message: 'Đã hủy đơn hàng thành công' });
   } catch (error) {
     await connection.rollback(); console.error('Error deleting purchase:', error);
     res.status(500).json({ success: false, message: 'Lỗi xóa đơn hàng' });
@@ -371,11 +372,11 @@ exports.cancelPurchase = async (req, res) => {
     if (orders.length === 0) return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng' });
 
     const order = orders[0];
-    const statusMap = { draft: 'Draft', pending: 'Pending', approved: 'Approved', shipped: 'Shipped', received: 'Received', completed: 'Received', cancelled: 'Cancelled', canceled: 'Cancelled' };
+    const statusMap = { draft: 'Draft', pending: 'Pending', approved: 'Approved', shipped: 'Shipped', received: 'Completed', completed: 'Completed', cancelled: 'Cancelled', canceled: 'Cancelled' };
     const currentStatus = statusMap[String(order.status).toLowerCase()] || order.status;
 
-    if (currentStatus === 'Received') {
-      return res.status(400).json({ success: false, message: 'Không thể hủy đơn hàng đã nhập kho' });
+    if (currentStatus === 'Completed') {
+      return res.status(400).json({ success: false, message: 'Không thể hủy đơn hàng đã hoàn thành' });
     }
     if (currentStatus === 'Cancelled') {
       return res.status(400).json({ success: false, message: 'Đơn hàng đã bị hủy trước đó' });
