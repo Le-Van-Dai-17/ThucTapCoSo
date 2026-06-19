@@ -1,0 +1,91 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ForecastAI - Supplier Form</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans">
+    <div class="size-full flex h-screen overflow-hidden">
+        <main class="ml-[240px] mt-16 p-8 flex-1 h-[calc(100vh-4rem)] overflow-y-auto min-w-0 bg-gray-50">
+            <div class="w-full max-w-[1560px] mx-auto space-y-6">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h1 id="pageTitle" class="text-3xl font-semibold text-gray-950">Add New Supplier</h1>
+                        <div class="flex items-center gap-2 text-sm text-gray-500 mt-2"><a href="suppliers.html" class="text-[#2563EB]">Suppliers</a><span>/</span><span id="breadcrumbCurrent">Add Supplier</span></div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button id="saveDraftBtn" class="px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-all flex items-center gap-2 shadow-sm font-medium"><i data-lucide="save" class="w-5 h-5"></i> Save Draft</button>
+                        <button form="supplierForm" type="submit" id="submitSupplierBtn" class="px-6 py-3 bg-[#2563EB] text-white rounded-lg hover:bg-[#1d4ed8] transition-all flex items-center gap-2 shadow-sm font-medium"><i data-lucide="plus" class="w-5 h-5"></i> Create Supplier</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6 items-start">
+                    <form id="supplierForm" class="space-y-0 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <section class="grid grid-cols-1 lg:grid-cols-[260px_1fr] border-b border-gray-100">
+                            <div class="p-6 bg-gray-50/70 flex gap-4"><span class="w-7 h-7 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-sm font-bold">1</span><div><h2 class="font-semibold">Basic Information</h2><p class="text-sm text-gray-500 mt-2">Add essential details about the supplier.</p></div></div>
+                            <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-5">
+                                <label class="block"><span class="text-sm font-medium">Supplier Name <b class="text-red-500">*</b></span><input id="name" required placeholder="Enter supplier name" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100"></label>
+                                <label class="block"><span class="text-sm font-medium">Supplier Code</span><input id="code" placeholder="Enter supplier code" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100"></label>
+                                <label class="block"><span class="text-sm font-medium">Status <b class="text-red-500">*</b></span><select id="status" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"><option>Active</option><option>Inactive</option></select></label>
+                                <label class="block"><span class="text-sm font-medium">Tax Code</span><input id="taxCode" placeholder="Enter tax code" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100"></label>
+                                <label class="block md:col-span-2"><span class="text-sm font-medium">Website</span><input id="website" placeholder="https://example.com" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100"></label>
+                            </div>
+                        </section>
+
+                        <section class="grid grid-cols-1 lg:grid-cols-[260px_1fr] border-b border-gray-100">
+                            <div class="p-6 bg-gray-50/70 flex gap-4"><span class="w-7 h-7 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-sm font-bold">2</span><div><h2 class="font-semibold">Contact Information</h2><p class="text-sm text-gray-500 mt-2">Add primary contact details for communication.</p></div></div>
+                            <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-5">
+                                <label class="block"><span class="text-sm font-medium">Contact Person <b class="text-red-500">*</b></span><input id="contact" required placeholder="Enter contact person" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100"></label>
+                                <label class="block"><span class="text-sm font-medium">Phone <b class="text-red-500">*</b></span><input id="phone" required placeholder="(024) 0000 0000" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100"></label>
+                                <label class="block"><span class="text-sm font-medium">Email</span><input id="email" type="email" placeholder="name@example.com" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100"></label>
+                                <label class="block"><span class="text-sm font-medium">Secondary Phone</span><input id="secondaryPhone" placeholder="(024) 0000 0000" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100"></label>
+                            </div>
+                        </section>
+
+                        <section class="grid grid-cols-1 lg:grid-cols-[260px_1fr] border-b border-gray-100">
+                            <div class="p-6 bg-gray-50/70 flex gap-4"><span class="w-7 h-7 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-sm font-bold">3</span><div><h2 class="font-semibold">Address & Location</h2><p class="text-sm text-gray-500 mt-2">Specify the supplier's location details.</p></div></div>
+                            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <label><span class="text-sm font-medium">Province/City <b class="text-red-500">*</b></span><select id="province" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg bg-white"><option value="">Select province/city</option><option>TP.HCM</option><option>Ha Noi</option><option>Dong Nai</option><option>Binh Duong</option><option>Da Nang</option></select></label>
+                                <label><span class="text-sm font-medium">District</span><input id="district" placeholder="Enter district" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg"></label>
+                                <label class="md:col-span-2"><span class="text-sm font-medium">Detailed Address <b class="text-red-500">*</b></span><input id="address" required placeholder="Enter detailed address" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg"></label>
+                            </div>
+                        </section>
+
+                        <section class="grid grid-cols-1 lg:grid-cols-[260px_1fr] border-b border-gray-100">
+                            <div class="p-6 bg-gray-50/70 flex gap-4"><span class="w-7 h-7 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-sm font-bold">4</span><div><h2 class="font-semibold">Logistics & Procurement</h2><p class="text-sm text-gray-500 mt-2">Configure lead time, payments, and delivery preferences.</p></div></div>
+                            <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-5">
+                                <label><span class="text-sm font-medium">Lead Time (days) <b class="text-red-500">*</b></span><input id="leadTime" type="number" min="0" required placeholder="Enter lead time" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg"></label>
+                                <label><span class="text-sm font-medium">Minimum Order Value</span><input id="minOrder" type="number" min="0" placeholder="Enter minimum value" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg"></label>
+                                <label><span class="text-sm font-medium">Payment Terms</span><select id="paymentTerms" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg bg-white"><option value="">Select payment terms</option><option>Net 7</option><option>Net 15</option><option>Net 30</option><option>COD</option></select></label>
+                                <label><span class="text-sm font-medium">Delivery Method</span><select id="deliveryMethod" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg bg-white"><option value="">Select delivery method</option><option>Supplier delivery</option><option>Self pickup</option><option>Third-party logistics</option></select></label>
+                                <label><span class="text-sm font-medium">Preferred Ordering Channel</span><select id="orderingChannel" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg bg-white"><option value="">Select ordering channel</option><option>Phone</option><option>Email</option><option>Portal</option><option>Zalo</option></select></label>
+                            </div>
+                        </section>
+
+                        <section class="grid grid-cols-1 lg:grid-cols-[260px_1fr] border-b border-gray-100">
+                            <div class="p-6 bg-gray-50/70 flex gap-4"><span class="w-7 h-7 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-sm font-bold">5</span><div><h2 class="font-semibold">Supplied Categories</h2><p class="text-sm text-gray-500 mt-2">Select categories that this supplier provides.</p></div></div>
+                            <div id="categoryChoices" class="p-6 flex flex-wrap gap-3"></div>
+                        </section>
+
+                        <section class="grid grid-cols-1 lg:grid-cols-[260px_1fr]">
+                            <div class="p-6 bg-gray-50/70 flex gap-4"><span class="w-7 h-7 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-sm font-bold">6</span><div><h2 class="font-semibold">Notes</h2><p class="text-sm text-gray-500 mt-2">Add additional notes or special constraints.</p></div></div>
+                            <div class="p-6"><textarea id="notes" rows="4" maxlength="1000" placeholder="Enter notes about this supplier..." class="w-full px-4 py-3 border border-gray-200 rounded-lg"></textarea><div id="noteCounter" class="text-right text-sm text-gray-400 mt-1">0 / 1000</div></div>
+                        </section>
+                    </form>
+
+                    <aside class="space-y-6 sticky top-4">
+                        <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-6"><h2 class="font-semibold flex items-center gap-2"><i data-lucide="clipboard-check" class="w-5 h-5 text-[#2563EB]"></i> Supplier Setup Checklist</h2><p class="text-sm text-gray-500 mt-2">Complete all steps to set up your supplier.</p><div id="checklist" class="mt-5 space-y-4"></div></section>
+                        <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-6"><h2 class="font-semibold flex items-center gap-2"><i data-lucide="eye" class="w-5 h-5 text-[#2563EB]"></i> Preview</h2><p class="text-sm text-gray-500 mt-2">This is how your supplier will appear.</p><div class="mt-5 rounded-xl border border-gray-200 p-5"><div class="flex items-center gap-4"><div class="w-14 h-14 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center"><i data-lucide="building-2" class="w-7 h-7"></i></div><div><p id="previewName" class="font-semibold text-lg">Supplier Name</p><p class="text-sm text-gray-500">Supplier Code <span id="previewCode">-</span> <span class="ml-2 px-2 py-0.5 rounded bg-green-50 text-green-700 text-xs">Active</span></p></div></div><div class="grid grid-cols-3 divide-x divide-gray-100 mt-6 text-center text-sm"><div><i data-lucide="clock" class="w-5 h-5 mx-auto text-gray-400"></i><p class="text-gray-500 mt-1">Lead Time</p><b id="previewLead">-</b></div><div><i data-lucide="credit-card" class="w-5 h-5 mx-auto text-gray-400"></i><p class="text-gray-500 mt-1">Payment</p><b id="previewPayment">-</b></div><div><i data-lucide="tags" class="w-5 h-5 mx-auto text-gray-400"></i><p class="text-gray-500 mt-1">Categories</p><b id="previewCategories">-</b></div></div></div></section>
+                    </aside>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="../assets/js/api.js"></script>
+    <script src="../assets/js/components/layout.js"></script>
+    <script src="../assets/js/pages/supplier-form.js"></script>
+</body>
+</html>

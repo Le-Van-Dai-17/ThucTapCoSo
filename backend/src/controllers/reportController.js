@@ -3,19 +3,44 @@ const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const { clampInteger, getActorId, safeLogAction } = require('../utils/controllerUtils');
 
-const getReportData = async () => {
-    const [[salesSummary]] = await pool.query(`
-        SELECT 
-            COUNT(DISTINCT st.transaction_id) AS total_orders,
-            IFNULL(SUM(sd.quantity), 0) AS total_items_sold,
-            IFNULL(SUM(sd.quantity * sd.unit_price), 0) AS total_revenue,
-            IFNULL(SUM(CASE WHEN YEAR(st.transaction_date) = YEAR((SELECT MAX(transaction_date) FROM sales_transactions)) AND MONTH(st.transaction_date) = MONTH((SELECT MAX(transaction_date) FROM sales_transactions)) THEN sd.quantity * sd.unit_price ELSE 0 END), 0) AS current_month_revenue,
-            IFNULL(SUM(CASE WHEN st.transaction_date >= DATE_SUB(DATE_FORMAT((SELECT MAX(transaction_date) FROM sales_transactions), '%Y-%m-01'), INTERVAL 1 MONTH) AND st.transaction_date < DATE_FORMAT((SELECT MAX(transaction_date) FROM sales_transactions), '%Y-%m-01') THEN sd.quantity * sd.unit_price ELSE 0 END), 0) AS previous_month_revenue
-        FROM sales_transactions st
-        LEFT JOIN sale_details sd 
-            ON st.transaction_id = sd.transaction_id
-    `);
+const getReportDays = (req) => {
+    if (req.query.days == null) return null;
+    return clampInteger(req.query.days, 1, 365, 30);
+};
 
+const getReportData = async (days = null) => {
+    let salesSummary;
+    if (days) {
+        const previousDays = days * 2;
+        [[salesSummary]] = await pool.query(`
+            SELECT
+                COUNT(DISTINCT CASE WHEN st.transaction_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) THEN st.transaction_id END) AS total_orders,
+                IFNULL(SUM(CASE WHEN st.transaction_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) THEN sd.quantity ELSE 0 END), 0) AS total_items_sold,
+                IFNULL(SUM(CASE WHEN st.transaction_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) THEN sd.quantity * sd.unit_price ELSE 0 END), 0) AS total_revenue,
+                IFNULL(SUM(CASE WHEN st.transaction_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) THEN sd.quantity * sd.unit_price ELSE 0 END), 0) AS current_month_revenue,
+                IFNULL(SUM(CASE WHEN st.transaction_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) AND st.transaction_date < DATE_SUB(CURDATE(), INTERVAL ? DAY) THEN sd.quantity * sd.unit_price ELSE 0 END), 0) AS previous_month_revenue
+            FROM sales_transactions st
+            LEFT JOIN sale_details sd
+                ON st.transaction_id = sd.transaction_id
+            WHERE st.transaction_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+        `, [days, days, days, days, previousDays, days, previousDays]);
+    } else {
+        [[salesSummary]] = await pool.query(`
+            SELECT 
+                COUNT(DISTINCT st.transaction_id) AS total_orders,
+                IFNULL(SUM(sd.quantity), 0) AS total_items_sold,
+                IFNULL(SUM(sd.quantity * sd.unit_price), 0) AS total_revenue,
+                IFNULL(SUM(CASE WHEN YEAR(st.transaction_date) = YEAR((SELECT MAX(transaction_date) FROM sales_transactions)) AND MONTH(st.transaction_date) = MONTH((SELECT MAX(transaction_date) FROM sales_transactions)) THEN sd.quantity * sd.unit_price ELSE 0 END), 0) AS current_month_revenue,
+                IFNULL(SUM(CASE WHEN st.transaction_date >= DATE_SUB(DATE_FORMAT((SELECT MAX(transaction_date) FROM sales_transactions), '%Y-%m-01'), INTERVAL 1 MONTH) AND st.transaction_date < DATE_FORMAT((SELECT MAX(transaction_date) FROM sales_transactions), '%Y-%m-01') THEN sd.quantity * sd.unit_price ELSE 0 END), 0) AS previous_month_revenue
+            FROM sales_transactions st
+            LEFT JOIN sale_details sd 
+                ON st.transaction_id = sd.transaction_id
+        `);
+    }
+
+    const topProductsParams = [];
+    const topProductsDateFilter = days ? 'AND st.transaction_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)' : '';
+    if (days) topProductsParams.push(days);
     const [topProducts] = await pool.query(`
         SELECT 
             p.product_id,
@@ -24,14 +49,20 @@ const getReportData = async () => {
             IFNULL(SUM(sd.quantity), 0) AS total_sold,
             IFNULL(SUM(sd.quantity * sd.unit_price), 0) AS total_revenue
         FROM products p
-        LEFT JOIN sale_details sd 
+        JOIN sale_details sd 
             ON p.product_id = sd.product_id
+        JOIN sales_transactions st
+            ON sd.transaction_id = st.transaction_id
         WHERE p.is_discontinued = 0
+            ${topProductsDateFilter}
         GROUP BY p.product_id, p.name, p.sku
-        ORDER BY total_sold DESC
+        ORDER BY total_revenue DESC
         LIMIT 10
-    `);
+    `, topProductsParams);
 
+    const categorySalesParams = [];
+    const categoryDateFilter = days ? 'AND st.transaction_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)' : '';
+    if (days) categorySalesParams.push(days);
     const [categorySales] = await pool.query(`
         SELECT 
             COALESCE(c.name, 'General') AS category,
@@ -40,13 +71,15 @@ const getReportData = async () => {
         FROM products p
         LEFT JOIN categories c 
             ON p.category_id = c.category_id
-        LEFT JOIN sale_details sd 
+        JOIN sale_details sd 
             ON p.product_id = sd.product_id
+        JOIN sales_transactions st
+            ON sd.transaction_id = st.transaction_id
         WHERE p.is_discontinued = 0
+            ${categoryDateFilter}
         GROUP BY c.category_id, c.name
         ORDER BY total_revenue DESC
-    `);
-
+    `, categorySalesParams);
     const [[inventoryStatus]] = await pool.query(`
         SELECT 
             COUNT(*) AS total_products,
@@ -69,7 +102,7 @@ const getReportData = async () => {
 // GET /api/reports/sales-summary
 exports.getSalesSummary = async (req, res) => {
     try {
-        const { salesSummary } = await getReportData();
+        const { salesSummary } = await getReportData(getReportDays(req));
         res.status(200).json({ success: true, data: salesSummary });
     } catch (error) {
         console.error('Lỗi lấy tổng quan doanh thu:', error);
@@ -80,7 +113,7 @@ exports.getSalesSummary = async (req, res) => {
 // GET /api/reports/top-products
 exports.getTopProducts = async (req, res) => {
     try {
-        const { topProducts } = await getReportData();
+        const { topProducts } = await getReportData(getReportDays(req));
         res.status(200).json({ success: true, data: topProducts });
     } catch (error) {
         console.error('Lỗi lấy top sản phẩm:', error);
@@ -91,7 +124,7 @@ exports.getTopProducts = async (req, res) => {
 // GET /api/reports/category-sales
 exports.getCategorySales = async (req, res) => {
     try {
-        const { categorySales } = await getReportData();
+        const { categorySales } = await getReportData(getReportDays(req));
         res.status(200).json({ success: true, data: categorySales });
     } catch (error) {
         console.error('Lỗi lấy doanh thu danh mục:', error);

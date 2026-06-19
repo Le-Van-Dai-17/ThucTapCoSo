@@ -1,12 +1,12 @@
-// ======================================================
+﻿// ======================================================
 // layout.js
-// Dùng cho các trang nội bộ sau khi đăng nhập
-// Mỗi file HTML nội bộ phải import api.js trước layout.js
+// DÃ¹ng cho cÃ¡c trang ná»™i bá»™ sau khi Ä‘Äƒng nháº­p
+// Má»—i file HTML ná»™i bá»™ pháº£i import api.js trÆ°á»›c layout.js
 // ======================================================
 
 
 // ===============================
-// 1. CẤU HÌNH PHÂN QUYỀN FRONTEND
+// 1. Cáº¤U HÃŒNH PHÃ‚N QUYá»€N FRONTEND
 // ===============================
 
 const ROLE_PERMISSIONS = {
@@ -26,7 +26,10 @@ const ROLE_PERMISSIONS = {
         'reports.html',
         'pos.html',
         'purchase-orders.html',
+        'purchase-order-form.html',
         'suppliers.html',
+        'supplier-form.html',
+        'supplier-detail.html',
         'forecast.html',
         'profile.html'
     ],
@@ -121,7 +124,7 @@ const NAV_ITEMS = [
 
 
 // ===============================
-// 2. KIỂM TRA ĐĂNG NHẬP
+// 2. KIá»‚M TRA ÄÄ‚NG NHáº¬P
 // ===============================
 
 (function protectPrivatePage() {
@@ -148,7 +151,7 @@ const NAV_ITEMS = [
 
 
 // ===============================
-// 3. LẤY USER HIỆN TẠI
+// 3. Láº¤Y USER HIá»†N Táº I
 // ===============================
 
 let currentUser = null;
@@ -177,7 +180,7 @@ const displayRole = currentUser ? capitalizeFirstLayout(currentUser.role || curr
 
 
 // ===============================
-// 4. CHẶN MỞ URL TRÁI QUYỀN
+// 4. CHáº¶N Má»ž URL TRÃI QUYá»€N
 // ===============================
 
 (function protectPageByRole() {
@@ -194,7 +197,7 @@ const displayRole = currentUser ? capitalizeFirstLayout(currentUser.role || curr
     const allowedPages = ROLE_PERMISSIONS[displayRole] || [];
 
     if (!allowedPages.includes(currentPage)) {
-        showToast('Bạn không có quyền truy cập trang này. Vui lòng đăng nhập lại.', 'info');
+        showToast('Báº¡n khÃ´ng cÃ³ quyá»n truy cáº­p trang nÃ y. Vui lÃ²ng Ä‘Äƒng nháº­p láº¡i.', 'info');
 
         if (typeof Auth !== 'undefined' && typeof Auth.clear === 'function') {
             Auth.clear();
@@ -212,7 +215,7 @@ const displayRole = currentUser ? capitalizeFirstLayout(currentUser.role || curr
 
 
 // ===============================
-// 5. TẠO AVATAR
+// 5. Táº O AVATAR
 // ===============================
 
 const initials = displayName
@@ -225,7 +228,7 @@ const initials = displayName
 
 
 // ===============================
-// 6. TẠO MENU THEO ROLE
+// 6. Táº O MENU THEO ROLE
 // ===============================
 
 const currentPath = window.location.pathname.split('/').pop() || 'dashboard.html';
@@ -311,7 +314,7 @@ const layoutHtml = `
 
 
 // ===============================
-// 8. GẮN LAYOUT VÀO TRANG
+// 8. Gáº®N LAYOUT VÃ€O TRANG
 // ===============================
 
 const wrapper = document.querySelector('.size-full');
@@ -347,7 +350,7 @@ if (logoutBtn) {
 
 
 // ===============================
-// 10. KHỞI TẠO ICON
+// 10. KHá»žI Táº O ICON
 // ===============================
 
 if (typeof lucide !== 'undefined') {
@@ -424,3 +427,4 @@ window.showConfirmDialog = function(message, onConfirm) {
         if (typeof onConfirm === 'function') onConfirm();
     });
 };
+

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -6,263 +6,102 @@
     <title>ForecastAI - Suppliers</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        .modal-enter { opacity: 0; transform: scale(0.95); transition: all 0.2s ease-out; }
-        .modal-enter-active { opacity: 1; transform: scale(1); }
-        .modal-leave { opacity: 1; transform: scale(1); transition: all 0.2s ease-in; }
-        .modal-leave-active { opacity: 0; transform: scale(0.95); }
-        .overlay-enter { opacity: 0; transition: opacity 0.2s ease-out; }
-        .overlay-enter-active { opacity: 1; }
-        .overlay-leave { opacity: 1; transition: opacity 0.2s ease-in; }
-        .overlay-leave-active { opacity: 0; }
-    </style>
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans">
     <div class="size-full flex h-screen overflow-hidden">
-        <!-- Main Content -->
-        <main class="ml-[240px] mt-16 p-8 flex-1 flex flex-col h-[calc(100vh-4rem)] overflow-y-auto bg-gray-50">
-            <div class="flex-1 flex flex-col w-full mx-auto">
-                <div class="mb-6 flex items-center justify-between shrink-0">
+        <main class="ml-[240px] mt-16 p-8 flex-1 h-[calc(100vh-4rem)] overflow-y-auto min-w-0 bg-gray-50">
+            <div class="w-full max-w-[1600px] mx-auto space-y-6">
+                <div class="flex items-center justify-between gap-4">
                     <div>
-                        <h1 class="text-3xl font-semibold text-gray-900 mb-2">Suppliers Management</h1>
-                        <p class="text-gray-600">Manage your suppliers, contact information, and lead times</p>
+                        <h1 class="text-3xl font-semibold text-gray-950">Suppliers Management</h1>
+                        <p class="text-gray-600 mt-1">Manage suppliers, lead times, and purchasing relationships.</p>
                     </div>
-                    <button onclick="openAddModal()" class="px-6 py-3 bg-[#2563EB] text-white rounded-xl hover:bg-[#1d4ed8] transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow-md font-medium">
-                        <i data-lucide="plus" class="w-5 h-5"></i> Add Supplier
-                    </button>
+                    <div class="flex items-center gap-3">
+                        <a href="supplier-form.html" class="px-6 py-3 bg-[#2563EB] text-white rounded-lg hover:bg-[#1d4ed8] transition-all flex items-center gap-2 shadow-sm font-medium">
+                            <i data-lucide="plus" class="w-5 h-5"></i> Add Supplier
+                        </a>
+                        <button id="exportSuppliersBtn" class="px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-all flex items-center gap-2 shadow-sm font-medium">
+                            <i data-lucide="upload" class="w-5 h-5 rotate-180"></i> Export Suppliers
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Table -->
-                <div class="bg-white rounded-[16px] shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col min-h-0 relative">
-                    <div class="overflow-y-auto flex-1 h-full">
+                <section class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[1.4fr_1fr_1fr_1fr_auto] gap-5">
+                        <label class="block">
+                            <span class="sr-only">Search</span>
+                            <div class="relative">
+                                <i data-lucide="search" class="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2"></i>
+                                <input id="supplierSearch" type="search" placeholder="Search supplier name, phone, or email..." class="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-100">
+                            </div>
+                        </label>
+                        <select id="categoryFilter" class="px-4 py-3 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-100">
+                            <option value="all">All Categories</option>
+                        </select>
+                        <select id="leadTimeFilter" class="px-4 py-3 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-100">
+                            <option value="all">All Lead Times</option>
+                            <option value="fast">1-3 days</option>
+                            <option value="standard">4-7 days</option>
+                            <option value="slow">8+ days</option>
+                        </select>
+                        <select id="statusFilter" class="px-4 py-3 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-100">
+                            <option value="all">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                        <button id="clearFiltersBtn" class="px-5 py-3 bg-white text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-all flex items-center justify-center gap-2 font-medium">
+                            <i data-lucide="list-filter" class="w-5 h-5"></i> Filters
+                        </button>
+                    </div>
+                </section>
+
+                <section id="supplierStats" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6"></section>
+
+                <div id="aiLeadBanner" class="flex items-center justify-between gap-3 rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 text-sm text-blue-700">
+                    <div class="flex items-center gap-3">
+                        <span class="w-7 h-7 rounded-full bg-[#2563EB] text-white flex items-center justify-center"><i data-lucide="info" class="w-4 h-4"></i></span>
+                        <span class="font-medium">Lead time data is used by AI to estimate reorder timing and supplier readiness.</span>
+                    </div>
+                    <button class="p-1 hover:bg-blue-100 rounded-md" onclick="document.getElementById('aiLeadBanner').remove()"><i data-lucide="x" class="w-4 h-4"></i></button>
+                </div>
+
+                <section class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="overflow-x-auto">
                         <table class="w-full whitespace-nowrap">
-                            <thead class="bg-gray-50 sticky top-0 z-10">
+                            <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Supplier Name</th>
-                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Contact Person</th>
-                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Phone</th>
-                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Email</th>
-                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Categories</th>
-                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Products</th>
-                                    <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Lead Time (Days)</th>
-                                    <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Actions</th>
+                                    <th class="px-5 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Supplier Name</th>
+                                    <th class="px-5 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Contact Person</th>
+                                    <th class="px-5 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Phone</th>
+                                    <th class="px-5 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Email</th>
+                                    <th class="px-5 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Address</th>
+                                    <th class="px-5 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Supplied Categories</th>
+                                    <th class="px-5 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Products</th>
+                                    <th class="px-5 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Lead Time</th>
+                                    <th class="px-5 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Status</th>
+                                    <th class="px-5 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="tableBody" class="divide-y divide-gray-100">
-                                <!-- JS fills this -->
-                            </tbody>
+                            <tbody id="tableBody" class="divide-y divide-gray-100"></tbody>
                         </table>
-                        
-                        <!-- Empty State -->
                         <div id="emptyState" class="hidden py-16 text-center w-full">
-                            <div class="text-gray-400 mb-2 flex justify-center">
-                                <i data-lucide="truck" class="w-12 h-12"></i>
-                            </div>
+                            <div class="text-gray-400 mb-2 flex justify-center"><i data-lucide="truck" class="w-12 h-12"></i></div>
                             <p class="text-gray-600 font-medium">No suppliers found</p>
-                            <p class="text-sm text-gray-500 mt-1">Click 'Add Supplier' to create one.</p>
+                            <p class="text-sm text-gray-500 mt-1">Try adjusting your filters or add a new supplier.</p>
                         </div>
                     </div>
-                </div>
+                    <div class="px-5 py-4 border-t border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <p id="paginationInfo" class="text-sm text-gray-500">Showing 0 suppliers</p>
+                        <div class="flex items-center gap-2">
+                            <button id="prevPageBtn" class="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+                            <div id="pageButtons" class="flex items-center gap-2"></div>
+                            <button id="nextPageBtn" class="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                        </div>
+                    </div>
+                </section>
             </div>
         </main>
     </div>
-
-    <!-- Modals -->
-    <!-- Add/Edit Modal -->
-    <div id="supplierModalOverlay" class="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 hidden overlay-enter" onclick="closeSupplierModal()">
-        <div id="supplierModal" class="bg-white rounded-2xl p-8 max-w-2xl w-full shadow-2xl modal-enter" onclick="event.stopPropagation()">
-            <div class="flex items-center justify-between mb-6 pb-6 border-b border-gray-200">
-                <div>
-                    <h3 id="modalTitle" class="text-2xl font-semibold text-gray-900">Add Supplier</h3>
-                </div>
-                <button onclick="closeSupplierModal()" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                    <i data-lucide="x" class="w-5 h-5 text-gray-500"></i>
-                </button>
-            </div>
-            
-            <form id="supplierForm" onsubmit="handleSupplierSubmit(event)" class="space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Supplier Name <span class="text-red-500">*</span></label>
-                        <input type="text" id="supName" required class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-[#2563EB] transition-all" />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Contact Person</label>
-                        <input type="text" id="supContact" class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-[#2563EB] transition-all" />
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Phone</label>
-                        <input type="text" id="supPhone" class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-[#2563EB] transition-all" />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
-                        <input type="email" id="supEmail" class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-[#2563EB] transition-all" />
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Address</label>
-                    <input type="text" id="supAddress" class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-[#2563EB] transition-all" />
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Lead Time (Days)</label>
-                    <input type="number" id="supLeadTime" min="0" value="0" class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-[#2563EB] transition-all" />
-                </div>
-
-                <div class="flex items-center gap-3 mt-6 pt-6 border-t border-gray-200">
-                    <button type="button" onclick="closeSupplierModal()" class="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium">Cancel</button>
-                    <button type="submit" id="modalSubmitBtn" class="flex-1 px-6 py-3 bg-[#2563EB] text-white rounded-xl hover:bg-[#1d4ed8] transition-all shadow-md font-medium">Save Supplier</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Delete Modal -->
-    <div id="deleteModalOverlay" class="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 hidden overlay-enter" onclick="closeDeleteModal()">
-        <div id="deleteModal" class="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl modal-enter" onclick="event.stopPropagation()">
-            <div class="flex items-center gap-4 mb-4">
-                <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                    <i data-lucide="trash-2" class="w-6 h-6 text-red-600"></i>
-                </div>
-                <h3 class="text-xl font-semibold text-gray-900">Delete Supplier</h3>
-            </div>
-            <p class="text-gray-600 mb-6">Are you sure you want to delete <strong id="deleteSupName"></strong>? This action cannot be undone.</p>
-            <div class="flex items-center gap-3">
-                <button onclick="closeDeleteModal()" class="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium">Cancel</button>
-                <button onclick="confirmDelete()" class="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all shadow-sm font-medium">Delete</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Supplier Products Modal -->
-    <div id="supplierProductsOverlay" class="fixed inset-0 bg-black/50 z-[80] hidden items-center justify-center p-4" onclick="closeSupplierProductsModal()">
-        <div class="bg-white rounded-2xl p-6 max-w-2xl w-full shadow-2xl" onclick="event.stopPropagation()">
-            <div class="flex items-start justify-between gap-4 mb-5 pb-5 border-b border-gray-200">
-                <div>
-                    <div class="flex items-center gap-2 mb-1">
-                        <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-blue-50 text-[#2563EB]">
-                            <i data-lucide="package-search" class="w-5 h-5"></i>
-                        </span>
-                        <h3 id="supplierProductsTitle" class="text-xl font-semibold text-gray-900">Supplied Products</h3>
-                    </div>
-                    <p id="supplierProductsSubtitle" class="text-sm text-gray-500 ml-11"></p>
-                </div>
-                <button onclick="closeSupplierProductsModal()" class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-            <div id="supplierProductsList" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[420px] overflow-y-auto pr-1"></div>
-        </div>
-    </div>
-
-    <!-- Supplier Detail & Product Management Modal -->
-    <div id="supplierDetailOverlay" class="fixed inset-0 bg-black/50 z-[90] hidden items-center justify-center p-4" onclick="closeSupplierDetailModal()">
-        <div class="bg-white rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col" onclick="event.stopPropagation()">
-            <div class="p-6 border-b border-gray-200 flex items-start justify-between gap-4">
-                <div>
-                    <div class="flex items-center gap-3">
-                        <span class="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-blue-50 text-[#2563EB]">
-                            <i data-lucide="building-2" class="w-6 h-6"></i>
-                        </span>
-                        <div>
-                            <h3 id="supplierDetailName" class="text-2xl font-semibold text-gray-900">Supplier</h3>
-                            <p id="supplierDetailMeta" class="text-sm text-gray-500 mt-1"></p>
-                        </div>
-                    </div>
-                </div>
-                <button onclick="closeSupplierDetailModal()" class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-
-            <div class="p-6 overflow-y-auto">
-                <div id="supplierDetailInfo" class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6"></div>
-
-                <div class="flex items-center justify-between gap-4 mb-3">
-                    <div>
-                        <h4 class="text-lg font-semibold text-gray-900">Supplied Products</h4>
-                        <p id="supplierDetailProductCount" class="text-sm text-gray-500"></p>
-                    </div>
-                    <button onclick="openSupplierProductForm('add')" class="px-4 py-2.5 bg-[#2563EB] text-white rounded-lg hover:bg-[#1d4ed8] transition-all flex items-center gap-2 font-medium">
-                        <i data-lucide="plus" class="w-4 h-4"></i> Add Product
-                    </button>
-                </div>
-
-                <div class="border border-gray-200 rounded-xl overflow-hidden">
-                    <table class="w-full text-sm">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-4 py-3 text-left font-semibold text-gray-600">SKU</th>
-                                <th class="px-4 py-3 text-left font-semibold text-gray-600">Product Name</th>
-                                <th class="px-4 py-3 text-left font-semibold text-gray-600">Category</th>
-                                <th class="px-4 py-3 text-right font-semibold text-gray-600">Cost</th>
-                                <th class="px-4 py-3 text-right font-semibold text-gray-600">Selling</th>
-                                <th class="px-4 py-3 text-center font-semibold text-gray-600">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="supplierDetailProductsBody" class="divide-y divide-gray-100"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Supplier Product Form Modal -->
-    <div id="supplierProductFormOverlay" class="fixed inset-0 bg-black/50 z-[100] hidden items-center justify-center p-4" onclick="closeSupplierProductForm()">
-        <div class="bg-white rounded-2xl p-6 max-w-2xl w-full shadow-2xl" onclick="event.stopPropagation()">
-            <div class="flex items-center justify-between mb-5 pb-5 border-b border-gray-200">
-                <h3 id="supplierProductFormTitle" class="text-xl font-semibold text-gray-900">Add Product</h3>
-                <button onclick="closeSupplierProductForm()" class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-
-            <form id="supplierProductForm" class="space-y-4">
-                <div id="supplierProductFormError" class="hidden p-3 rounded-lg bg-red-50 text-red-600 text-sm"></div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">SKU <span class="text-red-500">*</span></label>
-                        <input id="supplierProductSku" required class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-[#2563EB] transition-all" />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Product Name <span class="text-red-500">*</span></label>
-                        <input id="supplierProductName" required class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-[#2563EB] transition-all" />
-                    </div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Category</label>
-                        <select id="supplierProductCategory" class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-[#2563EB] transition-all">
-                            <option value="">Select category</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Unit</label>
-                        <input id="supplierProductUnit" value="pcs" class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-[#2563EB] transition-all" />
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Cost Price</label>
-                        <input id="supplierProductCost" type="number" min="0" step="0.01" value="0" class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-[#2563EB] transition-all" />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Selling Price</label>
-                        <input id="supplierProductSelling" type="number" min="0" step="0.01" value="0" class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-[#2563EB] transition-all" />
-                    </div>
-                </div>
-                <div class="flex items-center gap-3 pt-4 border-t border-gray-200">
-                    <button type="button" onclick="closeSupplierProductForm()" class="flex-1 px-5 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium">Cancel</button>
-                    <button id="supplierProductSubmitBtn" type="submit" class="flex-1 px-5 py-3 bg-[#2563EB] text-white rounded-xl hover:bg-[#1d4ed8] transition-all font-medium">Save Product</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <script src="../assets/js/api.js"></script>
     <script src="../assets/js/components/layout.js"></script>
     <script src="../assets/js/pages/suppliers.js"></script>

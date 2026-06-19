@@ -7,16 +7,28 @@ let currentPOIdToDelete = null;
 let editingOrderId = null;
 
 const statusConfig = {
+    draft:     { label: "Draft",     color: "bg-gray-100 text-gray-700" },
     pending:   { label: "Pending",   color: "bg-orange-100 text-orange-700" },
-    completed: { label: "Completed", color: "bg-[#10B981]/10 text-[#10B981]" },
+    approved:  { label: "Approved",  color: "bg-blue-100 text-blue-700" },
+    shipped:   { label: "Shipped",   color: "bg-purple-100 text-purple-700" },
+    received:  { label: "Received",  color: "bg-green-100 text-green-700" },
+    completed: { label: "Received",  color: "bg-green-100 text-green-700" },
     cancelled: { label: "Cancelled", color: "bg-red-100 text-red-700" },
 };
 
 const statusFilter        = document.getElementById('statusFilter');
+const supplierFilter      = document.getElementById('supplierFilter');
+const dateRangeFilter     = document.getElementById('dateRangeFilter');
+const orderSearch         = document.getElementById('orderSearch');
+const rowsPerPageSelect   = document.getElementById('rowsPerPage');
 const tableBody           = document.getElementById('tableBody');
 const emptyState          = document.getElementById('emptyState');
 const statsCardsContainer = document.getElementById('statsCardsContainer');
-
+const paginationInfo      = document.getElementById('paginationInfo');
+const pageButtons         = document.getElementById('pageButtons');
+const prevPageBtn         = document.getElementById('prevPageBtn');
+const nextPageBtn         = document.getElementById('nextPageBtn');
+let currentPage = 1;
 // ============================================================
 // LOAD DATA
 // ============================================================
@@ -44,88 +56,111 @@ async function loadOrders() {
         allOrders = [];
         showToast('Cannot load orders from server.', 'error');
     }
+    populateSupplierFilter();
     renderStats();
     renderTable();
 }
 
-function renderStats() {
-    const total     = allOrders.length;
-    const pending   = allOrders.filter(o => o.status === 'pending').length;
-    const received  = allOrders.filter(o => o.status === 'completed').length;
-    const totalVal  = allOrders.reduce((s, o) => s + o.total_amount, 0);
-
-    if (!statsCardsContainer) return;
-    statsCardsContainer.innerHTML = `
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div class="text-sm text-gray-500 mb-1">Total Orders</div>
-            <div class="text-2xl font-semibold text-gray-900">${total}</div>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div class="text-sm text-gray-500 mb-1">Pending</div>
-            <div class="text-2xl font-semibold text-orange-600">${pending}</div>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div class="text-sm text-gray-500 mb-1">Completed</div>
-            <div class="text-2xl font-semibold text-[#10B981]">${received}</div>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div class="text-sm text-gray-500 mb-1">Total Value</div>
-            <div class="text-2xl font-semibold text-gray-900">${formatCurrency(totalVal)}</div>
-        </div>`;
+function populateSupplierFilter() {
+    if (!supplierFilter) return;
+    const current = supplierFilter.value || 'all';
+    const suppliers = Array.from(new Set(allOrders.map(o => o.supplier_name).filter(Boolean))).sort();
+    supplierFilter.innerHTML = '<option value="all">All Suppliers</option>' + suppliers.map(name => `<option value="${name}">${name}</option>`).join('');
+    supplierFilter.value = suppliers.includes(current) ? current : 'all';
 }
 
-function renderTable() {
-    const filter   = statusFilter?.value || 'all';
-    const filtered = filter === 'all' ? allOrders : allOrders.filter(o => o.status === filter);
-
-    if (!tableBody) return;
-    tableBody.innerHTML = '';
-    if (filtered.length === 0) {
-        if (emptyState) emptyState.classList.remove('hidden');
-        return;
-    }
-    if (emptyState) emptyState.classList.add('hidden');
-
-    filtered.forEach((order, i) => {
-        const bgClass   = i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50';
-        const cfg       = statusConfig[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-700' };
-        const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
-        const canCancel = !isStaff && order.status === 'pending';
-        const canComplete = order.status === 'pending';
-        const createdAt = order.created_at || order.order_date;
-
-        const tr = document.createElement('tr');
-        tr.className = `hover:bg-gray-50 transition-colors duration-150 ${bgClass}`;
-        tr.innerHTML = `
-            <td class="px-6 py-4"><span class="font-medium text-gray-900">${order.order_number}</span></td>
-            <td class="px-6 py-4"><span class="text-gray-700">${order.supplier_name || '--'}</span></td>
-            <td class="px-6 py-4"><span class="text-gray-600">${formatDate(createdAt)}</span></td>
-            <td class="px-6 py-4">
-                <span class="inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium ${cfg.color}">${cfg.label}</span>
-            </td>
-            <td class="px-6 py-4 text-right"><span class="font-semibold text-gray-900">${formatCurrency(order.total_amount)}</span></td>
-            <td class="px-6 py-4">
-                <div class="flex items-center justify-center gap-2">
-                    <button onclick="viewDetail(${order.id})" class="p-2 text-gray-600 hover:text-[#2563EB] hover:bg-blue-50 rounded-lg transition-all" title="View Details">
-                        <i data-lucide="file-text" class="w-4 h-4"></i>
-                    </button>
-                    ${canComplete ? `
-                    <button onclick="openConfirmReceive(${order.id})" class="p-2 text-[#10B981] hover:bg-green-50 rounded-lg transition-all" title="Complete Order">
-                        <i data-lucide="package-check" class="w-4 h-4"></i>
-                    </button>
-                    ` : ''}
-                    ${canCancel ? `
-                    <button onclick="openActionModal(${order.id}, 'cancel')" class="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Cancel Order">
-                        <i data-lucide="x-circle" class="w-4 h-4"></i>
-                    </button>
-                    ` : ''}
-                </div>
-            </td>`;
-        tableBody.appendChild(tr);
-    });
+function renderStats() {
+    if (!statsCardsContainer) return;
+    const total = allOrders.length;
+    const pending = allOrders.filter(o => o.status === 'pending').length;
+    const received = allOrders.filter(o => o.status === 'received' || o.status === 'completed').length;
+    const totalVal = allOrders.reduce((sum, o) => sum + Number(o.total_amount || o.total_value || 0), 0);
+    const cards = [
+        { label: 'Total Orders', value: total, icon: 'clipboard-list', color: 'bg-blue-50 text-blue-600 border-blue-100' },
+        { label: 'Pending Approval', value: pending, icon: 'clipboard-clock', color: 'bg-orange-50 text-orange-600 border-orange-100' },
+        { label: 'Received', value: received, icon: 'package-check', color: 'bg-green-50 text-green-600 border-green-100' },
+        { label: 'Total Value', value: formatCurrency(totalVal), icon: 'wallet', color: 'bg-purple-50 text-purple-600 border-purple-100' }
+    ];
+    statsCardsContainer.innerHTML = cards.map(card => `
+        <article class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex items-center gap-5 min-h-[120px]">
+            <div class="w-14 h-14 rounded-full ${card.color} border flex items-center justify-center shrink-0"><i data-lucide="${card.icon}" class="w-7 h-7"></i></div>
+            <div><p class="text-sm font-medium text-gray-500">${card.label}</p><p class="text-3xl font-bold text-gray-950 mt-1">${card.value}</p></div>
+        </article>`).join('');
     lucide.createIcons();
 }
 
+function getFilteredOrders() {
+    const status = statusFilter?.value || 'all';
+    const supplier = supplierFilter?.value || 'all';
+    const days = dateRangeFilter?.value || 'all';
+    const query = (orderSearch?.value || '').trim().toLowerCase();
+    const now = Date.now();
+    return allOrders.filter(order => {
+        if (status !== 'all' && order.status !== status) return false;
+        if (supplier !== 'all' && order.supplier_name !== supplier) return false;
+        if (days !== 'all') {
+            const orderTime = new Date(order.order_date || order.created_at).getTime();
+            if (Number.isFinite(orderTime) && now - orderTime > Number(days) * 24 * 60 * 60 * 1000) return false;
+        }
+        if (query) {
+            const haystack = `${order.order_number || ''} ${order.po_code || ''} ${order.supplier_name || ''}`.toLowerCase();
+            if (!haystack.includes(query)) return false;
+        }
+        return true;
+    });
+}
+
+function renderTable() {
+    const filtered = getFilteredOrders();
+    const rowsPerPage = Number(rowsPerPageSelect?.value || 6);
+    const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
+    currentPage = Math.min(currentPage, totalPages);
+    const start = (currentPage - 1) * rowsPerPage;
+    const pageRows = filtered.slice(start, start + rowsPerPage);
+    if (!tableBody) return;
+    tableBody.innerHTML = '';
+    if (emptyState) emptyState.classList.toggle('hidden', pageRows.length !== 0);
+    pageRows.forEach(order => {
+        const cfg = statusConfig[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-700' };
+        const source = order.source || 'Manual';
+        const sourceClass = source === 'AI Forecast' ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-700';
+        const canComplete = order.status === 'pending';
+        const canCancel = ['draft', 'pending'].includes(order.status);
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50 transition-colors';
+        tr.innerHTML = `
+            <td class="px-5 py-4 font-semibold text-gray-950">${order.order_number || order.po_code || '--'}</td>
+            <td class="px-5 py-4 text-gray-700">${order.supplier_name || '--'}</td>
+            <td class="px-5 py-4 text-gray-700">${order.created_by_name || '--'}</td>
+            <td class="px-5 py-4 text-gray-700">${formatDate(order.expected_delivery_date || order.order_date)}</td>
+            <td class="px-5 py-4 text-center"><span class="inline-flex items-center px-3 py-1 rounded-lg text-sm font-semibold ${cfg.color}">${cfg.label}</span></td>
+            <td class="px-5 py-4 text-right font-semibold text-gray-950">${formatCurrency(order.total_amount || order.total_value)}</td>
+            <td class="px-5 py-4 text-center"><span class="inline-flex items-center px-3 py-1 rounded-lg text-sm font-semibold ${sourceClass}">${source}</span></td>
+            <td class="px-5 py-4"><div class="flex items-center justify-center gap-2">
+                <button onclick="viewDetail(${order.id})" class="w-9 h-9 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 flex items-center justify-center" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>
+                ${canComplete ? `<button onclick="openConfirmReceive(${order.id})" class="w-9 h-9 rounded-lg border border-gray-200 text-green-600 hover:bg-green-50 flex items-center justify-center" title="Receive"><i data-lucide="check-circle" class="w-4 h-4"></i></button>` : ''}
+                ${canCancel ? `<button onclick="openActionModal(${order.id}, 'cancel')" class="w-9 h-9 rounded-lg border border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-600 flex items-center justify-center" title="Cancel"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>` : ''}
+            </div></td>`;
+        tableBody.appendChild(tr);
+    });
+    renderPagination(filtered.length, rowsPerPage, totalPages, start, pageRows.length);
+    lucide.createIcons();
+}
+
+function renderPagination(total, rowsPerPage, totalPages, start, count) {
+    if (paginationInfo) paginationInfo.textContent = total ? `Showing ${start + 1} to ${start + count} of ${total} orders` : 'Showing 0 orders';
+    if (prevPageBtn) prevPageBtn.disabled = currentPage <= 1;
+    if (nextPageBtn) nextPageBtn.disabled = currentPage >= totalPages;
+    if (!pageButtons) return;
+    pageButtons.innerHTML = '';
+    for (let i = 1; i <= totalPages; i++) {
+        const btn = document.createElement('button');
+        btn.className = `w-9 h-9 rounded-lg border text-sm font-semibold ${i === currentPage ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`;
+        btn.textContent = i;
+        btn.onclick = () => { currentPage = i; renderTable(); };
+        pageButtons.appendChild(btn);
+    }
+}
 // ============================================================
 // MODALS LOGIC
 // ============================================================
@@ -675,7 +710,13 @@ document.getElementById('btnProceedAction')?.addEventListener('click', async () 
     }
 });
 
-if (statusFilter) statusFilter.addEventListener('change', renderTable);
+if (statusFilter) statusFilter.addEventListener('change', () => { currentPage = 1; renderTable(); });
+if (supplierFilter) supplierFilter.addEventListener('change', () => { currentPage = 1; renderTable(); });
+if (dateRangeFilter) dateRangeFilter.addEventListener('change', () => { currentPage = 1; renderTable(); });
+if (orderSearch) orderSearch.addEventListener('input', () => { currentPage = 1; renderTable(); });
+if (rowsPerPageSelect) rowsPerPageSelect.addEventListener('change', () => { currentPage = 1; renderTable(); });
+if (prevPageBtn) prevPageBtn.addEventListener('click', () => { currentPage = Math.max(1, currentPage - 1); renderTable(); });
+if (nextPageBtn) nextPageBtn.addEventListener('click', () => { currentPage += 1; renderTable(); });
 
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.get('openAdd') === 'true') {

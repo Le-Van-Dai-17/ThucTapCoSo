@@ -62,7 +62,7 @@ const insertPoItems = async (connection, poId, items) => {
     const productId = item.product_id || item.id;
     const orderedQuantity = parsePositiveNumber(item.ordered_quantity ?? item.quantity ?? item.forecasted_quantity, 'ordered_quantity');
     const forecastedQuantity = parseNonNegativeNumber(item.forecasted_quantity ?? item.predicted_quantity ?? orderedQuantity, 'forecasted_quantity');
-    const receivedQuantity = parseNonNegativeNumber(item.received_quantity, 'received_quantity');
+    const receivedQuantity = parseNonNegativeNumber(item.received_quantity, 'received_quantity', 0);
     const unitCost = parseNonNegativeNumber(item.unit_cost ?? item.unit_price ?? item.cost_price, 'unit_cost');
     const lineTotal = item.line_total === undefined || item.line_total === null || item.line_total === '' ? orderedQuantity * unitCost : parseNonNegativeNumber(item.line_total, 'line_total');
 
@@ -84,14 +84,14 @@ const insertPoItems = async (connection, poId, items) => {
 exports.createPurchase = async (req, res) => {
   const connection = await pool.getConnection();
   try {
-    const { po_code, order_number, supplier_id, supplier_name, expected_delivery_date, items } = req.body;
+    const { po_code, order_number, supplier_id, supplier_name, expected_delivery_date, status, items } = req.body;
     validateItems(items);
     await connection.beginTransaction();
 
     const supplierId = await getSupplierId(connection, supplier_id, supplier_name);
     const poCode = po_code || order_number || generatePoCode();
     const createdBy = getActorId(req);
-    const orderStatus = 'Pending';
+    const orderStatus = normalizeStatus(status || 'Draft');
 
     const [result] = await connection.query(
       `INSERT INTO purchase_orders (po_code, supplier_id, created_by, status, expected_delivery_date, total_value) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -128,7 +128,8 @@ exports.getPurchases = async (req, res) => {
         po.po_id AS id, po.po_id, po.po_code, po.po_code AS order_number, po.supplier_id, s.name AS supplier_name,
         po.created_by, creator.full_name AS created_by_name, po.approved_by, approver.full_name AS approved_by_name,
         po.status, LOWER(po.status) AS status_key, po.order_date, po.expected_delivery_date, po.received_date,
-        po.total_value, po.total_value AS total_amount, po.created_at, po.updated_at, COUNT(pi.po_item_id) AS item_count
+        po.total_value, po.total_value AS total_amount, po.created_at, po.updated_at, COUNT(pi.po_item_id) AS item_count,
+        CASE WHEN SUM(CASE WHEN pi.forecasted_quantity IS NOT NULL AND pi.forecasted_quantity > 0 THEN 1 ELSE 0 END) > 0 THEN 'AI Forecast' ELSE 'Manual' END AS source
       FROM purchase_orders po
       INNER JOIN suppliers s ON po.supplier_id = s.supplier_id
       LEFT JOIN users creator ON po.created_by = creator.user_id

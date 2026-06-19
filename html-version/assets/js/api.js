@@ -200,16 +200,16 @@ const API = {
             const res = await apiFetch('/reports/inventory-status');
             return res.data;
         },
-        async getSalesSummary() {
-            const res = await apiFetch('/reports/sales-summary');
+        async getSalesSummary(days) {
+            const res = await apiFetch('/reports/sales-summary' + (days ? '?days=' + days : ''));
             return res.data;
         },
-        async getTopProducts() {
-            const res = await apiFetch('/reports/top-products');
+        async getTopProducts(days) {
+            const res = await apiFetch('/reports/top-products' + (days ? '?days=' + days : ''));
             return res.data;
         },
-        async getCategorySales() {
-            const res = await apiFetch('/reports/category-sales');
+        async getCategorySales(days) {
+            const res = await apiFetch('/reports/category-sales' + (days ? '?days=' + days : ''));
             return res.data;
         },
         async getSalesTrend(days = 30) {
