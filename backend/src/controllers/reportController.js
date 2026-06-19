@@ -8,7 +8,9 @@ const getReportData = async () => {
         SELECT 
             COUNT(DISTINCT st.transaction_id) AS total_orders,
             IFNULL(SUM(sd.quantity), 0) AS total_items_sold,
-            IFNULL(SUM(sd.quantity * sd.unit_price), 0) AS total_revenue
+            IFNULL(SUM(sd.quantity * sd.unit_price), 0) AS total_revenue,
+            IFNULL(SUM(CASE WHEN YEAR(st.transaction_date) = YEAR((SELECT MAX(transaction_date) FROM sales_transactions)) AND MONTH(st.transaction_date) = MONTH((SELECT MAX(transaction_date) FROM sales_transactions)) THEN sd.quantity * sd.unit_price ELSE 0 END), 0) AS current_month_revenue,
+            IFNULL(SUM(CASE WHEN st.transaction_date >= DATE_SUB(DATE_FORMAT((SELECT MAX(transaction_date) FROM sales_transactions), '%Y-%m-01'), INTERVAL 1 MONTH) AND st.transaction_date < DATE_FORMAT((SELECT MAX(transaction_date) FROM sales_transactions), '%Y-%m-01') THEN sd.quantity * sd.unit_price ELSE 0 END), 0) AS previous_month_revenue
         FROM sales_transactions st
         LEFT JOIN sale_details sd 
             ON st.transaction_id = sd.transaction_id
@@ -27,7 +29,7 @@ const getReportData = async () => {
         WHERE p.is_discontinued = 0
         GROUP BY p.product_id, p.name, p.sku
         ORDER BY total_sold DESC
-        LIMIT 5
+        LIMIT 10
     `);
 
     const [categorySales] = await pool.query(`
@@ -49,7 +51,7 @@ const getReportData = async () => {
         SELECT 
             COUNT(*) AS total_products,
             IFNULL(SUM(current_stock), 0) AS total_stock,
-            IFNULL(SUM(CASE WHEN current_stock <= min_stock_level THEN 1 ELSE 0 END), 0) AS low_stock_items,
+            IFNULL(SUM(CASE WHEN current_stock <= warning_stock_level THEN 1 ELSE 0 END), 0) AS low_stock_items,
             IFNULL(SUM(CASE WHEN current_stock = 0 THEN 1 ELSE 0 END), 0) AS out_of_stock_items,
             IFNULL(SUM(current_stock * cost_price), 0) AS inventory_value
         FROM products

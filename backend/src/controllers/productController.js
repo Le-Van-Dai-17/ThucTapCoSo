@@ -91,8 +91,9 @@ exports.getAllProducts = async (req, res) => {
                 p.cost_price,
                 p.selling_price,
                 p.current_stock,
-                p.min_stock_level,
-                p.min_stock_level AS min_stock,
+                p.warning_stock_level,
+                p.warning_stock_level AS warning_stock,
+                p.warning_stock_level AS min_stock,
                 p.max_stock_level,
                 p.is_discontinued,
                 CASE
@@ -144,8 +145,9 @@ exports.getProductById = async (req, res) => {
                 p.cost_price,
                 p.selling_price,
                 p.current_stock,
-                p.min_stock_level,
-                p.min_stock_level AS min_stock,
+                p.warning_stock_level,
+                p.warning_stock_level AS warning_stock,
+                p.warning_stock_level AS min_stock,
                 p.max_stock_level,
                 p.is_discontinued,
                 CASE
@@ -201,6 +203,8 @@ exports.createProduct = async (req, res) => {
             current_stock,
             min_stock,
             min_stock_level,
+            warning_stock,
+            warning_stock_level,
             max_stock_level,
             status,
             is_discontinued
@@ -219,15 +223,15 @@ exports.createProduct = async (req, res) => {
         const sellingPrice = parseNonNegativeNumber(selling_price, 'selling_price');
         const costPrice = parseNonNegativeNumber(cost_price, 'cost_price');
         const currentStock = parseNonNegativeNumber(current_stock, 'current_stock');
-        const minStockLevel = parseNonNegativeNumber(min_stock_level ?? min_stock, 'min_stock_level', 10);
+        const warningStockLevel = parseNonNegativeNumber(warning_stock_level ?? warning_stock ?? min_stock_level ?? min_stock, 'warning_stock_level', 10);
         const maxStockLevel = max_stock_level === '' || max_stock_level == null
             ? null
             : parseNonNegativeNumber(max_stock_level, 'max_stock_level');
 
-        if (maxStockLevel !== null && maxStockLevel < minStockLevel) {
+        if (maxStockLevel !== null && maxStockLevel < warningStockLevel) {
             return res.status(400).json({
                 success: false,
-                message: 'max_stock_level must be greater than or equal to min_stock_level'
+                message: 'max_stock_level must be greater than or equal to warning_stock_level'
             });
         }
 
@@ -257,7 +261,7 @@ exports.createProduct = async (req, res) => {
                 cost_price,
                 selling_price,
                 current_stock,
-                min_stock_level,
+                warning_stock_level,
                 max_stock_level,
                 is_discontinued
             )
@@ -271,7 +275,7 @@ exports.createProduct = async (req, res) => {
             costPrice,
             sellingPrice,
             currentStock,
-            minStockLevel,
+            warningStockLevel,
             maxStockLevel,
             discontinued
         ]);
@@ -323,6 +327,8 @@ exports.updateProduct = async (req, res) => {
             current_stock,
             min_stock,
             min_stock_level,
+            warning_stock,
+            warning_stock_level,
             max_stock_level,
             status,
             is_discontinued
@@ -365,15 +371,15 @@ exports.updateProduct = async (req, res) => {
         const sellingPrice = parseNonNegativeNumber(selling_price, 'selling_price');
         const costPrice = parseNonNegativeNumber(cost_price, 'cost_price');
         const currentStock = parseNonNegativeNumber(current_stock, 'current_stock');
-        const minStockLevel = parseNonNegativeNumber(min_stock_level ?? min_stock, 'min_stock_level', 10);
+        const warningStockLevel = parseNonNegativeNumber(warning_stock_level ?? warning_stock ?? min_stock_level ?? min_stock, 'warning_stock_level', 10);
         const maxStockLevel = max_stock_level === '' || max_stock_level == null
             ? null
             : parseNonNegativeNumber(max_stock_level, 'max_stock_level');
 
-        if (maxStockLevel !== null && maxStockLevel < minStockLevel) {
+        if (maxStockLevel !== null && maxStockLevel < warningStockLevel) {
             return res.status(400).json({
                 success: false,
-                message: 'max_stock_level must be greater than or equal to min_stock_level'
+                message: 'max_stock_level must be greater than or equal to warning_stock_level'
             });
         }
 
@@ -390,10 +396,8 @@ exports.updateProduct = async (req, res) => {
                 unit = ?,
                 cost_price = ?,
                 selling_price = ?,
-
-
                 current_stock = ?,
-                min_stock_level = ?,
+                warning_stock_level = ?,
                 max_stock_level = ?,
                 is_discontinued = ?
             WHERE product_id = ?
@@ -406,7 +410,7 @@ exports.updateProduct = async (req, res) => {
             costPrice,
             sellingPrice,
             currentStock,
-            minStockLevel,
+            warningStockLevel,
             maxStockLevel,
             discontinued,
             id

@@ -8,9 +8,7 @@ let editingOrderId = null;
 
 const statusConfig = {
     pending:   { label: "Pending",   color: "bg-orange-100 text-orange-700" },
-    approved:  { label: "Approved",  color: "bg-blue-100 text-blue-700" },
-    shipped:   { label: "Shipped",   color: "bg-yellow-100 text-yellow-700" },
-    received:  { label: "Received",  color: "bg-[#10B981]/10 text-[#10B981]" },
+    completed: { label: "Completed", color: "bg-[#10B981]/10 text-[#10B981]" },
     cancelled: { label: "Cancelled", color: "bg-red-100 text-red-700" },
 };
 
@@ -39,7 +37,7 @@ async function loadOrders() {
         }));
         
         if (isStaff) {
-            allOrders = allOrders.filter(o => o.status === 'approved' || o.status === 'shipped');
+            allOrders = allOrders.filter(o => o.status === 'pending' || o.status === 'completed');
         }
     } catch (err) {
         console.warn('Backend error:', err.message);
@@ -53,7 +51,7 @@ async function loadOrders() {
 function renderStats() {
     const total     = allOrders.length;
     const pending   = allOrders.filter(o => o.status === 'pending').length;
-    const received  = allOrders.filter(o => o.status === 'received' || o.status === 'completed').length;
+    const received  = allOrders.filter(o => o.status === 'completed').length;
     const totalVal  = allOrders.reduce((s, o) => s + o.total_amount, 0);
 
     if (!statsCardsContainer) return;
@@ -67,7 +65,7 @@ function renderStats() {
             <div class="text-2xl font-semibold text-orange-600">${pending}</div>
         </div>
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div class="text-sm text-gray-500 mb-1">Received</div>
+            <div class="text-sm text-gray-500 mb-1">Completed</div>
             <div class="text-2xl font-semibold text-[#10B981]">${received}</div>
         </div>
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -92,10 +90,8 @@ function renderTable() {
         const bgClass   = i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50';
         const cfg       = statusConfig[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-700' };
         const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
-        const canEdit = !isStaff && !['approved', 'shipped', 'received', 'completed', 'cancelled'].includes(order.status);
-        const canApprove = !isStaff && order.status === 'pending';
-        const canShip = !isStaff && order.status === 'approved';
-        const canReceive = order.status === 'approved' || order.status === 'shipped';
+        const canCancel = !isStaff && order.status === 'pending';
+        const canComplete = order.status === 'pending';
         const createdAt = order.created_at || order.order_date;
 
         const tr = document.createElement('tr');
@@ -113,27 +109,14 @@ function renderTable() {
                     <button onclick="viewDetail(${order.id})" class="p-2 text-gray-600 hover:text-[#2563EB] hover:bg-blue-50 rounded-lg transition-all" title="View Details">
                         <i data-lucide="file-text" class="w-4 h-4"></i>
                     </button>
-                    ${canApprove ? `
-                    <button onclick="openActionModal(${order.id}, 'approve')" class="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all" title="Approve Plan">
-                        <i data-lucide="check-circle" class="w-4 h-4"></i>
-                    </button>
-                    ` : ''}
-                    ${canEdit ? `
-                    <button onclick="editOrder(${order.id})" class="p-2 text-gray-600 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all" title="Edit Order">
-                        <i data-lucide="edit" class="w-4 h-4"></i>
-                    </button>
-                    <button onclick="openActionModal(${order.id}, 'delete')" class="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Delete Order">
-                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    </button>
-                    ` : ''}
-                    ${canReceive ? `
-                    <button onclick="openConfirmReceive(${order.id})" class="p-2 text-[#10B981] hover:bg-green-50 rounded-lg transition-all" title="Confirm Receive">
+                    ${canComplete ? `
+                    <button onclick="openConfirmReceive(${order.id})" class="p-2 text-[#10B981] hover:bg-green-50 rounded-lg transition-all" title="Complete Order">
                         <i data-lucide="package-check" class="w-4 h-4"></i>
                     </button>
                     ` : ''}
-                    ${canShip ? `
-                    <button onclick="openActionModal(${order.id}, 'ship')" class="p-2 text-yellow-600 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-all" title="Mark as Shipped">
-                        <i data-lucide="truck" class="w-4 h-4"></i>
+                    ${canCancel ? `
+                    <button onclick="openActionModal(${order.id}, 'cancel')" class="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Cancel Order">
+                        <i data-lucide="x-circle" class="w-4 h-4"></i>
                     </button>
                     ` : ''}
                 </div>
@@ -327,7 +310,6 @@ window.openCreatePOModal = async function () {
     editingOrderId = null;
     document.getElementById('poModalTitle').textContent = 'New Purchase Order';
     document.getElementById('createPOBtn').textContent = 'Create Order';
-    document.getElementById('poStatus').value = 'pending';
     
     const poInput = document.getElementById('poOrderNumber');
     if (poInput) {
@@ -338,41 +320,6 @@ window.openCreatePOModal = async function () {
     resetCreateForm();
     showCreateModal();
 };
-
-window.editOrder = async function(id) {
-    editingOrderId = id;
-    document.getElementById('poModalTitle').textContent = 'Edit Purchase Order';
-    document.getElementById('createPOBtn').textContent = 'Update Order';
-    resetCreateForm();
-    
-    const order = allOrders.find(o => o.id === id);
-    if(order) {
-        const poInput = document.getElementById('poOrderNumber');
-        if (poInput) {
-            poInput.value = order.order_number;
-            poInput.readOnly = true;
-            poInput.className = "w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500 focus:outline-none cursor-not-allowed transition-all";
-        }
-        document.getElementById('poSupplier').value = order.supplier_name;
-        document.getElementById('poStatus').value = order.status;
-    }
-
-    try {
-        const res = await API.orders.getDetail(id);
-        const details = res.data || [];
-        window.currentOrderItems = details.map(d => ({
-            product_id: d.product_id,
-            product_name: d.product_name,
-            quantity: d.quantity || d.ordered_quantity,
-            received_quantity: d.received_quantity || 0,
-            unit_price: parseFloat(d.unit_price || d.unit_cost || 0)
-        }));
-        renderSelectedItemsUI();
-    } catch(e) {
-        showToast('Error loading details for edit', 'error');
-    }
-    showCreateModal();
-}
 
 async function showCreateModal() {
     const datalist = document.getElementById('productsDatalist');
@@ -413,7 +360,6 @@ function resetCreateForm() {
     const errEl = document.getElementById('createPOError');
     if (errEl) errEl.classList.add('hidden');
     window.currentOrderItems = [];
-    window.currentSupplierId = null;
     document.getElementById('poItemsListUI').innerHTML = '<li class="py-2 text-gray-400 italic">No products selected yet.</li>';
     document.getElementById('poTotalAmount').value = "0.00";
     document.getElementById('productStockHint').textContent = '';
@@ -428,27 +374,7 @@ window.closeCreatePOModal = function () {
 };
 
 
-document.getElementById('poSupplier')?.addEventListener('input', function(e) {
-    const val = e.target.value.trim().toLowerCase();
-    const datalist = document.getElementById('productsDatalist');
-    if (!datalist) return;
-    datalist.innerHTML = '';
-    
-    if (window.dbSuppliersList && window.dbProductsList) {
-        const supplier = window.dbSuppliersList.find(s => s.name.toLowerCase() === val);
-        if (supplier) {
-            window.currentSupplierId = supplier.id || supplier.supplier_id;
-            const filteredProducts = window.dbProductsList.filter(p => p.supplier_id == window.currentSupplierId);
-            filteredProducts.forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p.name;
-                datalist.appendChild(opt);
-            });
-        } else {
-            window.currentSupplierId = null;
-        }
-    }
-});
+
 
 function updatePricePreview() {
     const qty = parseInt(document.getElementById('poItemQty').value) || 0;
@@ -465,16 +391,6 @@ function updatePricePreview() {
 
 document.getElementById('poItemQty')?.addEventListener('input', updatePricePreview);
 document.getElementById('poItemUnitPrice')?.addEventListener('input', updatePricePreview);
-
-function getSelectedSupplier() {
-    const supplierName = document.getElementById('poSupplier')?.value.trim().toLowerCase();
-    if (!supplierName || !window.dbSuppliersList) return null;
-    return window.dbSuppliersList.find(s => String(s.name || '').toLowerCase() === supplierName) || null;
-}
-
-function getSupplierId(supplier) {
-    return supplier ? (supplier.id || supplier.supplier_id) : null;
-}
 
 document.getElementById('poItemProductName')?.addEventListener('input', function(e) {
     const val = e.target.value.trim().toLowerCase();
@@ -501,45 +417,20 @@ document.getElementById('poItemProductName')?.addEventListener('input', function
     
     if(window.dbProductsList && window.dbSuppliersList) {
         let prodList = window.dbProductsList;
-        const selectedSupplier = getSelectedSupplier();
-        const selectedSupplierId = getSupplierId(selectedSupplier) || window.currentSupplierId;
-        if (selectedSupplierId) {
-             prodList = prodList.filter(p => p.supplier_id == selectedSupplierId);
+        if (window.currentSupplierId) {
+             prodList = prodList.filter(p => p.supplier_id == window.currentSupplierId);
         }
         const prod = prodList.find(p => p.name.toLowerCase() === val);
         
         if(prod) {
             if (hintEl) hintEl.textContent = `In Stock: ${prod.current_stock || 0}`;
-            if (priceEl) priceEl.value = prod.cost_price || 0;
+            if (priceEl) priceEl.value = prod.cost_price || prod.selling_price || 0;
         } else {
-            if (hintEl) hintEl.textContent = selectedSupplierId ? 'Product does not belong to selected supplier' : 'Select a supplier first';
-            if (priceEl) priceEl.value = '';
+            if (hintEl) hintEl.textContent = 'New Product';
+            if (priceEl && !priceEl.value) priceEl.value = ''; // Let user type
         }
         updatePricePreview();
         
-        // DUAL FILTERING: Filter suppliers datalist based on product
-        const supplierDatalist = document.getElementById('suppliersDatalist');
-        if (supplierDatalist && !window.currentSupplierId) {
-            const matchingProducts = window.dbProductsList.filter(p => p.name.toLowerCase() === val);
-            const matchingSupplierIds = [...new Set(matchingProducts.map(p => p.supplier_id))];
-            
-            supplierDatalist.innerHTML = '';
-            const matchingSuppliers = window.dbSuppliersList.filter(s => matchingSupplierIds.includes(s.id || s.supplier_id));
-            matchingSuppliers.forEach(s => {
-                const opt = document.createElement('option');
-                opt.value = s.name;
-                supplierDatalist.appendChild(opt);
-            });
-            
-            // Auto-fill supplier if exactly 1
-            if (matchingSuppliers.length === 1) {
-                const supplierInput = document.getElementById('poSupplier');
-                if (supplierInput && !supplierInput.value) {
-                    supplierInput.value = matchingSuppliers[0].name;
-                    supplierInput.dispatchEvent(new Event('input'));
-                }
-            }
-        }
     }
 });
 
@@ -550,28 +441,36 @@ document.getElementById('createPOForm')?.addEventListener('submit', async functi
     const errEl = document.getElementById('createPOError');
     if (errEl) errEl.classList.add('hidden');
 
-    const payload = {
-        supplier_name: document.getElementById('poSupplier').value.trim(),
-        total_amount:  parseFloat(document.getElementById('poTotalAmount').value) || 0,
-        status:        editingOrderId ? document.getElementById('poStatus').value : 'pending',
-        items: window.currentOrderItems || []
-    };
+    const payloadStatus = document.getElementById('poStatus').value;
 
-    if (!payload.supplier_name || payload.items.length === 0) {
-        if (errEl) { errEl.textContent = 'Supplier and at least 1 item required.'; errEl.classList.remove('hidden'); }
+    if (window.currentOrderItems.length === 0) {
+        if (errEl) { errEl.textContent = 'At least 1 item required.'; errEl.classList.remove('hidden'); }
         return;
     }
 
     btn.disabled = true;
     btn.textContent = 'Saving...';
     try {
-        if(editingOrderId) {
-            await API.orders.update(editingOrderId, payload);
-            showToast('🔄 Purchase order updated!', 'success');
-        } else {
-            await API.orders.create(payload);
-            showToast('✅ Purchase order created!', 'success');
-        }
+        // Group items by supplier_id
+        const groups = {};
+        window.currentOrderItems.forEach(item => {
+            const sid = item.supplier_id || 'unknown';
+            if (!groups[sid]) groups[sid] = { items: [], supplier_name: item.supplier_name, total_amount: 0 };
+            groups[sid].items.push(item);
+            groups[sid].total_amount += (item.quantity * item.unit_price);
+        });
+
+        const promises = Object.values(groups).map(g => {
+            return API.orders.create({
+                supplier_name: g.supplier_name || 'Unknown',
+                total_amount: g.total_amount,
+                status: payloadStatus,
+                items: g.items
+            });
+        });
+
+        await Promise.all(promises);
+        showToast('✅ Purchase order(s) created!', 'success');
         closeCreatePOModal();
         // Remove openAdd from URL if exists
         const url = new URL(window.location);
@@ -585,7 +484,7 @@ document.getElementById('createPOForm')?.addEventListener('submit', async functi
         else showToast(error.message, 'error');
     } finally {
         btn.disabled = false;
-        btn.textContent = editingOrderId ? 'Update Order' : 'Create Order';
+        btn.textContent = 'Create Order';
     }
 });
 
@@ -594,48 +493,44 @@ window.currentOrderItems = [];
 document.getElementById('addPOItemBtn')?.addEventListener('click', function() {
     const nameInput = document.getElementById('poItemProductName');
     const qtyInput = document.getElementById('poItemQty');
-    const priceInput = document.getElementById('poItemUnitPrice');
     
     const productName = nameInput.value.trim();
     const quantity = parseInt(qtyInput.value) || 0;
-    const unitPrice = parseFloat(priceInput?.value) || 0;
     
     if (!productName || quantity <= 0) {
         showToast('Invalid product name or quantity!', 'info');
         return;
     }
 
-    const selectedSupplier = getSelectedSupplier();
-    const selectedSupplierId = getSupplierId(selectedSupplier);
-    if (!selectedSupplierId) {
-        showToast('Please select a valid supplier before adding products.', 'error');
+    const existingProd = window.dbProductsList ? window.dbProductsList.find(p => p.name.toLowerCase() === productName.toLowerCase()) : null;
+
+    if (!existingProd) {
+        showToast('Chỉ có thể nhập các sản phẩm đã có trong hệ thống!', 'error');
         return;
     }
 
-    const existingProd = window.dbProductsList
-        ? window.dbProductsList.find(p => p.name.toLowerCase() === productName.toLowerCase() && p.supplier_id == selectedSupplierId)
-        : null;
-
-    if (!existingProd) {
-        showToast('Product does not belong to the selected supplier.', 'error');
-        return;
+    let supName = 'Unknown';
+    if (window.dbSuppliersList && existingProd.supplier_id) {
+        const sup = window.dbSuppliersList.find(s => s.id == existingProd.supplier_id || s.supplier_id == existingProd.supplier_id);
+        if (sup) supName = sup.name;
     }
 
     let itemData = {
         product_name: productName,
         quantity: quantity,
         received_quantity: 0,
-        unit_price: unitPrice
+        unit_price: existingProd ? parseFloat(existingProd.cost_price || 0) : 10.00,
+        supplier_id: existingProd ? existingProd.supplier_id : null,
+        supplier_name: supName
     };
-    itemData.product_id = existingProd.id || existingProd.product_id;
+    if (existingProd) itemData.product_id = existingProd.id || existingProd.product_id;
+    else itemData.is_new_product = true;
 
     window.currentOrderItems.push(itemData);
     renderSelectedItemsUI();
     nameInput.value = '';
     qtyInput.value = '1';
-    if (priceInput) priceInput.value = '';
     document.getElementById('productStockHint').textContent = '';
-    updatePricePreview();
 });
 
 function renderSelectedItemsUI() {

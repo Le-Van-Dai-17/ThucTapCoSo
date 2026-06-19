@@ -172,15 +172,15 @@ const API = {
     },
 
     forecast: {
-        async getLatest() { 
-            const res = await apiFetch('/forecast/latest');
+        async getLatest(targetPeriod) { 
+            const res = await apiFetch('/forecast/latest' + (targetPeriod ? '?target_period=' + targetPeriod : ''));
             return res.data || res;
         },
-        async run() {
-            return apiFetch('/forecast/run', { method: 'POST' });
+        async run(targetPeriod) {
+            return apiFetch('/forecast/run', { method: 'POST', body: JSON.stringify({ target_period: targetPeriod }) });
         },
-        async getSaved() {
-            const res = await apiFetch('/forecast/saved');
+        async getSaved(targetPeriod) {
+            const res = await apiFetch('/forecast/saved' + (targetPeriod ? '?target_period=' + targetPeriod : ''));
             return res.data || res;
         },
         async getByProduct(productId) {
@@ -248,6 +248,12 @@ const API = {
         async reset() {
             return apiFetch('/settings/reset', { method: 'POST' });
         }
+    },
+
+    dashboard: {
+        getStats: () => apiFetch('/dashboard/stats'),
+        getTopProducts: () => apiFetch('/dashboard/top-products'),
+        getLowStockForecast: () => apiFetch('/dashboard/low-stock-forecast')
     }
 };
 
