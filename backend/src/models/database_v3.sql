@@ -1,3 +1,4 @@
+SET FOREIGN_KEY_CHECKS=0;
 -- =====================================================
 -- ForecastAI Database V3
 -- Database name: forecastai_v3
@@ -1967,3 +1968,5 @@ INSERT INTO sale_details (transaction_id, product_id, quantity, unit_price, line
 INSERT INTO sales_transactions (transaction_code, transaction_date, total_amount, discount_amount, created_by) VALUES ('AI_M5_FOODS_1_150_2026_05', '2026-05-01 00:00:00', 220000, 0, 2) ON DUPLICATE KEY UPDATE transaction_date = VALUES(transaction_date), total_amount = VALUES(total_amount), discount_amount = VALUES(discount_amount), created_by = VALUES(created_by);
 INSERT INTO sale_details (transaction_id, product_id, quantity, unit_price, line_total) SELECT st.transaction_id, p.product_id, 22, 10000, 220000 FROM sales_transactions st JOIN products p ON p.sku = 'FOODS_1_150' WHERE st.transaction_code = 'AI_M5_FOODS_1_150_2026_05';
 
+
+SET FOREIGN_KEY_CHECKS=1;
