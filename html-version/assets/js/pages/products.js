@@ -46,7 +46,7 @@ function getStockHtml(stock, minStock, maxStock) {
 }
 function renderStats(data) {
     const active = data.filter(p => p.status === 'active').length;
-    const low    = data.filter(p => p.current_stock > 0 && p.current_stock < (p.min_stock || 50)).length;
+    const low    = data.filter(p => p.current_stock > 0 && p.current_stock < (p.warning_stock_level || p.min_stock_level || p.min_stock || 50)).length;
     const out    = data.filter(p => p.current_stock === 0).length;
     if (!statsCards) return;
     statsCards.innerHTML = `
@@ -89,7 +89,7 @@ function renderTable() {
         </div></td></tr>`;
     } else {
         filtered.forEach(p => {
-            const stockHtml   = getStockHtml(p.current_stock, p.min_stock_level, p.max_stock_level);
+            const stockHtml   = getStockHtml(p.current_stock, p.warning_stock_level || p.min_stock_level || p.min_stock, p.max_stock_level);
             const statusClass = p.status === 'active' ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-gray-100 text-gray-500';
             const statusText  = p.status === 'active' ? 'Active' : 'Discontinued';
             const tr = document.createElement('tr');
@@ -156,7 +156,8 @@ document.getElementById('addProductForm')?.addEventListener('submit', async func
         selling_price: parseFloat(document.getElementById('addSellingPrice').value) || 0,
         cost_price:    parseFloat(document.getElementById('addCostPrice').value)    || 0,
         current_stock: parseInt(document.getElementById('addStock').value)           || 0,
-        min_stock:     parseInt(document.getElementById('addMinStock').value)        || 0,
+        warning_stock_level: parseInt(document.getElementById('addWarningStock').value) || 0,
+        min_stock:           parseInt(document.getElementById('addWarningStock').value) || 0,
         status:        document.getElementById('addStatus').value,
     };
 
@@ -206,7 +207,7 @@ window.openEditModal = async function (id) {
         s('editSellingPrice', product.selling_price);
         s('editCostPrice',    product.cost_price);
         s('editStock',        product.current_stock);
-        s('editMinStock',     product.min_stock_level || product.min_stock);
+        s('editWarningStock', product.warning_stock_level || product.min_stock_level || product.min_stock);
         s('editStatus',       product.status);
 
         const modal = document.getElementById('editModalOverlay');
@@ -243,7 +244,8 @@ document.getElementById('editProductForm')?.addEventListener('submit', async fun
         selling_price: parseFloat(document.getElementById('editSellingPrice').value) || 0,
         cost_price:    parseFloat(document.getElementById('editCostPrice').value)    || 0,
         current_stock: parseInt(document.getElementById('editStock').value)           || 0,
-        min_stock:     parseInt(document.getElementById('editMinStock').value)        || 0,
+        warning_stock_level: parseInt(document.getElementById('editWarningStock').value) || 0,
+        min_stock:           parseInt(document.getElementById('editWarningStock').value) || 0,
         status:        document.getElementById('editStatus').value,
     };
 

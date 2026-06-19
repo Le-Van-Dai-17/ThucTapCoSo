@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { pool } = require('../db');
 
 exports.getDashboardStats = async (req, res) => {
     try {
@@ -12,7 +12,7 @@ exports.getDashboardStats = async (req, res) => {
         const [[inventoryStatus]] = await pool.query(`
             SELECT 
                 COUNT(*) AS total_products,
-                IFNULL(SUM(CASE WHEN current_stock <= min_stock_level THEN 1 ELSE 0 END), 0) AS low_stock_items
+                IFNULL(SUM(CASE WHEN current_stock <= warning_stock_level THEN 1 ELSE 0 END), 0) AS low_stock_items
             FROM products
             WHERE is_discontinued = 0
         `);
@@ -57,19 +57,19 @@ exports.getLowStockForecast = async (req, res) => {
     try {
         const [lowStockItems] = await pool.query(`
             SELECT 
-                p.product_id, p.name, p.current_stock, p.min_stock_level,
+                p.product_id, p.name, p.current_stock, p.warning_stock_level,
                 f.recommended_order, f.predicted_demand
             FROM products p
             LEFT JOIN (
-                SELECT p1.product_id, p1.recommended_order, p1.predicted_demand
-                FROM predictions p1
+                SELECT p1.product_id, p1.recommended_order, p1.predicted_quantity AS predicted_demand
+                FROM demand_forecasts p1
                 INNER JOIN (
                     SELECT product_id, MAX(forecast_date) as max_date
-                    FROM predictions
+                    FROM demand_forecasts
                     GROUP BY product_id
                 ) p2 ON p1.product_id = p2.product_id AND p1.forecast_date = p2.max_date
             ) f ON p.product_id = f.product_id
-            WHERE p.current_stock <= p.min_stock_level AND p.is_discontinued = 0
+            WHERE p.current_stock <= p.warning_stock_level AND p.is_discontinued = 0
             ORDER BY p.current_stock ASC
         `);
         res.status(200).json({ success: true, data: lowStockItems });

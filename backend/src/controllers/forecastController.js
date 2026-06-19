@@ -133,7 +133,7 @@ const getForecastProducts = async (connection) => {
             p.sku,
             p.name,
             p.current_stock,
-            p.min_stock_level,
+            p.warning_stock_level,
             p.max_stock_level,
             p.cost_price,
             p.selling_price,
@@ -264,7 +264,7 @@ const buildFallbackPredictionMap = (products, lagMap) => {
             const average = positiveValues.reduce((sum, value) => sum + value, 0) / positiveValues.length;
             predictionMap[product.sku] = Math.max(0, Math.round(average));
         } else {
-            predictionMap[product.sku] = Number(product.min_stock_level || 10) * 2;
+            predictionMap[product.sku] = Number(product.warning_stock_level || 10) * 2;
         }
     });
 
@@ -360,22 +360,22 @@ const calculateProductForecast = async (
     const upperBound = Math.max(0, Math.round(predictedDemand * 1.15));
 
     const currentStock = Number(product.current_stock || 0);
-    const minStockLevel = Number(product.min_stock_level || 0);
+    const warningStockLevel = Number(product.warning_stock_level || 0);
     const leadTimeDays = Number(product.lead_time_days || 7);
 
     // Công thức nâng cao: Lead Time Demand = (Số lượng dự báo trong 30 ngày / 30) * Số ngày giao hàng
     const leadTimeDemand = (predictedDemand / 30) * leadTimeDays;
 
-    // Đề xuất nhập = Số lượng dự báo + Số lượng giao hàng dự kiến + Tồn kho an toàn (min_stock) - Tồn kho hiện tại
+    // Đề xuất nhập = Số lượng dự báo + Số lượng giao hàng dự kiến + Tồn kho an toàn (warning_stock) - Tồn kho hiện tại
     const recommendedOrder = Math.max(
         0,
-        Math.round(predictedDemand + leadTimeDemand + minStockLevel - currentStock)
+        Math.round(predictedDemand + leadTimeDemand + warningStockLevel - currentStock)
     );
 
     let stockStatus;
     if (currentStock === 0) {
         stockStatus = 'out';
-    } else if (currentStock < minStockLevel) {
+    } else if (currentStock < warningStockLevel) {
         stockStatus = 'low';
     } else if (currentStock > predictedDemand * 1.5) {
         stockStatus = 'high';
@@ -405,7 +405,8 @@ const calculateProductForecast = async (
         current_stock: currentStock,
         currentStock,
 
-        min_stock_level: minStockLevel,
+        warning_stock_level: warningStockLevel,
+        min_stock_level: warningStockLevel,
         max_stock_level: product.max_stock_level,
 
         predicted_demand: predictedDemand,
@@ -657,7 +658,8 @@ exports.getSavedForecasts = async (req, res) => {
                 df.upper_bound,
                 df.recommended_order,
                 p.current_stock,
-                p.min_stock_level
+                p.warning_stock_level,
+                p.warning_stock_level AS min_stock_level
             FROM demand_forecasts df
             JOIN products p
                 ON df.product_id = p.product_id
