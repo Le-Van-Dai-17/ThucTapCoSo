@@ -6,6 +6,7 @@
     <title>ForecastAI - Demand Forecast</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         .modal-enter { opacity: 0; transform: scale(0.95); transition: all 0.2s ease-out; }
         .modal-enter-active { opacity: 1; transform: scale(1); }
@@ -54,10 +55,9 @@
                 <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-[16px] px-6 py-4 mb-6 shrink-0 flex justify-between items-center hidden" id="forecastInfoBox">
                     <div class="flex items-center gap-3">
                         <i data-lucide="info" class="w-5 h-5 text-blue-600"></i>
-                        <span class="font-medium" id="forecastInfoText">Viewing latest forecast generated on ...</span>
+                        <span class="font-medium" id="forecastInfoText">Target period and forecast run will appear here.</span>
                     </div>
                 </div>
-
                 <!-- Table -->
                 <div class="bg-white rounded-[16px] shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col min-h-0 relative">
                     <div class="overflow-y-auto flex-1 h-full">
@@ -65,8 +65,6 @@
                             <thead class="bg-gray-50 sticky top-0 z-10">
                                 <tr>
                                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Product Name</th>
-                                    <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Target Period</th>
-                                    <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Forecast Date</th>
                                     <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Current Stock</th>
                                     <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Warning Stock</th>
                                     <th class="px-6 py-4 text-center text-xs font-semibold text-[#2563EB] uppercase tracking-wider border-b border-gray-200">Predicted Demand</th>
@@ -102,8 +100,49 @@
         </div>
     </div>
 
+
+
+    <!-- Product Forecast Detail Modal -->
+    <div id="forecastDetailModalOverlay" class="fixed inset-0 bg-black/50 z-[70] hidden items-center justify-center p-4 overlay-enter" onclick="closeForecastDetailModal()">
+        <div id="forecastDetailModal" class="bg-white rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-2xl modal-enter flex flex-col" onclick="event.stopPropagation()">
+            <div class="px-6 py-5 border-b border-gray-200 flex items-start justify-between gap-4 shrink-0">
+                <div class="min-w-0">
+                    <h3 id="detailProductName" class="text-xl font-semibold text-gray-900 truncate">Product Forecast Detail</h3>
+                    <p id="detailProductMeta" class="text-sm text-gray-500 mt-1">Monthly sales and AI forecast history</p>
+                </div>
+                <button id="btnCloseForecastDetail" class="w-10 h-10 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 flex items-center justify-center shrink-0" aria-label="Close detail modal">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                        <p class="text-xs font-semibold text-gray-500 uppercase">Forecast Accuracy</p>
+                        <p id="detailAccuracy" class="text-2xl font-bold text-[#2563EB] mt-2">--</p>
+                        <p id="detailAccuracyNote" class="text-xs text-gray-500 mt-1">Needs actual and predicted values in the same month.</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                        <p class="text-xs font-semibold text-gray-500 uppercase">Latest Actual Sales</p>
+                        <p id="detailLatestActual" class="text-2xl font-bold text-gray-900 mt-2">--</p>
+                        <p class="text-xs text-gray-500 mt-1">Most recent month with sales data</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                        <p class="text-xs font-semibold text-gray-500 uppercase">Latest AI Prediction</p>
+                        <p id="detailLatestPredicted" class="text-2xl font-bold text-[#10B981] mt-2">--</p>
+                        <p class="text-xs text-gray-500 mt-1">Most recent saved forecast</p>
+                    </div>
+                </div>
+                <div id="detailChartLoading" class="py-16 text-center text-gray-500">Loading product forecast detail...</div>
+                <div id="detailChartWrap" class="hidden h-[360px]">
+                    <canvas id="productForecastChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="../assets/js/api.js"></script>
     <script src="../assets/js/components/layout.js"></script>
     <script src="../assets/js/pages/forecast.js"></script>
 </body>
 </html>
+

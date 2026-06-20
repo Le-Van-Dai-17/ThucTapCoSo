@@ -1,0 +1,80 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ForecastAI - Model Performance</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans">
+    <div class="size-full flex h-screen overflow-hidden">
+        <main class="ml-[240px] mt-16 p-8 flex-1 h-[calc(100vh-4rem)] overflow-y-auto bg-gray-50">
+            <div class="max-w-7xl mx-auto space-y-6">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h1 class="text-3xl font-semibold text-gray-900">Model Performance</h1>
+                        <p class="text-gray-600 mt-1">Track monthly retraining, validation metrics, and deployed forecast model.</p>
+                    </div>
+                    <button id="btnTrainNow" class="px-5 py-3 bg-[#2563EB] text-white rounded-xl hover:bg-[#1d4ed8] transition-colors flex items-center gap-2 font-semibold shadow-sm">
+                        <i data-lucide="play" class="w-5 h-5"></i>
+                        Train Now
+                    </button>
+                </div>
+
+                <section id="activeModelCard" class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+                    <div class="py-8 text-center text-gray-500">Loading active model...</div>
+                </section>
+
+                <section class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                        <h2 class="text-lg font-semibold text-gray-900">Model History</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full whitespace-nowrap">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Version</th>
+                                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">MAPE</th>
+                                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">MAE</th>
+                                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">RMSE</th>
+                                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">R2</th>
+                                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Status</th>
+                                    <th class="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modelHistoryBody" class="divide-y divide-gray-100"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h2 class="text-lg font-semibold text-gray-900">Training Runs</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full whitespace-nowrap">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Run</th>
+                                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Trigger</th>
+                                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Validation</th>
+                                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Baseline MAPE</th>
+                                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Candidate MAPE</th>
+                                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Improvement</th>
+                                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Deployed</th>
+                                </tr>
+                            </thead>
+                            <tbody id="trainingRunsBody" class="divide-y divide-gray-100"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="../assets/js/api.js"></script>
+    <script src="../assets/js/components/layout.js"></script>
+    <script src="../assets/js/pages/model-performance.js"></script>
+</body>
+</html>

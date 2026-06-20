@@ -3,7 +3,8 @@ const express = require('express');
 const cors = require('cors');
 
 // Import kết nối Database
-const { testConnection } = require('./db'); 
+const { testConnection } = require('./db');
+const { startMonthlyForecastScheduler } = require('./services/monthlyForecastScheduler'); 
 
 // Import routes
 const apiRoutes = require('./routes/api');
@@ -32,4 +33,5 @@ app.listen(PORT, async () => {
     
     // Gọi hàm test kết nối DB khi khởi động
     await testConnection();
+    startMonthlyForecastScheduler();
 });

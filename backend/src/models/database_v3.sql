@@ -122,6 +122,32 @@ CREATE TABLE model_metrics (
     CONSTRAINT fk_model_metrics_models FOREIGN KEY (model_id) REFERENCES ml_models(model_id) ON DELETE CASCADE
 );
 
+
+CREATE TABLE model_training_runs (
+    run_id INT PRIMARY KEY AUTO_INCREMENT,
+    candidate_model_id INT NULL,
+    baseline_model_id INT NULL,
+    run_status ENUM('Running', 'Completed', 'Failed') DEFAULT 'Running',
+    trigger_type VARCHAR(50) DEFAULT 'manual',
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    finished_at TIMESTAMP NULL,
+    train_data_start DATE NULL,
+    train_data_end DATE NULL,
+    validation_period DATE NULL,
+    training_rows INT DEFAULT 0,
+    validation_rows INT DEFAULT 0,
+    baseline_mape FLOAT NULL,
+    candidate_mape FLOAT NULL,
+    improvement_percent FLOAT NULL,
+    deployed BOOLEAN DEFAULT FALSE,
+    deploy_reason VARCHAR(255),
+    error_message TEXT,
+    created_by INT NULL,
+    CONSTRAINT fk_training_runs_candidate_model FOREIGN KEY (candidate_model_id) REFERENCES ml_models(model_id) ON DELETE SET NULL,
+    CONSTRAINT fk_training_runs_baseline_model FOREIGN KEY (baseline_model_id) REFERENCES ml_models(model_id) ON DELETE SET NULL,
+    CONSTRAINT fk_training_runs_created_by FOREIGN KEY (created_by) REFERENCES users(user_id) ON DELETE SET NULL
+);
+
 CREATE TABLE demand_forecasts (
     forecast_id INT PRIMARY KEY AUTO_INCREMENT,
     product_id INT NOT NULL,
