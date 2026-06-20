@@ -9,6 +9,13 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* Prevent overlapping password reveal icons in Edge/Chrome */
+    input[type="password"]::-ms-reveal,
+    input[type="password"]::-ms-clear {
+      display: none;
+    }
+  </style>
 </head>
 
 <body class="font-sans">

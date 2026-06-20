@@ -1,4 +1,4 @@
-const { pool } = require('../db');
+﻿const { pool } = require('../db');
 const { getActorId, safeLogAction } = require('../utils/controllerUtils');
 const { predictDemandBatch } = require('../services/mlForecastService');
 
@@ -19,12 +19,12 @@ const normalizeTargetPeriod = (targetPeriod) => {
         return getNextMonthDate();
     }
 
-    // Cho phép frontend gửi "2026-06"
+    // Cho phÃ©p frontend gá»­i "2026-06"
     if (/^\d{4}-\d{2}$/.test(targetPeriod)) {
         return `${targetPeriod}-01`;
     }
 
-    // Cho phép frontend gửi "2026-06-01"
+    // Cho phÃ©p frontend gá»­i "2026-06-01"
     if (/^\d{4}-\d{2}-\d{2}$/.test(targetPeriod)) {
         return targetPeriod;
     }
@@ -133,7 +133,7 @@ const getForecastProducts = async (connection) => {
             p.sku,
             p.name,
             p.current_stock,
-            p.warning_stock_level,
+            p.min_stock_level,
             p.max_stock_level,
             p.cost_price,
             p.selling_price,
@@ -264,7 +264,7 @@ const buildFallbackPredictionMap = (products, lagMap) => {
             const average = positiveValues.reduce((sum, value) => sum + value, 0) / positiveValues.length;
             predictionMap[product.sku] = Math.max(0, Math.round(average));
         } else {
-            predictionMap[product.sku] = Number(product.warning_stock_level || 10) * 2;
+            predictionMap[product.sku] = Number(product.min_stock_level || 10) * 2;
         }
     });
 
@@ -286,7 +286,7 @@ const predictProductsWithAI = async (products, lagMap, targetPeriod) => {
             );
         });
 
-        // Nếu thiếu prediction cho sản phẩm nào thì fallback riêng sản phẩm đó
+        // Náº¿u thiáº¿u prediction cho sáº£n pháº©m nÃ o thÃ¬ fallback riÃªng sáº£n pháº©m Ä‘Ã³
         const fallbackMap = buildFallbackPredictionMap(products, lagMap);
 
         products.forEach(product => {
@@ -297,7 +297,7 @@ const predictProductsWithAI = async (products, lagMap, targetPeriod) => {
 
         return predictionMap;
     } catch (error) {
-        console.error('Lỗi gọi AI model, fallback sang trung bình 3 tháng:', error.message);
+        console.error('Lá»—i gá»i AI model, fallback sang trung bÃ¬nh 3 thÃ¡ng:', error.message);
         return buildFallbackPredictionMap(products, lagMap);
     }
 };
@@ -360,13 +360,13 @@ const calculateProductForecast = async (
     const upperBound = Math.max(0, Math.round(predictedDemand * 1.15));
 
     const currentStock = Number(product.current_stock || 0);
-    const warningStockLevel = Number(product.warning_stock_level || 0);
+    const warningStockLevel = Number(product.min_stock_level || 0);
     const leadTimeDays = Number(product.lead_time_days || 7);
 
-    // Công thức nâng cao: Lead Time Demand = (Số lượng dự báo trong 30 ngày / 30) * Số ngày giao hàng
+    // CÃ´ng thá»©c nÃ¢ng cao: Lead Time Demand = (Sá»‘ lÆ°á»£ng dá»± bÃ¡o trong 30 ngÃ y / 30) * Sá»‘ ngÃ y giao hÃ ng
     const leadTimeDemand = (predictedDemand / 30) * leadTimeDays;
 
-    // Đề xuất nhập = Số lượng dự báo + Số lượng giao hàng dự kiến + Tồn kho an toàn (warning_stock) - Tồn kho hiện tại
+    // Äá» xuáº¥t nháº­p = Sá»‘ lÆ°á»£ng dá»± bÃ¡o + Sá»‘ lÆ°á»£ng giao hÃ ng dá»± kiáº¿n + Tá»“n kho an toÃ n (warning_stock) - Tá»“n kho hiá»‡n táº¡i
     const recommendedOrder = Math.max(
         0,
         Math.round(predictedDemand + leadTimeDemand + warningStockLevel - currentStock)
@@ -405,7 +405,7 @@ const calculateProductForecast = async (
         current_stock: currentStock,
         currentStock,
 
-        warning_stock_level: warningStockLevel,
+        min_stock_level: warningStockLevel,
         min_stock_level: warningStockLevel,
         max_stock_level: product.max_stock_level,
 
@@ -436,8 +436,8 @@ const calculateProductForecast = async (
 /**
  * GET /api/forecast/latest
  *
- * Tính dự báo trực tiếp từ dữ liệu bán hàng trong database.
- * Hàm này chỉ trả kết quả, chưa lưu vào demand_forecasts.
+ * TÃ­nh dá»± bÃ¡o trá»±c tiáº¿p tá»« dá»¯ liá»‡u bÃ¡n hÃ ng trong database.
+ * HÃ m nÃ y chá»‰ tráº£ káº¿t quáº£, chÆ°a lÆ°u vÃ o demand_forecasts.
  */
 exports.getLatestForecast = async (req, res) => {
     const connection = await pool.getConnection();
@@ -450,7 +450,7 @@ exports.getLatestForecast = async (req, res) => {
             return res.status(200).json({
                 success: true,
                 data: [],
-                message: 'Không có sản phẩm phù hợp để dự báo'
+                message: 'KhÃ´ng cÃ³ sáº£n pháº©m phÃ¹ há»£p Ä‘á»ƒ dá»± bÃ¡o'
             });
         }
 
@@ -490,11 +490,11 @@ exports.getLatestForecast = async (req, res) => {
             data: forecastData
         });
     } catch (error) {
-        console.error('Lỗi tính toán dự báo:', error);
+        console.error('Lá»—i tÃ­nh toÃ¡n dá»± bÃ¡o:', error);
 
         res.status(500).json({
             success: false,
-            message: 'Lỗi server khi tính toán dự báo'
+            message: 'Lá»—i server khi tÃ­nh toÃ¡n dá»± bÃ¡o'
         });
     } finally {
         connection.release();
@@ -504,7 +504,7 @@ exports.getLatestForecast = async (req, res) => {
 /**
  * POST /api/forecast/run
  *
- * Chạy dự báo bằng model AI và lưu kết quả vào bảng demand_forecasts.
+ * Cháº¡y dá»± bÃ¡o báº±ng model AI vÃ  lÆ°u káº¿t quáº£ vÃ o báº£ng demand_forecasts.
  */
 exports.runForecast = async (req, res) => {
     const connection = await pool.getConnection();
@@ -523,7 +523,7 @@ exports.runForecast = async (req, res) => {
 
             return res.status(200).json({
                 success: true,
-                message: 'Không có sản phẩm phù hợp để chạy dự báo',
+                message: 'KhÃ´ng cÃ³ sáº£n pháº©m phÃ¹ há»£p Ä‘á»ƒ cháº¡y dá»± bÃ¡o',
                 data: []
             });
         }
@@ -552,7 +552,7 @@ exports.runForecast = async (req, res) => {
                 predictedDemand
             );
 
-            // Luôn INSERT để lưu lịch sử mỗi lần chạy
+            // LuÃ´n INSERT Ä‘á»ƒ lÆ°u lá»‹ch sá»­ má»—i láº§n cháº¡y
             const [insertResult] = await connection.query(
                 `
                 INSERT INTO demand_forecasts
@@ -595,7 +595,7 @@ exports.runForecast = async (req, res) => {
         await safeLogAction(
             actorId,
             'RUN_FORECAST',
-            `Chạy dự báo AI nhu cầu nhập hàng cho kỳ ${targetPeriod}`,
+            `Cháº¡y dá»± bÃ¡o AI nhu cáº§u nháº­p hÃ ng cho ká»³ ${targetPeriod}`,
             'demand_forecasts',
             null,
             req.ip
@@ -603,18 +603,18 @@ exports.runForecast = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Chạy dự báo AI và lưu kết quả thành công',
+            message: 'Cháº¡y dá»± bÃ¡o AI vÃ  lÆ°u káº¿t quáº£ thÃ nh cÃ´ng',
             target_period: targetPeriod,
             data: savedForecasts
         });
     } catch (error) {
         await connection.rollback();
 
-        console.error('Lỗi chạy dự báo:', error);
+        console.error('Lá»—i cháº¡y dá»± bÃ¡o:', error);
 
         res.status(500).json({
             success: false,
-            message: 'Lỗi server khi chạy dự báo'
+            message: 'Lá»—i server khi cháº¡y dá»± bÃ¡o'
         });
     } finally {
         connection.release();
@@ -624,7 +624,7 @@ exports.runForecast = async (req, res) => {
 /**
  * GET /api/forecast/saved
  *
- * Lấy danh sách forecast đã lưu trong demand_forecasts.
+ * Láº¥y danh sÃ¡ch forecast Ä‘Ã£ lÆ°u trong demand_forecasts.
  */
 exports.getSavedForecasts = async (req, res) => {
     try {
@@ -658,8 +658,8 @@ exports.getSavedForecasts = async (req, res) => {
                 df.upper_bound,
                 df.recommended_order,
                 p.current_stock,
-                p.warning_stock_level,
-                p.warning_stock_level AS min_stock_level
+                p.min_stock_level,
+                p.min_stock_level AS min_stock_level
             FROM demand_forecasts df
             JOIN products p
                 ON df.product_id = p.product_id
@@ -678,11 +678,11 @@ exports.getSavedForecasts = async (req, res) => {
             data: rows
         });
     } catch (error) {
-        console.error('Lỗi lấy forecast đã lưu:', error);
+        console.error('Lá»—i láº¥y forecast Ä‘Ã£ lÆ°u:', error);
 
         res.status(500).json({
             success: false,
-            message: 'Lỗi server khi lấy dữ liệu forecast đã lưu'
+            message: 'Lá»—i server khi láº¥y dá»¯ liá»‡u forecast Ä‘Ã£ lÆ°u'
         });
     }
 };
@@ -690,7 +690,7 @@ exports.getSavedForecasts = async (req, res) => {
 /**
  * GET /api/forecast/product/:productId
  *
- * Lấy lịch sử bán hàng theo tháng của một sản phẩm.
+ * Láº¥y lá»‹ch sá»­ bÃ¡n hÃ ng theo thÃ¡ng cá»§a má»™t sáº£n pháº©m.
  */
 exports.getForecastByProduct = async (req, res) => {
     try {
@@ -712,7 +712,7 @@ exports.getForecastByProduct = async (req, res) => {
         if (productRows.length === 0) {
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy sản phẩm'
+                message: 'KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m'
             });
         }
 
@@ -763,7 +763,7 @@ exports.getForecastByProduct = async (req, res) => {
         await safeLogAction(
             getActorId(req),
             'VIEW_FORECAST_DETAIL',
-            `Xem chi tiết dự báo cho sản phẩm ID: ${productId}`,
+            `Xem chi tiáº¿t dá»± bÃ¡o cho sáº£n pháº©m ID: ${productId}`,
             'products',
             productId,
             req.ip
@@ -778,11 +778,11 @@ exports.getForecastByProduct = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Lỗi lấy forecast theo sản phẩm:', error);
+        console.error('Lá»—i láº¥y forecast theo sáº£n pháº©m:', error);
 
         res.status(500).json({
             success: false,
-            message: 'Lỗi server khi lấy chi tiết dự báo'
+            message: 'Lá»—i server khi láº¥y chi tiáº¿t dá»± bÃ¡o'
         });
     }
 };

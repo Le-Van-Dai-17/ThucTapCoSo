@@ -1,4 +1,4 @@
-const { pool } = require('../db');
+﻿const { pool } = require('../db');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const { clampInteger, getActorId, safeLogAction } = require('../utils/controllerUtils');
@@ -84,7 +84,7 @@ const getReportData = async (days = null) => {
         SELECT 
             COUNT(*) AS total_products,
             IFNULL(SUM(current_stock), 0) AS total_stock,
-            IFNULL(SUM(CASE WHEN current_stock <= warning_stock_level THEN 1 ELSE 0 END), 0) AS low_stock_items,
+            IFNULL(SUM(CASE WHEN current_stock <= min_stock_level THEN 1 ELSE 0 END), 0) AS low_stock_items,
             IFNULL(SUM(CASE WHEN current_stock = 0 THEN 1 ELSE 0 END), 0) AS out_of_stock_items,
             IFNULL(SUM(current_stock * cost_price), 0) AS inventory_value
         FROM products
@@ -105,8 +105,8 @@ exports.getSalesSummary = async (req, res) => {
         const { salesSummary } = await getReportData(getReportDays(req));
         res.status(200).json({ success: true, data: salesSummary });
     } catch (error) {
-        console.error('Lỗi lấy tổng quan doanh thu:', error);
-        res.status(500).json({ success: false, message: 'Lỗi server' });
+        console.error('Lá»—i láº¥y tá»•ng quan doanh thu:', error);
+        res.status(500).json({ success: false, message: 'Lá»—i server' });
     }
 };
 
@@ -116,8 +116,8 @@ exports.getTopProducts = async (req, res) => {
         const { topProducts } = await getReportData(getReportDays(req));
         res.status(200).json({ success: true, data: topProducts });
     } catch (error) {
-        console.error('Lỗi lấy top sản phẩm:', error);
-        res.status(500).json({ success: false, message: 'Lỗi server' });
+        console.error('Lá»—i láº¥y top sáº£n pháº©m:', error);
+        res.status(500).json({ success: false, message: 'Lá»—i server' });
     }
 };
 
@@ -127,8 +127,8 @@ exports.getCategorySales = async (req, res) => {
         const { categorySales } = await getReportData(getReportDays(req));
         res.status(200).json({ success: true, data: categorySales });
     } catch (error) {
-        console.error('Lỗi lấy doanh thu danh mục:', error);
-        res.status(500).json({ success: false, message: 'Lỗi server' });
+        console.error('Lá»—i láº¥y doanh thu danh má»¥c:', error);
+        res.status(500).json({ success: false, message: 'Lá»—i server' });
     }
 };
 
@@ -138,12 +138,12 @@ exports.getInventoryStatus = async (req, res) => {
         const { inventoryStatus } = await getReportData();
         res.status(200).json({ success: true, data: inventoryStatus });
     } catch (error) {
-        console.error('Lỗi lấy trạng thái kho:', error);
-        res.status(500).json({ success: false, message: 'Lỗi server' });
+        console.error('Lá»—i láº¥y tráº¡ng thÃ¡i kho:', error);
+        res.status(500).json({ success: false, message: 'Lá»—i server' });
     }
 };
 
-// GET /api/reports/export/excel - Đã bổ sung Activity Log chuẩn hóa
+// GET /api/reports/export/excel - ÄÃ£ bá»• sung Activity Log chuáº©n hÃ³a
 exports.exportExcel = async (req, res) => {
     try {
         const { salesSummary, topProducts, categorySales, inventoryStatus } = await getReportData();
@@ -193,11 +193,11 @@ exports.exportExcel = async (req, res) => {
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', 'attachment; filename="forecastai_report.xlsx"');
 
-        // Ghi nhận nhật ký hệ thống TRƯỚC khi gửi dữ liệu tải về
+        // Ghi nháº­n nháº­t kÃ½ há»‡ thá»‘ng TRÆ¯á»šC khi gá»­i dá»¯ liá»‡u táº£i vá»
         await safeLogAction(
             getActorId(req),
             'EXPORT_REPORT_EXCEL',
-            'Trích xuất dữ liệu tổng hợp hệ thống ERP ra định dạng file Excel',
+            'TrÃ­ch xuáº¥t dá»¯ liá»‡u tá»•ng há»£p há»‡ thá»‘ng ERP ra Ä‘á»‹nh dáº¡ng file Excel',
             'sales_transactions',
             null,
             req.ip
@@ -206,12 +206,12 @@ exports.exportExcel = async (req, res) => {
         await workbook.xlsx.write(res);
         res.end();
     } catch (error) {
-        console.error('Lỗi export Excel:', error);
-        res.status(500).json({ success: false, message: 'Lỗi server khi xuất Excel' });
+        console.error('Lá»—i export Excel:', error);
+        res.status(500).json({ success: false, message: 'Lá»—i server khi xuáº¥t Excel' });
     }
 };
 
-// GET /api/reports/export/pdf - Đã bổ sung Activity Log chuẩn hóa
+// GET /api/reports/export/pdf - ÄÃ£ bá»• sung Activity Log chuáº©n hÃ³a
 exports.exportPDF = async (req, res) => {
     try {
         const { salesSummary, topProducts, categorySales, inventoryStatus } = await getReportData();
@@ -253,11 +253,11 @@ exports.exportPDF = async (req, res) => {
             doc.fontSize(10).text(`${index + 1}. ${c.category} | Sold: ${c.total_sold} | Revenue: ${Number(c.total_revenue).toLocaleString()} VND`);
         });
 
-        // Ghi nhận nhật ký hệ thống TRƯỚC khi kết thúc luồng dữ liệu PDF
+        // Ghi nháº­n nháº­t kÃ½ há»‡ thá»‘ng TRÆ¯á»šC khi káº¿t thÃºc luá»“ng dá»¯ liá»‡u PDF
         await safeLogAction(
             getActorId(req),
             'EXPORT_REPORT_PDF',
-            'Trích xuất tài liệu phân tích kết quả kinh doanh ra định dạng file PDF',
+            'TrÃ­ch xuáº¥t tÃ i liá»‡u phÃ¢n tÃ­ch káº¿t quáº£ kinh doanh ra Ä‘á»‹nh dáº¡ng file PDF',
             'sales_transactions',
             null,
             req.ip
@@ -265,8 +265,8 @@ exports.exportPDF = async (req, res) => {
 
         doc.end();
     } catch (error) {
-        console.error('Lỗi export PDF:', error);
-        res.status(500).json({ success: false, message: 'Lỗi server khi xuất PDF' });
+        console.error('Lá»—i export PDF:', error);
+        res.status(500).json({ success: false, message: 'Lá»—i server khi xuáº¥t PDF' });
     }
 };
 
@@ -293,7 +293,7 @@ exports.getSalesTrend = async (req, res) => {
 
         res.status(200).json({ success: true, data });
     } catch (error) {
-        console.error('Lỗi lấy sales trend:', error);
-        res.status(500).json({ success: false, message: 'Lỗi server' });
+        console.error('Lá»—i láº¥y sales trend:', error);
+        res.status(500).json({ success: false, message: 'Lá»—i server' });
     }
 };

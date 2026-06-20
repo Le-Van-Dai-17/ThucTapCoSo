@@ -290,7 +290,7 @@ function renderStockWarnings(rows) {
             <td class="px-5 py-3 text-right text-gray-700">${formatNumber(forecast)}</td>
             <td class="px-5 py-3 text-right text-gray-900 font-semibold">${formatNumber(suggested)}</td>
             <td class="px-5 py-3 text-center"><span class="px-2 py-1 rounded-full text-xs font-semibold ${critical ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}">${critical ? 'Critical' : 'Low'}</span></td>
-            <td class="px-5 py-3 text-center"><button onclick="createLowStockPO(${item.product_id})" class="px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-semibold hover:bg-blue-50 disabled:opacity-50" ${disabled}>T?o don nh?p</button></td>
+            <td class="px-5 py-3 text-center"><button onclick="createLowStockPO(${item.product_id})" class="px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-semibold hover:bg-blue-50 disabled:opacity-50" ${disabled}>Tạo đơn nhập</button></td>
         </tr>`;
     }).join('');
     updateCreateAllPOsButton();
