@@ -73,7 +73,7 @@ async function loadProducts() {
 
         select.innerHTML = '<option value="" disabled selected>Chọn sản phẩm...</option>' + 
             products.map(p => `
-                <option value="${p.id}">[${p.sku}] ${p.name} (Tồn kho: ${p.stock})</option>
+                <option value="${p.product_id}">[${p.sku}] ${p.name} (Tồn kho: ${p.current_stock})</option>
             `).join('');
     } catch (error) {
         console.error('Error loading products:', error);
