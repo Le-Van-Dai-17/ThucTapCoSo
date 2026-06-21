@@ -36,21 +36,25 @@ const ROLE_PERMISSIONS = {
     ],
 
     Staff: [
-        'dashboard.html',
         'pos.html',
         'purchase-orders.html',
         'products.html',
         'sales-data.html',
-        'activity-log.html',
         'profile.html'
     ]
 };
 
 const NAV_ITEMS = [
     {
-        href: 'dashboard.html',
-        label: 'Dashboard',
-        icon: 'bar-chart-3',
+        href: 'pos.html',
+        label: 'Sales (POS)',
+        icon: 'shopping-bag',
+        roles: ['Manager', 'Staff']
+    },
+    {
+        href: 'purchase-orders.html',
+        label: 'Purchase Orders',
+        icon: 'shopping-cart',
         roles: ['Manager', 'Staff']
     },
     {
@@ -60,16 +64,22 @@ const NAV_ITEMS = [
         roles: ['Manager', 'Staff']
     },
     {
+        href: 'sales-data.html',
+        label: 'Transaction History',
+        icon: 'line-chart',
+        roles: ['Manager', 'Staff']
+    },
+    {
+        href: 'dashboard.html',
+        label: 'Dashboard',
+        icon: 'bar-chart-3',
+        roles: ['Manager']
+    },
+    {
         href: 'categories.html',
         label: 'Categories',
         icon: 'tags',
         roles: ['Manager']
-    },
-    {
-        href: 'sales-data.html',
-        label: 'Sales History',
-        icon: 'line-chart',
-        roles: ['Manager', 'Staff']
     },
     {
         href: 'import.html',
@@ -82,18 +92,6 @@ const NAV_ITEMS = [
         label: 'Reports',
         icon: 'file-text',
         roles: ['Manager']
-    },
-    {
-        href: 'pos.html',
-        label: 'Sales (POS)',
-        icon: 'shopping-bag',
-        roles: ['Manager', 'Staff']
-    },
-    {
-        href: 'purchase-orders.html',
-        label: 'Purchase Orders',
-        icon: 'shopping-cart',
-        roles: ['Manager', 'Staff']
     },
     {
         href: 'suppliers.html',
@@ -117,15 +115,14 @@ const NAV_ITEMS = [
         href: 'activity-log.html',
         label: 'My Activity',
         icon: 'activity',
-        roles: ['Admin', 'Staff']
+        roles: ['Admin']
     },
     {
         href: 'settings.html',
         label: 'Settings',
         icon: 'settings',
         roles: ['Admin']
-    }
-,
+    },
     {
         href: 'model-performance.html',
         label: 'Model Performance',

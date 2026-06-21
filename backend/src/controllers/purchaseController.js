@@ -2,17 +2,17 @@ const { pool } = require('../db');
 const { getActorId, parseNonNegativeNumber, parsePositiveNumber, safeLogAction } = require('../utils/controllerUtils');
 
 const normalizeStatus = (status) => {
-  if (!status) return 'Draft';
+  if (!status) return 'Pending';
   const value = String(status).trim().toLowerCase();
   const statusMap = {
-    draft: 'Draft', pending: 'Pending', approved: 'Approved', shipped: 'Shipped', received: 'Completed', completed: 'Completed', cancelled: 'Cancelled', canceled: 'Cancelled'
+    draft: 'Pending', pending: 'Pending', approved: 'Approved', shipped: 'Approved', received: 'Received', completed: 'Received', cancelled: 'Cancelled', canceled: 'Cancelled'
   };
   return statusMap[value] || status;
 };
 
 // BE-05: Định nghĩa danh sách các trạng thái bị khóa cứng (Không cho sửa hoặc xóa)
 const isLockedStatus = (status) => {
-  return ['Approved', 'Shipped', 'Completed', 'Cancelled'].includes(normalizeStatus(status));
+  return ['Approved', 'Received', 'Cancelled'].includes(normalizeStatus(status));
 };
 
 const generatePoCode = () => {
@@ -117,18 +117,30 @@ exports.createPurchase = async (req, res) => {
 exports.getPurchases = async (req, res) => {
   try {
     const userRole = String(req.user?.role || '').trim().toLowerCase();
-    let whereClause = '';
+    const userId = req.user?.id || req.user?.user_id;
+    const ownOnly = req.query?.own_only === 'true';
+
+    let conditions = [];
+    let params = [];
+
     if (userRole === 'staff') {
-      whereClause = "WHERE LOWER(po.status) IN ('approved', 'shipped', 'completed')";
+      conditions.push("LOWER(po.status) IN ('approved', 'shipped', 'completed', 'received')");
     }
 
-    const [purchases] = await pool.query(
-      `
+    if (ownOnly && userId) {
+      conditions.push("(po.created_by = ? OR po.po_id IN (SELECT entity_id FROM activity_logs WHERE user_id = ? AND action = 'RECEIVE_PURCHASE_ORDER' AND entity_type = 'purchase_orders'))");
+      params.push(userId, userId);
+    }
+
+    const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+    const query = `
       SELECT
         po.po_id AS id, po.po_id, po.po_code, po.po_code AS order_number, po.supplier_id, s.name AS supplier_name,
         po.created_by, creator.full_name AS created_by_name, po.approved_by, approver.full_name AS approved_by_name,
+        (SELECT u.full_name FROM activity_logs al JOIN users u ON al.user_id = u.user_id WHERE al.entity_type = 'purchase_orders' AND al.entity_id = po.po_id AND al.action = 'RECEIVE_PURCHASE_ORDER' ORDER BY al.log_id DESC LIMIT 1) AS receiver_name,
         po.status, LOWER(po.status) AS status_key, po.order_date, po.expected_delivery_date, po.received_date,
-        po.total_value, po.total_value AS total_amount, po.created_at, po.updated_at, COUNT(pi.po_item_id) AS item_count,
+        po.total_value, po.total_value AS total_amount, po.created_at, po.updated_at, po.staff_note, COUNT(pi.po_item_id) AS item_count,
         CASE WHEN SUM(CASE WHEN pi.forecasted_quantity IS NOT NULL AND pi.forecasted_quantity > 0 THEN 1 ELSE 0 END) > 0 THEN 'AI Forecast' ELSE 'Manual' END AS source
       FROM purchase_orders po
       INNER JOIN suppliers s ON po.supplier_id = s.supplier_id
@@ -136,11 +148,22 @@ exports.getPurchases = async (req, res) => {
       LEFT JOIN users approver ON po.approved_by = approver.user_id
       LEFT JOIN po_items pi ON po.po_id = pi.po_id
       ${whereClause}
-      GROUP BY po.po_id, po.po_code, po.supplier_id, s.name, po.created_by, creator.full_name, po.approved_by, approver.full_name, po.status, po.order_date, po.expected_delivery_date, po.received_date, po.total_value, po.created_at, po.updated_at
+      GROUP BY po.po_id, po.po_code, po.supplier_id, s.name, po.created_by, creator.full_name, po.approved_by, approver.full_name, po.status, po.order_date, po.expected_delivery_date, po.received_date, po.total_value, po.created_at, po.updated_at, po.staff_note
       ORDER BY po.order_date DESC, po.po_id DESC
-      `
-    );
-    res.status(200).json({ success: true, data: purchases });
+    `;
+
+    const [purchases] = await pool.query(query, params);
+
+    const mappedPurchases = purchases.map(row => {
+      return {
+        ...row,
+        staff_note: row.staff_note || '',
+        receiver_name: row.receiver_name || '',
+        status: normalizeStatus(row.status)
+      };
+    });
+
+    res.status(200).json({ success: true, data: mappedPurchases });
   } catch (error) {
     console.error('Error fetching purchases:', error);
     res.status(500).json({ success: false, message: 'Lỗi lấy danh sách đơn nhập hàng' });
@@ -152,11 +175,18 @@ exports.getPurchasesDetail = async (req, res) => {
     const { id } = req.params;
     const userRole = String(req.user?.role || '').trim().toLowerCase();
 
-    const [orders] = await pool.query('SELECT status FROM purchase_orders WHERE po_id = ? LIMIT 1', [id]);
+    const [orders] = await pool.query(
+      `SELECT po.*, s.name AS supplier_name, creator.full_name AS created_by_name,
+              (SELECT u.full_name FROM activity_logs al JOIN users u ON al.user_id = u.user_id WHERE al.entity_type = 'purchase_orders' AND al.entity_id = po.po_id AND al.action = 'RECEIVE_PURCHASE_ORDER' ORDER BY al.log_id DESC LIMIT 1) AS receiver_name
+       FROM purchase_orders po
+       INNER JOIN suppliers s ON po.supplier_id = s.supplier_id
+       LEFT JOIN users creator ON po.created_by = creator.user_id
+       WHERE po.po_id = ? LIMIT 1`, [id]);
     if (orders.length === 0) return res.status(404).json({ success: false, message: 'Không tìm thấy đơn nhập hàng' });
 
-    const orderStatus = String(orders[0].status).trim().toLowerCase();
-    if (userRole === 'staff' && !['approved', 'shipped'].includes(orderStatus)) {
+    const order = orders[0];
+    const orderStatus = String(order.status).trim().toLowerCase();
+    if (userRole === 'staff' && !['approved', 'shipped', 'completed', 'received'].includes(orderStatus)) {
       return res.status(403).json({ success: false, message: 'Bạn không có quyền xem chi tiết đơn nhập hàng ở trạng thái này.' });
     }
 
@@ -171,7 +201,24 @@ exports.getPurchasesDetail = async (req, res) => {
       WHERE pi.po_id = ? ORDER BY pi.po_item_id ASC
       `, [id]
     );
-    res.status(200).json({ success: true, data: details });
+
+    res.status(200).json({
+      success: true,
+      data: details,
+      order: {
+        po_id: order.po_id,
+        po_code: order.po_code,
+        status: normalizeStatus(order.status),
+        order_date: order.order_date,
+        expected_delivery_date: order.expected_delivery_date,
+        received_date: order.received_date,
+        total_value: order.total_value,
+        supplier_name: order.supplier_name,
+        created_by_name: order.created_by_name,
+        receiver_name: order.receiver_name || '',
+        staff_note: order.staff_note || ''
+      }
+    });
   } catch (error) {
     console.error('Error fetching purchase details:', error);
     res.status(500).json({ success: false, message: 'Lỗi lấy chi tiết đơn nhập hàng' });
@@ -225,7 +272,7 @@ exports.shipPurchase = async (req, res) => {
 // BE-03: Cho phép Staff truyền mảng items chứa số lượng thực nhận lên để kiểm kho thực tế
 exports.receiveOrder = async (req, res) => {
   const { id } = req.params;
-  const { items } = req.body; // Cấu trúc mong đợi: items = [{ product_id: 1, received_quantity: 45 }]
+  const { items, note } = req.body; // Cấu trúc mong đợi: items = [{ product_id: 1, received_quantity: 45 }]
   
   if (!items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ success: false, message: 'Vui lòng truyền danh sách số lượng thực nhận của các sản phẩm.' });
@@ -243,9 +290,9 @@ exports.receiveOrder = async (req, res) => {
     const order = orders[0];
     const currentStatus = normalizeStatus(order.status);
 
-    if (currentStatus === 'Completed') {
+    if (currentStatus === 'Received') {
       await connection.rollback();
-      return res.status(400).json({ success: false, message: 'Đơn nhập hàng này đã được hoàn thành trước đó rồi. Không thể nhận hai lần.' });
+      return res.status(400).json({ success: false, message: 'Đơn nhập hàng này đã được nhận trước đó rồi. Không thể nhận hai lần.' });
     }
 
     if (currentStatus !== 'Approved' && currentStatus !== 'Shipped') {
@@ -274,10 +321,13 @@ exports.receiveOrder = async (req, res) => {
       }
     }
 
-    await connection.query("UPDATE purchase_orders SET status = 'Completed', received_date = CURRENT_TIMESTAMP WHERE po_id = ?", [id]);
+    const staffNote = note ? String(note).trim() : null;
+    await connection.query("UPDATE purchase_orders SET status = 'Received', received_date = CURRENT_TIMESTAMP, staff_note = ? WHERE po_id = ?", [staffNote, id]);
     await connection.commit();
 
-    await safeLogAction(getActorId(req), 'RECEIVE_PURCHASE_ORDER', `Staff xác nhận nhập kho thực tế thành công cho đơn PO ID: ${id}`, 'purchase_orders', id, req.ip);
+    const logDescription = `Staff xác nhận nhập kho thực tế thành công cho đơn PO ID: ${id}.${staffNote ? ' Ghi chú: ' + staffNote : ''}`;
+
+    await safeLogAction(getActorId(req), 'RECEIVE_PURCHASE_ORDER', logDescription, 'purchase_orders', id, req.ip);
     res.status(200).json({ success: true, message: 'Xác nhận nhập hàng thực tế và cập nhật tồn kho thành công' });
   } catch (error) {
     await connection.rollback(); console.error('Error receiving purchase:', error);

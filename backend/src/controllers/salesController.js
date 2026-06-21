@@ -500,3 +500,70 @@ exports.posCheckout = async (req, res) => {
         connection.release();
     }
 };
+
+exports.getSalesTransactions = async (req, res) => {
+    try {
+        const userRole = String(req.user?.role || '').trim().toLowerCase();
+        const userId = req.user?.id || req.user?.user_id;
+
+        let query = `
+            SELECT
+                st.transaction_id AS id,
+                st.transaction_code,
+                st.transaction_date,
+                st.total_amount,
+                st.discount_amount,
+                st.created_by,
+                COALESCE(u.full_name, 'Hệ thống') AS staff_name
+            FROM sales_transactions st
+            LEFT JOIN users u ON st.created_by = u.user_id
+        `;
+        let params = [];
+
+        if (userRole === 'staff' && userId) {
+            query += ` WHERE st.created_by = ?`;
+            params.push(userId);
+        }
+
+        query += ` ORDER BY st.transaction_date DESC`;
+
+        const [transactions] = await pool.query(query, params);
+        res.status(200).json({
+            success: true,
+            data: transactions
+        });
+    } catch (error) {
+        console.error('Error fetching sales transactions:', error);
+        res.status(500).json({ success: false, message: 'Lỗi server khi lấy danh sách hóa đơn bán hàng' });
+    }
+};
+
+exports.getSalesTransactionDetail = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const query = `
+            SELECT
+                sd.detail_id AS id,
+                sd.detail_id,
+                sd.transaction_id,
+                sd.product_id,
+                p.name AS product_name,
+                p.sku,
+                sd.quantity,
+                sd.unit_price,
+                sd.line_total AS total_amount
+            FROM sale_details sd
+            JOIN products p ON sd.product_id = p.product_id
+            WHERE sd.transaction_id = ?
+            ORDER BY sd.detail_id ASC
+        `;
+        const [details] = await pool.query(query, [id]);
+        res.status(200).json({
+            success: true,
+            data: details
+        });
+    } catch (error) {
+        console.error('Error fetching sales transaction details:', error);
+        res.status(500).json({ success: false, message: 'Lỗi server khi lấy chi tiết hóa đơn bán hàng' });
+    }
+};

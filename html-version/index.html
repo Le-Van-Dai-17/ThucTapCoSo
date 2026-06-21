@@ -1,10 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta http-equiv="refresh" content="0; url=pages/dashboard.html">
     <title>Redirecting...</title>
+    <script>
+        try {
+            const userStr = localStorage.getItem('forecastai_user');
+            const token = localStorage.getItem('forecastai_token');
+            if (token && userStr) {
+                const user = JSON.parse(userStr);
+                const role = String(user.role || user.role_name || '').trim().toLowerCase();
+                if (role === 'admin') {
+                    window.location.href = 'pages/users.html';
+                } else if (role === 'staff') {
+                    window.location.href = 'pages/purchase-orders.html';
+                } else {
+                    window.location.href = 'pages/dashboard.html';
+                }
+            } else {
+                window.location.href = 'pages/login.html';
+            }
+        } catch (e) {
+            window.location.href = 'pages/login.html';
+        }
+    </script>
 </head>
 <body>
-    <p>If you are not redirected, <a href="pages/dashboard.html">click here</a>.</p>
+    <p>If you are not redirected, <a href="pages/login.html">click here</a>.</p>
 </body>
 </html>
