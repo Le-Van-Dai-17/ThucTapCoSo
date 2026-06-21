@@ -18,6 +18,7 @@ const activityLogController = require('../controllers/activityLogController');
 const settingsController = require('../controllers/settingsController');
 const supplierController = require('../controllers/supplierController'); // BE-08
 const dashboardController = require('../controllers/dashboardController');
+const mlopsController = require('../controllers/mlopsController');
 
 // Middleware
 const authMiddleware = require('../middleware/authMiddleware');
@@ -65,7 +66,7 @@ router.delete('/suppliers/delete/:id', authMiddleware.verifyToken, authMiddlewar
 // ==========================================
 // 5. SALES API — Chỉ dành cho Manager [BE-01]
 // ==========================================
-router.get('/sales/list', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), salesController.getSalesList);
+router.get('/sales/list', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), salesController.getSalesList);
 router.post('/sales/create', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), salesController.createSale);
 router.post('/sales/pos-checkout', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), salesController.posCheckout);
 router.post(
@@ -82,6 +83,8 @@ router.post(
 router.get('/purchases/list', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), purchaseController.getPurchases);
 router.get('/purchases/detail/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), purchaseController.getPurchasesDetail);
 router.post('/purchases/create', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), purchaseController.createPurchase);
+router.get('/purchases/recommendations', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), purchaseController.getPurchaseRecommendations);
+router.post('/purchases/create-from-forecast', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), purchaseController.createPurchaseOrdersFromForecast);
 router.put('/purchases/approve/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), purchaseController.approvePurchase);
 router.put('/purchases/ship/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), purchaseController.shipPurchase);
 router.put('/purchases/receive/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), purchaseController.receiveOrder);
@@ -96,6 +99,13 @@ router.get('/forecast/latest', authMiddleware.verifyToken, authMiddleware.requir
 router.post('/forecast/run', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), forecastController.runForecast);
 router.get('/forecast/saved', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), forecastController.getSavedForecasts);
 router.get('/forecast/product/:productId', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), forecastController.getForecastByProduct);
+
+// ==========================================
+// 7.1 MLOPS API - Admin only
+// ==========================================
+router.get('/mlops/overview', authMiddleware.verifyToken, authMiddleware.requireRole('Admin'), mlopsController.getOverview);
+router.post('/mlops/train', authMiddleware.verifyToken, authMiddleware.requireRole('Admin'), mlopsController.trainNow);
+router.post('/mlops/deploy/:modelId', authMiddleware.verifyToken, authMiddleware.requireRole('Admin'), mlopsController.deployModel);
 
 // ==========================================
 // 8. REPORTS API - Chỉ dành cho Manager [BE-01]
@@ -118,7 +128,7 @@ router.get('/dashboard/low-stock-forecast', authMiddleware.verifyToken, dashboar
 // ==========================================
 // 9. ACTIVITY LOG API — Chỉ dành cho Admin [BE-01]
 // ==========================================
-router.get('/activity-logs/list', authMiddleware.verifyToken, authMiddleware.requireRole('Admin'), activityLogController.getLogs);
+router.get('/activity-logs/list', authMiddleware.verifyToken, authMiddleware.requireRole('Admin', 'Staff'), activityLogController.getLogs);
 
 // ==========================================
 // 10. SETTINGS API — Chỉ dành cho Admin [BE-01]

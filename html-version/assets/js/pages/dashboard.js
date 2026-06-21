@@ -99,6 +99,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderPurchaseStatus(purchaseData);
         renderRecentActivities(Array.isArray(activityLogs) ? activityLogs : [], purchaseData, lowStockData);
         bindRevenueRangeSelect();
+        applyStaffCustomization();
     } catch (error) {
         console.error('Error loading dashboard:', error);
         showToast('Failed to load dashboard data', 'error');
@@ -271,8 +272,9 @@ function renderTopProducts(rows) {
 function renderStockWarnings(rows) {
     const body = document.getElementById('stockWarningRows');
     if (!body) return;
+    const isStaff = typeof Auth !== 'undefined' && Auth.getRole() === 'staff';
     if (!rows.length) {
-        body.innerHTML = '<tr><td colspan="7" class="px-5 py-8 text-center text-gray-500">No critical stock warnings.</td></tr>';
+        body.innerHTML = `<tr><td colspan="${isStaff ? 6 : 7}" class="px-5 py-8 text-center text-gray-500">No critical stock warnings.</td></tr>`;
         updateCreateAllPOsButton();
         return;
     }
@@ -290,7 +292,7 @@ function renderStockWarnings(rows) {
             <td class="px-5 py-3 text-right text-gray-700">${formatNumber(forecast)}</td>
             <td class="px-5 py-3 text-right text-gray-900 font-semibold">${formatNumber(suggested)}</td>
             <td class="px-5 py-3 text-center"><span class="px-2 py-1 rounded-full text-xs font-semibold ${critical ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}">${critical ? 'Critical' : 'Low'}</span></td>
-            <td class="px-5 py-3 text-center"><button onclick="createLowStockPO(${item.product_id})" class="px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-semibold hover:bg-blue-50 disabled:opacity-50" ${disabled}>Tạo đơn nhập</button></td>
+            ${isStaff ? '' : `<td class="px-5 py-3 text-center"><button onclick="createLowStockPO(${item.product_id})" class="px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-semibold hover:bg-blue-50 disabled:opacity-50" ${disabled}>Tạo đơn nhập</button></td>`}
         </tr>`;
     }).join('');
     updateCreateAllPOsButton();
@@ -489,14 +491,19 @@ async function refreshPurchaseSections() {
 function renderForecastSummary(lowStock, stats, inventory) {
     const targetPeriod = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
     const estimatedImportValue = lowStock.reduce((sum, item) => sum + numberValue(item.recommended_order) * 10000, 0);
+    const isStaff = typeof Auth !== 'undefined' && Auth.getRole() === 'staff';
     const rows = [
         ['clock', 'Last Forecast Run', formatDateTime(new Date())],
         ['calendar-days', 'Forecast Target Period', targetPeriod],
         ['shopping-cart', 'Products Forecasted', formatNumber(inventory.total_products || stats.totalProducts)],
-        ['alert-triangle', 'Items Needing Reorder', formatNumber(lowStock.length || inventory.low_stock_items || stats.lowStockItems)],
-        ['package', 'Estimated Import Value', formatMoney(estimatedImportValue)],
-        ['box', 'Model Version', 'Local forecast rules']
+        ['alert-triangle', 'Items Needing Reorder', formatNumber(lowStock.length || inventory.low_stock_items || stats.lowStockItems)]
     ];
+    if (!isStaff) {
+        rows.push(
+            ['package', 'Estimated Import Value', formatMoney(estimatedImportValue)],
+            ['box', 'Model Version', 'Local forecast rules']
+        );
+    }
     const el = document.getElementById('forecastSummary');
     if (!el) return;
     el.innerHTML = rows.map(([icon, label, value]) => `<div class="py-3 flex items-center gap-3">
@@ -564,4 +571,36 @@ function chartBaseOptions({ yMoney = false } = {}) {
             y: { beginAtZero: true, grid: { color: '#EEF2F7' }, ticks: { callback: value => yMoney ? compactNumber(value) : value } }
         }
     };
+}
+
+function applyStaffCustomization() {
+    if (typeof Auth === 'undefined' || Auth.getRole() !== 'staff') return;
+    
+    // Hide financial cards
+    ['cardRevenue', 'cardProfit', 'cardInventoryValue'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+    
+    // Hide charts
+    ['chartRevenueTrend', 'chartCategorySales'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+    
+    // Resize Top Products card
+    const topProductsCard = document.getElementById('chartTopProducts');
+    if (topProductsCard) {
+        topProductsCard.classList.remove('xl:col-span-4');
+        topProductsCard.classList.add('xl:col-span-12');
+    }
+    
+    // Hide manager action links/buttons
+    ['btnRunForecast', 'lnkViewAllWarnings', 'btnViewFullForecast', 'btnViewTopProductsReport', 'createAllPOsBtn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
+    const thAction = document.getElementById('thStockWarningAction');
+    if (thAction) thAction.style.display = 'none';
 }

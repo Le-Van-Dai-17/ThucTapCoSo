@@ -1,5 +1,5 @@
 const { pool } = require('../db');
-const { clampInteger } = require('../utils/controllerUtils');
+const { clampInteger, getActorId } = require('../utils/controllerUtils');
 
 /**
  * Ghi nhật ký hoạt động của người dùng.
@@ -81,7 +81,13 @@ exports.getLogs = async (req, res) => {
             values.push(action);
         }
 
-        if (user_id) {
+        const userRole = String(req.user?.role || '').trim().toLowerCase();
+        const actorId = getActorId(req);
+
+        if (userRole === 'staff') {
+            where.push('a.user_id = ?');
+            values.push(actorId);
+        } else if (user_id) {
             where.push('a.user_id = ?');
             values.push(user_id);
         }

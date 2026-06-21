@@ -133,6 +133,13 @@ const API = {
         async getAll()      { return apiFetch('/purchases/list'); },
         async getDetail(id) { return apiFetch(`/purchases/detail/${id}`); },
         async create(data)  { return apiFetch('/purchases/create', { method: 'POST', body: JSON.stringify(data) }); },
+        async getRecommendations(targetPeriod) {
+            const res = await apiFetch('/purchases/recommendations' + (targetPeriod ? '?target_period=' + targetPeriod : ''));
+            return res.data || res;
+        },
+        async createFromForecast(data) {
+            return apiFetch('/purchases/create-from-forecast', { method: 'POST', body: JSON.stringify(data) });
+        },
         async update(id, data) { return apiFetch(`/purchases/update/${id}`, { method: 'PUT', body: JSON.stringify(data) }); },
         async delete(id)    { return apiFetch(`/purchases/delete/${id}`, { method: 'DELETE' }); },
         async approve(id)   { return apiFetch(`/purchases/approve/${id}`, { method: 'PUT' }); },
@@ -254,6 +261,12 @@ const API = {
         getStats: () => apiFetch('/dashboard/stats'),
         getTopProducts: () => apiFetch('/dashboard/top-products'),
         getLowStockForecast: () => apiFetch('/dashboard/low-stock-forecast')
+    },
+
+    mlops: {
+        async getOverview() { return apiFetch('/mlops/overview'); },
+        async trainNow() { return apiFetch('/mlops/train', { method: 'POST' }); },
+        async deploy(modelId) { return apiFetch(`/mlops/deploy/${modelId}`, { method: 'POST' }); }
     }
 };
 

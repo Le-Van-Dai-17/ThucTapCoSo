@@ -219,6 +219,12 @@ function normalizeLog(log) {
 
 async function loadActivityLogs() {
     try {
+        const role = typeof Auth !== 'undefined' ? Auth.getRole() : '';
+        if (role === 'staff') {
+            const userBtn = document.getElementById('userFilterBtn');
+            if (userBtn) userBtn.style.display = 'none';
+        }
+
         tableBody.innerHTML = `
             <tr>
                 <td colspan="5" class="px-6 py-10 text-center text-gray-500">

@@ -119,7 +119,7 @@ exports.getPurchases = async (req, res) => {
     const userRole = String(req.user?.role || '').trim().toLowerCase();
     let whereClause = '';
     if (userRole === 'staff') {
-      whereClause = "WHERE LOWER(po.status) IN ('approved', 'shipped')";
+      whereClause = "WHERE LOWER(po.status) IN ('approved', 'shipped', 'completed')";
     }
 
     const [purchases] = await pool.query(
@@ -248,9 +248,9 @@ exports.receiveOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Đơn hàng này đã được nhận.' });
     }
 
-    if (currentStatus !== 'Shipped') {
+    if (currentStatus !== 'Approved' && currentStatus !== 'Shipped') {
       await connection.rollback();
-      return res.status(400).json({ success: false, message: 'Chỉ có thể nhận cho các đơn hàng đang ở trạng thái Shipped.' });
+      return res.status(400).json({ success: false, message: 'Chỉ có thể nhận hàng cho các đơn hàng đã duyệt (Approved) hoặc đang giao (Shipped).' });
     }
 
     for (const item of items) {
@@ -389,5 +389,240 @@ exports.cancelPurchase = async (req, res) => {
   } catch (error) {
     console.error('Error cancelling purchase:', error);
     res.status(500).json({ success: false, message: 'Lỗi khi hủy đơn hàng' });
+  }
+};
+
+const normalizeForecastTargetPeriod = (targetPeriod) => {
+  if (!targetPeriod) {
+    const now = new Date();
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const year = nextMonth.getFullYear();
+    const month = String(nextMonth.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}-01`;
+  }
+  if (/^\d{4}-\d{2}$/.test(String(targetPeriod))) return `${targetPeriod}-01`;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(targetPeriod))) return String(targetPeriod);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}-01`;
+};
+
+const addDays = (baseDate, days) => {
+  const date = new Date(baseDate);
+  date.setDate(date.getDate() + Number(days || 0));
+  return date.toISOString().slice(0, 10);
+};
+
+const generateAiPoCode = (supplierId) => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const random = String(Date.now()).slice(-5);
+  return `PO-AI-${year}${month}${day}-${supplierId}-${random}`;
+};
+
+const getLatestRecommendationRows = async (connection, targetPeriod, forecastIds = []) => {
+  const values = [targetPeriod];
+  let forecastFilterSql = '';
+
+  if (Array.isArray(forecastIds) && forecastIds.length > 0) {
+    forecastFilterSql = 'AND df.forecast_id IN (?)';
+    values.push(forecastIds.map(Number).filter(Number.isFinite));
+  }
+
+  const [rows] = await connection.query(
+    `
+    SELECT
+      df.forecast_id,
+      df.product_id,
+      df.target_period,
+      df.predicted_quantity,
+      df.recommended_order,
+      p.sku,
+      p.name AS product_name,
+      p.current_stock,
+      p.warning_stock_level,
+      p.cost_price,
+      p.supplier_id,
+      s.name AS supplier_name,
+      IFNULL(s.lead_time_days, 7) AS lead_time_days
+    FROM demand_forecasts df
+    INNER JOIN (
+      SELECT product_id, target_period, MAX(forecast_id) AS forecast_id
+      FROM demand_forecasts
+      WHERE target_period = ?
+      GROUP BY product_id, target_period
+    ) latest
+      ON latest.forecast_id = df.forecast_id
+    INNER JOIN products p
+      ON p.product_id = df.product_id
+    INNER JOIN suppliers s
+      ON s.supplier_id = p.supplier_id
+    WHERE df.recommended_order > 0
+      ${forecastFilterSql}
+      AND NOT EXISTS (
+        SELECT 1
+        FROM po_items pi
+        INNER JOIN purchase_orders po
+          ON po.po_id = pi.po_id
+        WHERE pi.forecast_id = df.forecast_id
+          AND po.status <> 'Cancelled'
+      )
+    ORDER BY s.name ASC, p.name ASC
+    `,
+    values
+  );
+
+  return rows;
+};
+
+exports.getPurchaseRecommendations = async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const targetPeriod = normalizeForecastTargetPeriod(req.query?.target_period);
+    const rows = await getLatestRecommendationRows(connection, targetPeriod);
+    const suppliers = new Map();
+
+    rows.forEach(row => {
+      const supplierId = row.supplier_id;
+      if (!suppliers.has(supplierId)) {
+        suppliers.set(supplierId, {
+          supplier_id: supplierId,
+          supplier_name: row.supplier_name,
+          item_count: 0,
+          total_quantity: 0,
+          total_value: 0,
+          max_lead_time_days: 0,
+          items: []
+        });
+      }
+
+      const group = suppliers.get(supplierId);
+      const orderedQuantity = Number(row.recommended_order || 0);
+      const unitCost = Number(row.cost_price || 0);
+      const lineTotal = orderedQuantity * unitCost;
+
+      group.item_count += 1;
+      group.total_quantity += orderedQuantity;
+      group.total_value += lineTotal;
+      group.max_lead_time_days = Math.max(group.max_lead_time_days, Number(row.lead_time_days || 0));
+      group.items.push({
+        forecast_id: row.forecast_id,
+        product_id: row.product_id,
+        sku: row.sku,
+        product_name: row.product_name,
+        current_stock: Number(row.current_stock || 0),
+        warning_stock_level: Number(row.warning_stock_level || 0),
+        predicted_quantity: Number(row.predicted_quantity || 0),
+        recommended_order: orderedQuantity,
+        unit_cost: unitCost,
+        line_total: lineTotal
+      });
+    });
+
+    res.status(200).json({
+      success: true,
+      target_period: targetPeriod,
+      data: Array.from(suppliers.values())
+    });
+  } catch (error) {
+    console.error('Error fetching purchase recommendations:', error);
+    res.status(500).json({ success: false, message: 'Loi lay de xuat nhap hang tu du bao' });
+  } finally {
+    connection.release();
+  }
+};
+
+exports.createPurchaseOrdersFromForecast = async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const targetPeriod = normalizeForecastTargetPeriod(req.body?.target_period);
+    const forecastIds = Array.isArray(req.body?.forecast_ids) ? req.body.forecast_ids : [];
+    const createdBy = getActorId(req);
+
+    await connection.beginTransaction();
+    const rows = await getLatestRecommendationRows(connection, targetPeriod, forecastIds);
+
+    if (rows.length === 0) {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: 'Khong co de xuat nhap hang kha dung de tao PO' });
+    }
+
+    const grouped = new Map();
+    rows.forEach(row => {
+      if (!grouped.has(row.supplier_id)) grouped.set(row.supplier_id, []);
+      grouped.get(row.supplier_id).push(row);
+    });
+
+    const createdOrders = [];
+    for (const [supplierId, items] of grouped.entries()) {
+      const maxLeadTimeDays = Math.max(...items.map(item => Number(item.lead_time_days || 0)), 0);
+      const expectedDeliveryDate = addDays(new Date(), maxLeadTimeDays);
+      const poCode = generateAiPoCode(supplierId);
+
+      const [poResult] = await connection.query(
+        `INSERT INTO purchase_orders (po_code, supplier_id, created_by, status, expected_delivery_date, total_value)
+         VALUES (?, ?, ?, 'Pending', ?, 0)`,
+        [poCode, supplierId, createdBy, expectedDeliveryDate]
+      );
+
+      const poId = poResult.insertId;
+      let totalValue = 0;
+
+      for (const item of items) {
+        const orderedQuantity = Number(item.recommended_order || 0);
+        const forecastedQuantity = Number(item.predicted_quantity || 0);
+        const unitCost = Number(item.cost_price || 0);
+        const lineTotal = orderedQuantity * unitCost;
+        totalValue += lineTotal;
+
+        await connection.query(
+          `INSERT INTO po_items (po_id, product_id, forecast_id, forecasted_quantity, ordered_quantity, received_quantity, unit_cost, line_total)
+           VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
+          [poId, item.product_id, item.forecast_id, forecastedQuantity, orderedQuantity, unitCost, lineTotal]
+        );
+      }
+
+      await connection.query('UPDATE purchase_orders SET total_value = ? WHERE po_id = ?', [totalValue, poId]);
+      createdOrders.push({
+        po_id: poId,
+        id: poId,
+        po_code: poCode,
+        supplier_id: supplierId,
+        supplier_name: items[0].supplier_name,
+        status: 'Pending',
+        expected_delivery_date: expectedDeliveryDate,
+        item_count: items.length,
+        total_value: totalValue
+      });
+    }
+
+    await connection.commit();
+    await safeLogAction(
+      createdBy,
+      'CREATE_PO_FROM_FORECAST',
+      `Manager tao ${createdOrders.length} PO cho ky du bao ${targetPeriod}`,
+      'purchase_orders',
+      null,
+      req.ip
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Da tao PO cho tung nha cung cap va chuyen sang trang thai cho duyet',
+      target_period: targetPeriod,
+      data: createdOrders
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error creating POs from forecast:', error);
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ success: false, message: 'Ma PO bi trung, vui long thu lai' });
+    }
+    res.status(500).json({ success: false, message: 'Loi tao PO tu de xuat du bao' });
+  } finally {
+    connection.release();
   }
 };

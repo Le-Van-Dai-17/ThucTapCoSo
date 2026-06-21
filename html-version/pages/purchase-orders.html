@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -159,7 +159,7 @@
                     </div>
                     <div class="flex items-center gap-3">
                         <a id="btnCreateNewPO" href="purchase-order-form.html" class="px-6 py-3 bg-[#2563EB] text-white rounded-xl hover:bg-[#1d4ed8] transition-all flex items-center gap-2 shadow-sm"><i data-lucide="plus" class="w-5 h-5"></i> New Purchase Order</a>
-                        <button class="px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition-all flex items-center gap-2 shadow-sm">
+                        <button id="btnExportReport" class="px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition-all flex items-center gap-2 shadow-sm">
                             <i data-lucide="download" class="w-5 h-5"></i> Export Report
                         </button>
                     </div>
@@ -223,7 +223,7 @@
                                     <th class="px-5 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Created By</th>
                                     <th class="px-5 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Expected Delivery</th>
                                     <th class="px-5 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Status</th>
-                                    <th class="px-5 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Total Value</th>
+                                    <th id="thTotalValue" class="px-5 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Total Value</th>
                                     <th class="px-5 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Source</th>
                                     <th class="px-5 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">Actions</th>
                                 </tr>

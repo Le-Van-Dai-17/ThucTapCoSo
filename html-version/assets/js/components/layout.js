@@ -1,4 +1,4 @@
-﻿// ======================================================
+// ======================================================
 // layout.js
 // DÃ¹ng cho cÃ¡c trang ná»™i bá»™ sau khi Ä‘Äƒng nháº­p
 // Má»—i file HTML ná»™i bá»™ pháº£i import api.js trÆ°á»›c layout.js
@@ -14,6 +14,7 @@ const ROLE_PERMISSIONS = {
         'users.html',
         'activity-log.html',
         'settings.html',
+        'model-performance.html',
         'profile.html'
     ],
 
@@ -35,8 +36,12 @@ const ROLE_PERMISSIONS = {
     ],
 
     Staff: [
+        'dashboard.html',
         'pos.html',
         'purchase-orders.html',
+        'products.html',
+        'sales-data.html',
+        'activity-log.html',
         'profile.html'
     ]
 };
@@ -46,13 +51,13 @@ const NAV_ITEMS = [
         href: 'dashboard.html',
         label: 'Dashboard',
         icon: 'bar-chart-3',
-        roles: ['Manager']
+        roles: ['Manager', 'Staff']
     },
     {
         href: 'products.html',
         label: 'Products & Inventory',
         icon: 'box',
-        roles: ['Manager']
+        roles: ['Manager', 'Staff']
     },
     {
         href: 'categories.html',
@@ -62,9 +67,9 @@ const NAV_ITEMS = [
     },
     {
         href: 'sales-data.html',
-        label: 'Demand Data',
+        label: 'Sales History',
         icon: 'line-chart',
-        roles: ['Manager']
+        roles: ['Manager', 'Staff']
     },
     {
         href: 'import.html',
@@ -110,14 +115,21 @@ const NAV_ITEMS = [
     },
     {
         href: 'activity-log.html',
-        label: 'Activity Log',
+        label: 'My Activity',
         icon: 'activity',
-        roles: ['Admin']
+        roles: ['Admin', 'Staff']
     },
     {
         href: 'settings.html',
         label: 'Settings',
         icon: 'settings',
+        roles: ['Admin']
+    }
+,
+    {
+        href: 'model-performance.html',
+        label: 'Model Performance',
+        icon: 'brain-circuit',
         roles: ['Admin']
     }
 ];
@@ -298,10 +310,26 @@ const layoutHtml = `
             </div>
 
             <div class="flex items-center gap-4">
-                <button class="relative p-2 rounded-xl hover:bg-gray-100 transition-colors duration-200">
-                    <i data-lucide="bell" class="w-5 h-5 text-gray-600"></i>
-                    <span class="absolute top-1 right-1 w-2 h-2 bg-[#F59E0B] rounded-full"></span>
-                </button>
+                <div class="relative">
+                    <button id="notificationBtn" class="relative p-2 rounded-xl hover:bg-gray-100 transition-colors duration-200" aria-label="Notifications">
+                        <i data-lucide="bell" class="w-5 h-5 text-gray-600"></i>
+                        <span id="notificationBadge" class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white rounded-full text-[11px] font-bold leading-[18px] text-center"></span>
+                    </button>
+                    <div id="notificationPanel" class="hidden absolute right-0 top-full mt-3 w-[420px] max-w-[calc(100vw-2rem)] bg-white border border-gray-200 rounded-xl shadow-xl z-[80] overflow-hidden">
+                        <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
+                            <div>
+                                <h3 class="text-sm font-semibold text-gray-900">Notifications</h3>
+                                <p id="notificationPeriod" class="text-xs text-gray-500 mt-0.5">Forecast purchase recommendations</p>
+                            </div>
+                            <button id="notificationRefreshBtn" class="w-8 h-8 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 flex items-center justify-center" aria-label="Refresh notifications">
+                                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <div id="notificationContent" class="max-h-[440px] overflow-y-auto p-4">
+                            <div class="py-8 text-center text-sm text-gray-500">Loading notifications...</div>
+                        </div>
+                    </div>
+                </div>
 
                 <a href="#" id="logoutBtn" class="text-sm text-gray-500 hover:text-gray-900 px-2 py-1 flex items-center gap-1">
                     <i data-lucide="log-out" class="w-4 h-4"></i>
@@ -428,3 +456,177 @@ window.showConfirmDialog = function(message, onConfirm) {
     });
 };
 
+
+// ===============================
+// 12. NOTIFICATIONS - FORECAST PURCHASE RECOMMENDATIONS
+// ===============================
+
+let notificationRecommendationGroups = [];
+let notificationTargetPeriod = null;
+
+function formatNotificationMoney(value) {
+    return Number(value || 0).toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0
+    });
+}
+
+function formatNotificationPeriod(value) {
+    if (!value) return '--';
+    const str = String(value);
+    const monthKey = /^\d{4}-\d{2}/.test(str) ? str.slice(0, 7) : null;
+    if (!monthKey) return str;
+    const [year, month] = monthKey.split('-').map(Number);
+    return new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+}
+
+function escapeLayoutHtml(value) {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+}
+
+function renderNotificationPanel() {
+    const badge = document.getElementById('notificationBadge');
+    const content = document.getElementById('notificationContent');
+    const period = document.getElementById('notificationPeriod');
+    if (!badge || !content || !period) return;
+
+    const totalItems = notificationRecommendationGroups.reduce((sum, group) => sum + Number(group.item_count || 0), 0);
+    const totalValue = notificationRecommendationGroups.reduce((sum, group) => sum + Number(group.total_value || 0), 0);
+
+    if (notificationRecommendationGroups.length === 0) {
+        badge.classList.add('hidden');
+        badge.textContent = '';
+        period.textContent = 'No pending forecast recommendations';
+        content.innerHTML = '<div class="py-8 text-center text-sm text-gray-500">No suggested purchase orders right now.</div>';
+        return;
+    }
+
+    badge.classList.remove('hidden');
+    badge.textContent = String(Math.min(totalItems, 99));
+    period.textContent = 'Target period: ' + formatNotificationPeriod(notificationTargetPeriod);
+
+    const cards = notificationRecommendationGroups.map(group => {
+        const items = (group.items || []).slice(0, 4).map(item => `
+            <div class="flex items-center justify-between gap-3 text-xs py-1">
+                <span class="text-gray-600 truncate">${escapeLayoutHtml(item.product_name || item.sku || 'Product')}</span>
+                <span class="font-semibold text-gray-900 shrink-0">${Number(item.recommended_order || 0)}</span>
+            </div>
+        `).join('');
+        const remaining = Math.max(0, Number(group.item_count || 0) - 4);
+
+        return `
+            <div class="border border-gray-200 rounded-xl p-3 bg-gray-50/70">
+                <div class="flex items-start justify-between gap-3 mb-2">
+                    <div class="min-w-0">
+                        <p class="font-semibold text-sm text-gray-900 truncate">${escapeLayoutHtml(group.supplier_name || 'Supplier')}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">${Number(group.item_count || 0)} items, lead time ${Number(group.max_lead_time_days || 0)} days</p>
+                    </div>
+                    <span class="text-xs font-bold text-[#10B981] shrink-0">${formatNotificationMoney(group.total_value || 0)}</span>
+                </div>
+                <div class="space-y-0.5">${items}</div>
+                ${remaining > 0 ? `<p class="text-xs text-gray-400 mt-1">+${remaining} more items</p>` : ''}
+            </div>
+        `;
+    }).join('');
+
+    content.innerHTML = `
+        <div class="mb-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+            AI forecast created suggested purchase orders: ${notificationRecommendationGroups.length} suppliers, ${totalItems} items, estimated value ${formatNotificationMoney(totalValue)}.
+        </div>
+        <div class="space-y-3">${cards}</div>
+        <button id="notificationCreatePoBtn" class="mt-4 w-full px-4 py-2.5 bg-[#10B981] text-white rounded-xl hover:bg-[#059669] transition-colors flex items-center justify-center gap-2 text-sm font-semibold">
+            <i data-lucide="file-plus-2" class="w-4 h-4"></i>
+            Create suggested POs
+        </button>
+    `;
+
+    const createBtn = document.getElementById('notificationCreatePoBtn');
+    if (createBtn) {
+        createBtn.addEventListener('click', createSuggestedPurchaseOrdersFromNotification);
+    }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+async function loadForecastNotifications() {
+    if (displayRole !== 'Manager' && displayRole !== 'Admin') return;
+    const content = document.getElementById('notificationContent');
+    try {
+        const response = typeof apiFetch === 'function'
+            ? await apiFetch('/purchases/recommendations')
+            : { data: [] };
+        notificationTargetPeriod = response?.target_period || null;
+        notificationRecommendationGroups = response?.data || [];
+        renderNotificationPanel();
+    } catch (error) {
+        console.warn('Could not load forecast notifications', error);
+        notificationRecommendationGroups = [];
+        if (content) content.innerHTML = '<div class="py-8 text-center text-sm text-gray-500">Could not load notifications.</div>';
+        renderNotificationPanel();
+    }
+}
+
+async function createSuggestedPurchaseOrdersFromNotification() {
+    const button = document.getElementById('notificationCreatePoBtn');
+    if (button) button.disabled = true;
+    try {
+        if (typeof apiFetch !== 'function') throw new Error('API helper is not available');
+        const response = await apiFetch('/purchases/create-from-forecast', {
+            method: 'POST',
+            body: JSON.stringify({ target_period: notificationTargetPeriod })
+        });
+        const count = (response?.data || []).length;
+        showToast(`Created ${count} pending purchase orders.`, 'success');
+        await loadForecastNotifications();
+    } catch (error) {
+        showToast('Failed to create suggested POs: ' + error.message, 'error');
+    } finally {
+        if (button) button.disabled = false;
+    }
+}
+
+(function initNotifications() {
+    const button = document.getElementById('notificationBtn');
+    const panel = document.getElementById('notificationPanel');
+    const refreshBtn = document.getElementById('notificationRefreshBtn');
+    if (!button || !panel) return;
+
+    button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        panel.classList.toggle('hidden');
+        if (!panel.classList.contains('hidden')) {
+            loadForecastNotifications();
+        }
+    });
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            loadForecastNotifications();
+        });
+    }
+
+    document.addEventListener('click', (event) => {
+        if (!panel.contains(event.target) && !button.contains(event.target)) {
+            panel.classList.add('hidden');
+        }
+    });
+
+    loadForecastNotifications();
+})();
+
+// Apply web autozoom 90%
+(function applyAutoZoom() {
+    const style = document.createElement('style');
+    style.textContent = `
+        body {
+            zoom: 90%;
+        }
+    `;
+    document.head.appendChild(style);
+})();
