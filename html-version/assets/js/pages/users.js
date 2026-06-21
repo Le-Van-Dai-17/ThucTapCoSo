@@ -374,3 +374,12 @@ roleFilter.addEventListener('change', renderTable);
 
 // Khởi động
 loadUsers();
+
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        const globalSearch = document.querySelector('header input[placeholder*="Search"]');
+        if (globalSearch) {
+            globalSearch.parentElement.parentElement.style.visibility = 'hidden';
+        }
+    }, 100);
+});

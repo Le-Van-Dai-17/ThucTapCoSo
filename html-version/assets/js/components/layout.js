@@ -32,6 +32,7 @@ const ROLE_PERMISSIONS = {
         'supplier-form.html',
         'supplier-detail.html',
         'forecast.html',
+        'reconciliation.html',
         'profile.html'
     ],
 
@@ -41,6 +42,7 @@ const ROLE_PERMISSIONS = {
         'purchase-orders.html',
         'products.html',
         'sales-data.html',
+        'inventory-adjustment.html',
         'activity-log.html',
         'profile.html'
     ]
@@ -99,6 +101,18 @@ const NAV_ITEMS = [
         href: 'suppliers.html',
         label: 'Suppliers',
         icon: 'truck',
+        roles: ['Manager']
+    },
+    {
+        href: 'inventory-adjustment.html',
+        label: 'Shrinkage Report',
+        icon: 'package-minus',
+        roles: ['Staff']
+    },
+    {
+        href: 'reconciliation.html',
+        label: 'Reconciliation',
+        icon: 'clipboard-check',
         roles: ['Manager']
     },
     {

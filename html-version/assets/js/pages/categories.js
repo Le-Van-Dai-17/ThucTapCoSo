@@ -148,3 +148,12 @@ window.deleteCategory = async function(categoryId) {
 
 searchInput?.addEventListener('input', renderCategories);
 loadCategories();
+
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        const globalSearch = document.querySelector('header input[placeholder*="Search"]');
+        if (globalSearch) {
+            globalSearch.parentElement.parentElement.style.visibility = 'hidden';
+        }
+    }, 100);
+});

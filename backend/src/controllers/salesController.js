@@ -146,10 +146,12 @@ exports.getSalesList = async (req, res) => {
                 st.transaction_date AS sale_date, DATE_FORMAT(st.transaction_date, '%Y-%m-%d') AS sale_date_formatted,
                 p.product_id, p.sku, p.name AS product_name, sd.quantity, sd.unit_price,
                 CASE WHEN sd.line_total IS NOT NULL THEN sd.line_total ELSE sd.quantity * sd.unit_price END AS total_amount,
-                st.total_amount AS transaction_total_amount, st.discount_amount
+                st.total_amount AS transaction_total_amount, st.discount_amount,
+                st.created_by AS cashier_id, u.full_name AS cashier_name
             FROM sale_details sd
             JOIN sales_transactions st ON sd.transaction_id = st.transaction_id
             JOIN products p ON sd.product_id = p.product_id
+            LEFT JOIN users u ON st.created_by = u.user_id
             ORDER BY st.transaction_date DESC, sd.detail_id DESC
         `;
 

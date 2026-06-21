@@ -19,6 +19,8 @@ const settingsController = require('../controllers/settingsController');
 const supplierController = require('../controllers/supplierController'); // BE-08
 const dashboardController = require('../controllers/dashboardController');
 const mlopsController = require('../controllers/mlopsController');
+const inventoryController = require('../controllers/inventoryController');
+const reconciliationController = require('../controllers/reconciliationController');
 
 // Middleware
 const authMiddleware = require('../middleware/authMiddleware');
@@ -62,6 +64,7 @@ router.get('/suppliers/list', authMiddleware.verifyToken, authMiddleware.require
 router.post('/suppliers/create', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), supplierController.createSupplier);
 router.put('/suppliers/update/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), supplierController.updateSupplier);
 router.delete('/suppliers/delete/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), supplierController.deleteSupplier);
+router.get('/suppliers/performance/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin', 'Staff'), supplierController.getSupplierPerformance);
 
 // ==========================================
 // 5. SALES API — Chỉ dành cho Manager [BE-01]
@@ -124,6 +127,18 @@ router.get('/reports/sales-trend', authMiddleware.verifyToken, authMiddleware.re
 router.get('/dashboard/stats', authMiddleware.verifyToken, dashboardController.getDashboardStats);
 router.get('/dashboard/top-products', authMiddleware.verifyToken, dashboardController.getTopProducts);
 router.get('/dashboard/low-stock-forecast', authMiddleware.verifyToken, dashboardController.getLowStockForecast);
+
+// ==========================================
+// 8.2 INVENTORY & RECONCILIATION API
+// ==========================================
+// Staff
+router.post('/inventory/adjust', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), inventoryController.submitAdjustment);
+
+// Manager
+router.get('/reconciliation/discrepancies', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), reconciliationController.getPendingDiscrepancies);
+router.put('/reconciliation/discrepancies/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), reconciliationController.resolveDiscrepancy);
+router.get('/reconciliation/adjustments', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), reconciliationController.getPendingAdjustments);
+router.put('/reconciliation/adjustments/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), reconciliationController.resolveAdjustment);
 
 // ==========================================
 // 9. ACTIVITY LOG API — Chỉ dành cho Admin [BE-01]

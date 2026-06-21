@@ -120,3 +120,61 @@ exports.deleteSupplier = async (req, res) => {
         res.status(500).json({ success: false, message: 'Lỗi server khi xóa nhà cung cấp' });
     }
 };
+
+exports.getSupplierPerformance = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const [poStats] = await pool.query(`
+            SELECT 
+                COUNT(*) as total_completed_pos,
+                SUM(CASE WHEN status = 'Received' THEN 1 ELSE 0 END) as reliable_pos,
+                AVG(GREATEST(0, DATEDIFF(received_date, expected_delivery_date))) as avg_delay_days
+            FROM purchase_orders 
+            WHERE supplier_id = ? AND status IN ('Received', 'Discrepancy') AND received_date >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+        `, [id]);
+
+        const totalCompleted = poStats[0].total_completed_pos || 0;
+        const reliableCount = poStats[0].reliable_pos || 0;
+        const reliability = totalCompleted > 0 ? (reliableCount / totalCompleted) * 100 : 100;
+        const avgDelay = parseFloat(poStats[0].avg_delay_days || 0).toFixed(1);
+
+        const [defectStats] = await pool.query(`
+            SELECT 
+                SUM(pi.ordered_quantity) as total_ordered,
+                SUM(pd.discrepancy_quantity) as total_defects
+            FROM purchase_orders po
+            JOIN po_items pi ON po.po_id = pi.po_id
+            LEFT JOIN po_discrepancies pd ON pi.po_item_id = pd.po_item_id
+            WHERE po.supplier_id = ? AND po.status IN ('Received', 'Discrepancy') AND po.received_date >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+        `, [id]);
+
+        const totalOrdered = defectStats[0].total_ordered || 0;
+        const totalDefects = defectStats[0].total_defects || 0;
+        const defectRate = totalOrdered > 0 ? (totalDefects / totalOrdered) * 100 : 0;
+
+        const [monthlyVolume] = await pool.query(`
+            SELECT 
+                DATE_FORMAT(order_date, '%b') as month_name,
+                MONTH(order_date) as month_num,
+                COUNT(*) as order_count
+            FROM purchase_orders
+            WHERE supplier_id = ? AND order_date >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+            GROUP BY month_name, month_num
+            ORDER BY YEAR(order_date), month_num
+        `, [id]);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                reliability: reliability.toFixed(1),
+                avgDelay: avgDelay,
+                defectRate: defectRate.toFixed(1),
+                monthlyVolume: monthlyVolume
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching supplier performance:', error);
+        res.status(500).json({ success: false, message: 'Lỗi server' });
+    }
+};

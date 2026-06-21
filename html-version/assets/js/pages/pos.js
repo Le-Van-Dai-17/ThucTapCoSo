@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 function initEventListeners() {
     const globalSearch = document.querySelector('header input[placeholder*="Search"]');
     if (globalSearch) {
-        globalSearch.parentElement.parentElement.style.display = 'none';
+        globalSearch.parentElement.parentElement.style.visibility = 'hidden';
     }
 
     const searchInput = document.getElementById('posSearchInput');

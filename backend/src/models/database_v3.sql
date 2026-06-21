@@ -1,4 +1,4 @@
-﻿SET FOREIGN_KEY_CHECKS=0;
+SET FOREIGN_KEY_CHECKS=0;
 -- =====================================================
 -- ForecastAI Database V3
 -- Database name: forecastai_v3
@@ -170,7 +170,7 @@ CREATE TABLE purchase_orders (
     supplier_id INT NOT NULL,
     created_by INT NULL,
     approved_by INT NULL,
-    status ENUM('Draft', 'Pending', 'Approved', 'Shipped', 'Received', 'Cancelled') DEFAULT 'Draft',
+    status ENUM('Draft', 'Pending', 'Approved', 'Shipped', 'Received', 'Discrepancy', 'Cancelled') DEFAULT 'Draft',
     order_date DATETIME DEFAULT CURRENT_TIMESTAMP,
     expected_delivery_date DATE,
     received_date DATETIME NULL,
@@ -215,6 +215,43 @@ CREATE INDEX idx_sale_details_product ON sale_details(product_id);
 CREATE INDEX idx_forecasts_product_period ON demand_forecasts(product_id, target_period);
 CREATE INDEX idx_purchase_orders_status ON purchase_orders(status);
 CREATE INDEX idx_activity_logs_created_at ON activity_logs(created_at);
+
+CREATE TABLE po_discrepancies (
+    discrepancy_id INT PRIMARY KEY AUTO_INCREMENT,
+    po_item_id INT NOT NULL,
+    po_id INT NOT NULL,
+    expected_quantity INT NOT NULL,
+    actual_quantity INT NOT NULL,
+    discrepancy_quantity INT NOT NULL,
+    reason ENUM('Missing', 'Damaged', 'Moldy', 'Torn Packaging', 'Surplus', 'Other') NOT NULL,
+    status ENUM('Pending', 'Resolved', 'Rejected') DEFAULT 'Pending',
+    reported_by INT NOT NULL,
+    resolved_by INT NULL,
+    resolution_note TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_po_discrepancies_item FOREIGN KEY (po_item_id) REFERENCES po_items(po_item_id) ON DELETE CASCADE,
+    CONSTRAINT fk_po_discrepancies_po FOREIGN KEY (po_id) REFERENCES purchase_orders(po_id) ON DELETE CASCADE,
+    CONSTRAINT fk_po_discrepancies_reporter FOREIGN KEY (reported_by) REFERENCES users(user_id),
+    CONSTRAINT fk_po_discrepancies_resolver FOREIGN KEY (resolved_by) REFERENCES users(user_id)
+);
+
+CREATE TABLE inventory_adjustments (
+    adjustment_id INT PRIMARY KEY AUTO_INCREMENT,
+    product_id INT NOT NULL,
+    adjustment_type ENUM('Deduction', 'Addition') DEFAULT 'Deduction',
+    quantity INT NOT NULL,
+    reason ENUM('Expired', 'Moldy', 'Torn Packaging', 'Lost', 'Found', 'Other') NOT NULL,
+    status ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending',
+    reported_by INT NOT NULL,
+    resolved_by INT NULL,
+    resolution_note TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_inventory_adjustments_product FOREIGN KEY (product_id) REFERENCES products(product_id) ON DELETE CASCADE,
+    CONSTRAINT fk_inventory_adjustments_reporter FOREIGN KEY (reported_by) REFERENCES users(user_id),
+    CONSTRAINT fk_inventory_adjustments_resolver FOREIGN KEY (resolved_by) REFERENCES users(user_id)
+);
 
 INSERT INTO roles (role_name, description) VALUES
 ('Admin', 'Quáº£n trï¿½?hï¿½?thá»‘ng, quáº£n lÃ½ ngÆ°á»i dÃ¹ng vÃ  phÃ¢n quyá»n'),

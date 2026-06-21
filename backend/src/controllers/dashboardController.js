@@ -1,4 +1,4 @@
-﻿const { pool } = require('../db');
+const { pool } = require('../db');
 
 exports.getDashboardStats = async (req, res) => {
     try {
@@ -70,6 +70,13 @@ exports.getLowStockForecast = async (req, res) => {
                 ) p2 ON p1.product_id = p2.product_id AND p1.forecast_date = p2.max_date
             ) f ON p.product_id = f.product_id
             WHERE p.current_stock <= p.min_stock_level AND p.is_discontinued = 0
+            AND NOT EXISTS (
+                SELECT 1 
+                FROM po_items pi 
+                JOIN purchase_orders po ON pi.po_id = po.po_id 
+                WHERE pi.product_id = p.product_id 
+                  AND po.status IN ('Draft', 'Pending', 'Approved', 'Shipped')
+            )
             ORDER BY p.current_stock ASC
         `);
         res.status(200).json({ success: true, data: lowStockItems });

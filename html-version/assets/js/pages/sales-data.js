@@ -34,6 +34,8 @@ async function loadSalesData() {
                     transaction_id: s.transaction_id,
                     transaction_code: key,
                     date: s.sale_date,
+                    cashier_id: s.cashier_id || '--',
+                    cashier_name: s.cashier_name || 'System / Unknown',
                     total_amount: 0,
                     items: []
                 };
@@ -84,9 +86,13 @@ window.viewSaleDetail = function(transactionCode) {
     if (!t) return;
 
     document.getElementById('saleDetailTitle').textContent = `Order ${t.transaction_code}`;
-    document.getElementById('saleDetailDate').textContent = `Date: ${new Date(t.date).toLocaleDateString('vi-VN', {
+    document.getElementById('saleDetailDate').innerHTML = `<i data-lucide="calendar" class="w-4 h-4 inline-block mr-1 -mt-0.5"></i>Date: ${new Date(t.date).toLocaleDateString('vi-VN', {
         year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
     })}`;
+    const cashierEl = document.getElementById('saleDetailCashier');
+    if (cashierEl) {
+        cashierEl.innerHTML = `<i data-lucide="user" class="w-4 h-4 inline-block mr-1 -mt-0.5"></i>Cashier: ${t.cashier_name} (ID: ${t.cashier_id})`;
+    }
 
     const tbody = document.getElementById('saleDetailBody');
     tbody.innerHTML = t.items.map(item => `
@@ -102,6 +108,8 @@ window.viewSaleDetail = function(transactionCode) {
     `).join('');
 
     document.getElementById('saleDetailTotal').textContent = `$${Number(t.total_amount).toFixed(2)}`;
+    
+    lucide.createIcons();
 
     const overlay = document.getElementById('saleDetailOverlay');
     const modal = document.getElementById('saleDetailModal');

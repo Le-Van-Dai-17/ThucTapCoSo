@@ -243,9 +243,9 @@ exports.receiveOrder = async (req, res) => {
     const order = orders[0];
     const currentStatus = normalizeStatus(order.status);
 
-    if (currentStatus === 'Received') {
+    if (currentStatus === 'Received' || currentStatus === 'Discrepancy') {
       await connection.rollback();
-      return res.status(400).json({ success: false, message: 'Đơn hàng này đã được nhận.' });
+      return res.status(400).json({ success: false, message: 'Đơn hàng này đã được nhận hoặc đang chờ đối soát.' });
     }
 
     if (currentStatus !== 'Approved' && currentStatus !== 'Shipped') {
@@ -253,13 +253,41 @@ exports.receiveOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Chỉ có thể nhận hàng cho các đơn hàng đã duyệt (Approved) hoặc đang giao (Shipped).' });
     }
 
+    let hasDiscrepancy = false;
+    const [poItems] = await connection.query('SELECT * FROM po_items WHERE po_id = ?', [id]);
+    const poItemMap = {};
+    poItems.forEach(pi => poItemMap[pi.product_id] = pi);
+
     for (const item of items) {
       const productId = item.product_id;
       const receivedQuantity = Number(item.received_quantity);
+      const reason = item.reason;
 
       if (!productId || Number.isNaN(receivedQuantity) || receivedQuantity < 0) {
         await connection.rollback();
         return res.status(400).json({ success: false, message: 'Số lượng thực nhận phải là số nguyên không âm hợp lệ.' });
+      }
+
+      const poItem = poItemMap[productId];
+      if (!poItem) {
+        await connection.rollback();
+        return res.status(400).json({ success: false, message: `Sản phẩm ID ${productId} không thuộc đơn hàng này.` });
+      }
+
+      const orderedQuantity = poItem.ordered_quantity;
+      const discrepancyQuantity = Math.abs(receivedQuantity - orderedQuantity);
+
+      if (receivedQuantity !== orderedQuantity) {
+        if (!reason) {
+          await connection.rollback();
+          return res.status(400).json({ success: false, message: `Sản phẩm ID ${productId} có chênh lệch số lượng, vui lòng chọn lý do.` });
+        }
+        hasDiscrepancy = true;
+        // Ghi lại báo cáo chênh lệch
+        await connection.query(`
+            INSERT INTO po_discrepancies (po_item_id, po_id, expected_quantity, actual_quantity, discrepancy_quantity, reason, reported_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [poItem.po_item_id, id, orderedQuantity, receivedQuantity, discrepancyQuantity, reason, getActorId(req)]);
       }
 
       // Cập nhật số lượng thực nhận thực tế do Staff nhập vào hệ thống bảng po_items
@@ -274,11 +302,12 @@ exports.receiveOrder = async (req, res) => {
       }
     }
 
-    await connection.query("UPDATE purchase_orders SET status = 'Received', received_date = CURRENT_TIMESTAMP WHERE po_id = ?", [id]);
+    const newStatus = hasDiscrepancy ? 'Discrepancy' : 'Received';
+    await connection.query("UPDATE purchase_orders SET status = ?, received_date = CURRENT_TIMESTAMP WHERE po_id = ?", [newStatus, id]);
     await connection.commit();
 
-    await safeLogAction(getActorId(req), 'RECEIVE_PURCHASE_ORDER', `Staff xác nhận nhập kho thực tế thành công cho đơn PO ID: ${id}`, 'purchase_orders', id, req.ip);
-    res.status(200).json({ success: true, message: 'Xác nhận nhập hàng thực tế và cập nhật tồn kho thành công' });
+    await safeLogAction(getActorId(req), 'RECEIVE_PURCHASE_ORDER', `Staff xác nhận nhập kho (Trạng thái: ${newStatus}) cho đơn PO ID: ${id}`, 'purchase_orders', id, req.ip);
+    res.status(200).json({ success: true, message: hasDiscrepancy ? 'Đã nhận hàng nhưng có chênh lệch, chờ Manager đối soát.' : 'Xác nhận nhập hàng thực tế và cập nhật tồn kho thành công' });
   } catch (error) {
     await connection.rollback(); console.error('Error receiving purchase:', error);
     res.status(500).json({ success: false, message: 'Lỗi khi xử lý xác nhận nhập kho' });

@@ -224,12 +224,28 @@ window.openConfirmReceive = async function(id) {
                 container.innerHTML = '<p class="text-sm text-gray-500">No products found in this order.</p>';
             } else {
                 container.innerHTML = window.receiveItemsData.map((item, idx) => `
-                    <div class="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-200 mb-2">
-                        <div class="text-xs font-semibold text-gray-800 truncate max-w-[200px]" title="${item.product_name}">${item.product_name}</div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-[11px] text-gray-400 font-mono">Ordered: ${item.ordered_quantity}</span>
-                            <input type="number" id="actualQtyInput_${idx}" min="0" value="${item.ordered_quantity}" 
-                                class="w-16 px-2 py-1 text-xs border-2 border-gray-200 rounded-lg text-right font-bold focus:outline-none focus:border-[#10B981]" />
+                    <div class="flex flex-col gap-2 bg-gray-50 p-3 rounded-xl border border-gray-200 mb-2">
+                        <div class="flex items-center justify-between">
+                            <div class="text-xs font-semibold text-gray-800 truncate max-w-[200px]" title="${item.product_name}">${item.product_name}</div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[11px] text-gray-400 font-mono">Ordered: ${item.ordered_quantity}</span>
+                                <input type="number" id="actualQtyInput_${idx}" min="0" value="${item.ordered_quantity}" 
+                                    oninput="toggleReasonSelect(${idx}, ${item.ordered_quantity})"
+                                    class="w-16 px-2 py-1 text-xs border-2 border-gray-200 rounded-lg text-right font-bold focus:outline-none focus:border-[#10B981]" />
+                            </div>
+                        </div>
+                        <div id="reasonContainer_${idx}" class="hidden w-full flex flex-col gap-1 mt-1 items-end">
+                            <select id="reasonSelect_${idx}" class="text-xs border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-500 w-full max-w-[200px]" onchange="document.getElementById('reasonOtherContainer_${idx}').classList.toggle('hidden', this.value !== 'Other')">
+                                <option value="" disabled selected>Chọn lý do chênh lệch...</option>
+                                <option value="Missing">Missing (Giao thiếu)</option>
+                                <option value="Damaged">Damaged (Hư hỏng)</option>
+                                <option value="Moldy">Moldy (Ẩm mốc)</option>
+                                <option value="Torn Packaging">Torn Packaging (Rách bao bì)</option>
+                                <option value="Other">Other (Lý do khác)</option>
+                            </select>
+                            <div id="reasonOtherContainer_${idx}" class="hidden w-full max-w-[200px]">
+                                <input type="text" id="reasonOther_${idx}" placeholder="Nhập lý do cụ thể..." class="w-full text-xs border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-500" />
+                            </div>
                         </div>
                     </div>
                 `).join('');
@@ -237,6 +253,18 @@ window.openConfirmReceive = async function(id) {
         }
     } catch (e) {
         if (container) container.innerHTML = '<p class="text-sm text-red-500">Failed to load items for verification.</p>';
+    }
+};
+
+window.toggleReasonSelect = function(idx, orderedQty) {
+    const inputEl = document.getElementById(`actualQtyInput_${idx}`);
+    const reasonContainer = document.getElementById(`reasonContainer_${idx}`);
+    if (inputEl && reasonContainer) {
+        if (parseInt(inputEl.value) !== parseInt(orderedQty)) {
+            reasonContainer.classList.remove('hidden');
+        } else {
+            reasonContainer.classList.add('hidden');
+        }
     }
 };
 window.closeConfirmReceive = function() {
@@ -253,15 +281,38 @@ document.getElementById('btnProceedReceive')?.addEventListener('click', async ()
     try {
         const payloadItems = window.receiveItemsData.map((item, idx) => {
             const inputEl = document.getElementById(`actualQtyInput_${idx}`);
+            const reasonEl = document.getElementById(`reasonSelect_${idx}`);
+            const reasonOtherEl = document.getElementById(`reasonOther_${idx}`);
             const val = inputEl ? parseInt(inputEl.value) : item.ordered_quantity;
+            
+            let finalReason = reasonEl && !reasonEl.parentElement.classList.contains('hidden') ? reasonEl.value : null;
+            if (finalReason === 'Other') {
+                const otherVal = reasonOtherEl ? reasonOtherEl.value.trim() : '';
+                if (otherVal) {
+                    finalReason = `Other - ${otherVal}`;
+                } else {
+                    finalReason = null; // Forces validation to fail
+                }
+            }
+
             return {
                 product_id: item.product_id,
-                received_quantity: isNaN(val) || val < 0 ? 0 : val
+                received_quantity: isNaN(val) || val < 0 ? 0 : val,
+                reason: finalReason
             };
         });
 
-        await API.orders.receive(currentPOIdToReceive, { items: payloadItems });
-        showToast('✅ Inventory successfully updated with actual count!', 'success');
+        // Validation
+        const missingReasons = payloadItems.filter(p => p.received_quantity !== window.receiveItemsData.find(i => i.product_id === p.product_id).ordered_quantity && !p.reason);
+        if (missingReasons.length > 0) {
+            btn.disabled = false;
+            btn.textContent = 'Confirm Receipt';
+            showToast('Vui lòng chọn lý do chênh lệch cho sản phẩm bị thiếu/dư!', 'error');
+            return;
+        }
+
+        const res = await API.orders.receive(currentPOIdToReceive, { items: payloadItems });
+        showToast(res.message || 'Inventory successfully updated with actual count!', 'success');
         closeConfirmReceive();
         await loadOrders();
 
@@ -754,3 +805,12 @@ if (urlParams.get('openAdd') === 'true') {
 }
 
 loadOrders();
+
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        const globalSearch = document.querySelector('header input[placeholder*="Search"]');
+        if (globalSearch) {
+            globalSearch.parentElement.parentElement.style.visibility = 'hidden';
+        }
+    }, 100);
+});

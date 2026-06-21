@@ -1,4 +1,4 @@
-﻿lucide.createIcons();
+lucide.createIcons();
 if (typeof Auth !== 'undefined') Auth.requireAuth();
 
 const params = new URLSearchParams(window.location.search);
@@ -87,9 +87,42 @@ function renderOrders() {
     document.getElementById('orderCountLabel').textContent = `Showing ${visible.length} of ${orders.length} orders`;
 }
 
-function renderPerformance() {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-    document.getElementById('performanceBars').innerHTML = months.map((m, i) => `<div class="flex-1 flex flex-col items-center justify-end gap-2"><div class="w-full max-w-16 rounded-t-lg bg-blue-200" style="height:${45 + (i % 3) * 28}px"></div><p class="text-xs text-gray-500">${m}</p></div>`).join('');
+function renderPerformance(perfData) {
+    if (!perfData) return;
+    
+    document.getElementById('kpiReliability').textContent = `${perfData.reliability}%`;
+    document.getElementById('kpiAvgDelay').textContent = `${perfData.avgDelay} days`;
+    document.getElementById('kpiDefectRate').textContent = `${perfData.defectRate}%`;
+
+    const monthlyVolume = perfData.monthlyVolume || [];
+    if (monthlyVolume.length === 0) {
+        document.getElementById('performanceBars').innerHTML = '<p class="text-sm text-gray-400 w-full text-center pb-4">No recent purchase orders</p>';
+        return;
+    }
+
+    const maxOrders = Math.max(...monthlyVolume.map(m => m.order_count), 1);
+    
+    document.getElementById('performanceBars').innerHTML = monthlyVolume.map((m, i) => {
+        const heightPercent = (m.order_count / maxOrders) * 100;
+        return `<div class="flex-1 flex flex-col items-center justify-end gap-2">
+            <div class="w-full max-w-16 rounded-t-lg bg-blue-200 hover:bg-blue-300 transition-colors relative group" style="height:${Math.max(10, heightPercent)}%">
+                <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                    ${m.order_count} POs
+                </div>
+            </div>
+            <p class="text-xs text-gray-500">${m.month_name}</p>
+        </div>`;
+    }).join('');
+}
+
+async function loadPerformance() {
+    try {
+        const res = await API.suppliers.getPerformance(id);
+        renderPerformance(res);
+    } catch (error) {
+        console.warn('Could not load supplier performance:', error);
+    }
 }
 
 loadDetail();
+loadPerformance();

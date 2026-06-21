@@ -165,7 +165,11 @@ const API = {
         },
         async create(data)     { return apiFetch('/suppliers/create',       { method: 'POST',   body: JSON.stringify(data) }); },
         async update(id, data) { return apiFetch(`/suppliers/update/${id}`, { method: 'PUT',    body: JSON.stringify(data) }); },
-        async delete(id)       { return apiFetch(`/suppliers/delete/${id}`, { method: 'DELETE' }); }
+        async delete(id)       { return apiFetch(`/suppliers/delete/${id}`, { method: 'DELETE' }); },
+        async getPerformance(id) { 
+            const res = await apiFetch(`/suppliers/performance/${id}`);
+            return res.data || res;
+        }
     },
 
     categories: {
