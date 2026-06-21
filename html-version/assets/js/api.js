@@ -110,6 +110,8 @@ const API = {
 
     sales: {
         async getAll()     { return apiFetch('/sales/list'); },
+        async getTransactions() { return apiFetch('/sales/transactions'); },
+        async getTransactionDetail(id) { return apiFetch(`/sales/transactions/${id}`); },
         async create(data) { return apiFetch('/sales/create', { method: 'POST', body: JSON.stringify(data) }); },
         // THÊM CHỨC NĂNG IMPORT FILE THẬT:
         async importCSV(file) {
@@ -130,7 +132,10 @@ const API = {
     },
 
     orders: {
-        async getAll()      { return apiFetch('/purchases/list'); },
+        async getAll(params = {}) {
+            const query = Object.keys(params).map(k => `${k}=${encodeURIComponent(params[k])}`).join('&');
+            return apiFetch('/purchases/list' + (query ? `?${query}` : ''));
+        },
         async getDetail(id) { return apiFetch(`/purchases/detail/${id}`); },
         async create(data)  { return apiFetch('/purchases/create', { method: 'POST', body: JSON.stringify(data) }); },
         async getRecommendations(targetPeriod) {

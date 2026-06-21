@@ -208,6 +208,9 @@ window.openConfirmReceive = async function(id) {
     const container = document.getElementById('receiveItemsContainer');
     if (container) container.innerHTML = '<p class="text-sm text-gray-400 py-2">Loading items for inventory count...</p>';
     
+    const noteEl = document.getElementById('receiveNoteInput');
+    if (noteEl) noteEl.value = '';
+
     showModal('confirmReceiveOverlay', 'confirmReceiveModal');
     
     try {
@@ -271,6 +274,8 @@ window.closeConfirmReceive = function() {
     hideModal('confirmReceiveOverlay', 'confirmReceiveModal');
     currentPOIdToReceive = null;
     window.receiveItemsData = null;
+    const noteEl = document.getElementById('receiveNoteInput');
+    if (noteEl) noteEl.value = '';
 };
 
 document.getElementById('btnProceedReceive')?.addEventListener('click', async () => {
@@ -311,8 +316,11 @@ document.getElementById('btnProceedReceive')?.addEventListener('click', async ()
             return;
         }
 
-        const res = await API.orders.receive(currentPOIdToReceive, { items: payloadItems });
-        showToast(res.message || 'Inventory successfully updated with actual count!', 'success');
+        const noteEl = document.getElementById('receiveNoteInput');
+        const noteVal = noteEl ? noteEl.value.trim() : '';
+
+        const res = await API.orders.receive(currentPOIdToReceive, { items: payloadItems, note: noteVal });
+        showToast(res.message || '✅ Inventory successfully updated with actual count!', 'success');
         closeConfirmReceive();
         await loadOrders();
 
@@ -361,6 +369,15 @@ window.viewDetail = async function (id) {
                 `}
             </tr>`).join('');
 
+        let staffNoteHtml = '';
+        if (result.order && result.order.staff_note) {
+            staffNoteHtml = `
+                <div class="col-span-2 bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-xl text-sm font-medium">
+                    <span class="font-bold">Ghi chú nhận hàng:</span> ${result.order.staff_note}
+                </div>
+            `;
+        }
+
         content.innerHTML = `
             <div class="grid grid-cols-2 gap-8 mb-8">
                 <div class="bg-gray-50 p-6 rounded-2xl border border-gray-100">
@@ -373,6 +390,7 @@ window.viewDetail = async function (id) {
                     <div class="text-xs text-gray-500 uppercase tracking-wider mb-2">Order Status</div>
                     <span class="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold ${cfg.color}">${cfg.label}</span>
                 </div>
+                ${staffNoteHtml}
             </div>
             
             <table class="w-full text-sm">

@@ -175,6 +175,7 @@ CREATE TABLE purchase_orders (
     expected_delivery_date DATE,
     received_date DATETIME NULL,
     total_value DECIMAL(15,2) DEFAULT 0,
+    staff_note TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_purchase_orders_suppliers FOREIGN KEY (supplier_id) REFERENCES suppliers(supplier_id),

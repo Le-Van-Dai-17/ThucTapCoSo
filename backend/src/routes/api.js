@@ -70,6 +70,8 @@ router.get('/suppliers/performance/:id', authMiddleware.verifyToken, authMiddlew
 // 5. SALES API — Chỉ dành cho Manager [BE-01]
 // ==========================================
 router.get('/sales/list', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), salesController.getSalesList);
+router.get('/sales/transactions', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), salesController.getSalesTransactions);
+router.get('/sales/transactions/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), salesController.getSalesTransactionDetail);
 router.post('/sales/create', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), salesController.createSale);
 router.post('/sales/pos-checkout', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), salesController.posCheckout);
 router.post(
