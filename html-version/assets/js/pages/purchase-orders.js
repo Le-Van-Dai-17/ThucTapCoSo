@@ -84,7 +84,7 @@ function renderStats() {
     statsCardsContainer.innerHTML = cards.map(card => `
         <article class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex items-center gap-5 min-h-[120px]">
             <div class="w-14 h-14 rounded-full ${card.color} border flex items-center justify-center shrink-0"><i data-lucide="${card.icon}" class="w-7 h-7"></i></div>
-            <div><p class="text-sm font-medium text-gray-500">${card.label}</p><p class="text-3xl font-bold text-gray-950 mt-1">${card.value}</p></div>
+            <div class="flex-1 min-w-0"><p class="text-sm font-medium text-gray-500">${card.label}</p><p class="text-2xl font-bold text-gray-950 mt-1 truncate" title="${card.value}">${card.value}</p></div>
         </article>`).join('');
     lucide.createIcons();
 }
@@ -124,8 +124,10 @@ function renderTable() {
         const cfg = statusConfig[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-700' };
         const source = order.source || 'Manual';
         const sourceClass = source === 'AI Forecast' ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-700';
-        const canComplete = order.status === 'pending';
         const canCancel = ['draft', 'pending'].includes(order.status);
+        const canApprove = order.status === 'pending';
+        const canShip = order.status === 'approved';
+        const canReceive = order.status === 'shipped';
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-50 transition-colors';
         tr.innerHTML = `
@@ -138,7 +140,9 @@ function renderTable() {
             <td class="px-5 py-4 text-center"><span class="inline-flex items-center px-3 py-1 rounded-lg text-sm font-semibold ${sourceClass}">${source}</span></td>
             <td class="px-5 py-4"><div class="flex items-center justify-center gap-2">
                 <button onclick="viewDetail(${order.id})" class="w-9 h-9 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 flex items-center justify-center" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>
-                ${canComplete ? `<button onclick="openConfirmReceive(${order.id})" class="w-9 h-9 rounded-lg border border-gray-200 text-green-600 hover:bg-green-50 flex items-center justify-center" title="Receive"><i data-lucide="check-circle" class="w-4 h-4"></i></button>` : ''}
+                ${canApprove ? `<button onclick="openActionModal(${order.id}, 'approve')" class="w-9 h-9 rounded-lg border border-gray-200 text-purple-600 hover:bg-purple-50 flex items-center justify-center" title="Approve"><i data-lucide="check-circle" class="w-4 h-4"></i></button>` : ''}
+                ${canShip ? `<button onclick="openActionModal(${order.id}, 'ship')" class="w-9 h-9 rounded-lg border border-gray-200 text-yellow-600 hover:bg-yellow-50 flex items-center justify-center" title="Ship"><i data-lucide="truck" class="w-4 h-4"></i></button>` : ''}
+                ${canReceive ? `<button onclick="openConfirmReceive(${order.id})" class="w-9 h-9 rounded-lg border border-gray-200 text-green-600 hover:bg-green-50 flex items-center justify-center" title="Receive"><i data-lucide="package-check" class="w-4 h-4"></i></button>` : ''}
                 ${canCancel ? `<button onclick="openActionModal(${order.id}, 'cancel')" class="w-9 h-9 rounded-lg border border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-600 flex items-center justify-center" title="Cancel"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>` : ''}
             </div></td>`;
         tableBody.appendChild(tr);

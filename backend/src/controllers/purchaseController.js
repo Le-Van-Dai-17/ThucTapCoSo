@@ -243,14 +243,14 @@ exports.receiveOrder = async (req, res) => {
     const order = orders[0];
     const currentStatus = normalizeStatus(order.status);
 
-    if (currentStatus === 'Completed') {
+    if (currentStatus === 'Received') {
       await connection.rollback();
-      return res.status(400).json({ success: false, message: 'Đơn nhập hàng này đã được hoàn thành trước đó rồi. Không thể nhận hai lần.' });
+      return res.status(400).json({ success: false, message: 'Đơn hàng này đã được nhận.' });
     }
 
-    if (currentStatus !== 'Pending') {
+    if (currentStatus !== 'Shipped') {
       await connection.rollback();
-      return res.status(400).json({ success: false, message: 'Chỉ có thể hoàn thành cho các đơn hàng đang chờ (Pending).' });
+      return res.status(400).json({ success: false, message: 'Chỉ có thể nhận cho các đơn hàng đang ở trạng thái Shipped.' });
     }
 
     for (const item of items) {
@@ -274,7 +274,7 @@ exports.receiveOrder = async (req, res) => {
       }
     }
 
-    await connection.query("UPDATE purchase_orders SET status = 'Completed', received_date = CURRENT_TIMESTAMP WHERE po_id = ?", [id]);
+    await connection.query("UPDATE purchase_orders SET status = 'Received', received_date = CURRENT_TIMESTAMP WHERE po_id = ?", [id]);
     await connection.commit();
 
     await safeLogAction(getActorId(req), 'RECEIVE_PURCHASE_ORDER', `Staff xác nhận nhập kho thực tế thành công cho đơn PO ID: ${id}`, 'purchase_orders', id, req.ip);

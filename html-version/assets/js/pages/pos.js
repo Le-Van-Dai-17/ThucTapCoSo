@@ -177,6 +177,23 @@ function updateCartQuantity(productId, delta) {
     }
 }
 
+window.setCartQuantity = function(productId, qty) {
+    const item = cart.find(c => c.product_id === productId);
+    if (!item) return;
+    
+    let newQty = parseInt(qty, 10);
+    if (isNaN(newQty) || newQty <= 0) {
+        removeFromCart(productId);
+    } else if (newQty > item.max_stock) {
+        showToast('Not enough stock available.', 'warning');
+        item.quantity = item.max_stock;
+        renderCart();
+    } else {
+        item.quantity = newQty;
+        renderCart();
+    }
+};
+
 function removeFromCart(productId) {
     cart = cart.filter(c => c.product_id !== productId);
     renderCart();
@@ -221,7 +238,7 @@ function renderCart() {
                 <button onclick="updateCartQuantity(${item.product_id}, -1)" class="w-6 h-6 flex items-center justify-center rounded text-gray-600 hover:bg-white hover:shadow-sm transition-colors">
                     <i data-lucide="minus" class="w-3 h-3"></i>
                 </button>
-                <span class="text-sm font-medium w-6 text-center">${item.quantity}</span>
+                <input type="number" min="1" max="${item.max_stock}" value="${item.quantity}" onchange="setCartQuantity(${item.product_id}, this.value)" class="w-12 text-center text-sm font-medium bg-transparent border-none focus:ring-0 p-0" />
                 <button onclick="updateCartQuantity(${item.product_id}, 1)" class="w-6 h-6 flex items-center justify-center rounded text-gray-600 hover:bg-white hover:shadow-sm transition-colors">
                     <i data-lucide="plus" class="w-3 h-3"></i>
                 </button>
