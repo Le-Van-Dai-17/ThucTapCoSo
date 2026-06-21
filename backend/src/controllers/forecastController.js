@@ -1,6 +1,7 @@
 ﻿const { pool } = require('../db');
 const { getActorId, safeLogAction } = require('../utils/controllerUtils');
 const { predictDemandBatch } = require('../services/mlForecastService');
+const notificationService = require('../services/notificationService');
 
 const AI_SKU_PREFIXES = ['FOODS_', 'HOBBIES_', 'HOUSEHOLD_'];
 
@@ -601,6 +602,15 @@ exports.runForecast = async (req, res) => {
             req.ip
         );
 
+        const recommendedCount = savedForecasts.filter((item) => Number(item.recommended_order || 0) > 0).length;
+        await notificationService.safeCreateForRoles(['Manager', 'Admin'], {
+            title: 'Forecast completed',
+            message: `Forecast for ${targetPeriod} completed with ${recommendedCount} products recommended for reorder.`,
+            type: recommendedCount > 0 ? 'warning' : 'success',
+            entityType: 'demand_forecasts',
+            entityId: null,
+            link: 'forecast.html'
+        });
         res.status(200).json({
             success: true,
             message: 'Cháº¡y dá»± bÃ¡o AI vÃ  lÆ°u káº¿t quáº£ thÃ nh cÃ´ng',

@@ -1,5 +1,6 @@
 const { pool } = require('../db');
 const { safeLogAction, getActorId } = require('./activityLogController');
+const notificationService = require('../services/notificationService');
 
 exports.submitAdjustment = async (req, res) => {
     const { product_id, quantity, reason } = req.body;
@@ -17,6 +18,14 @@ exports.submitAdjustment = async (req, res) => {
 
         await safeLogAction(userId, 'SUBMIT_INVENTORY_ADJUSTMENT', `Staff báo cáo hao hụt sản phẩm ID ${product_id}, số lượng ${quantity}, lý do: ${reason}`, 'inventory_adjustments', result.insertId, req.ip);
 
+        await notificationService.safeCreateForRoles(['Manager', 'Admin'], {
+            title: 'Inventory loss report submitted',
+            message: `Inventory adjustment #${result.insertId} was submitted for product ID ${product_id}, quantity ${quantity}.`,
+            type: 'warning',
+            entityType: 'inventory_adjustments',
+            entityId: result.insertId,
+            link: 'reconciliation.html'
+        });
         res.status(200).json({ success: true, message: 'Đã gửi báo cáo hao hụt thành công, chờ Manager duyệt.' });
     } catch (error) {
         console.error('Error submitting inventory adjustment:', error);

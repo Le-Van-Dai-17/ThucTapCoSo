@@ -210,12 +210,30 @@ CREATE TABLE activity_logs (
     CONSTRAINT fk_activity_logs_users FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
 );
 
+CREATE TABLE notifications (
+    notification_id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NULL,
+    role_id INT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    type ENUM('info', 'success', 'warning', 'error') DEFAULT 'info',
+    entity_type VARCHAR(100) NULL,
+    entity_id INT NULL,
+    link VARCHAR(255) NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    read_at TIMESTAMP NULL,
+    CONSTRAINT fk_notifications_users FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_notifications_roles FOREIGN KEY (role_id) REFERENCES roles(role_id) ON DELETE SET NULL
+);
 CREATE INDEX idx_products_name ON products(name);
 CREATE INDEX idx_sales_transactions_date ON sales_transactions(transaction_date);
 CREATE INDEX idx_sale_details_product ON sale_details(product_id);
 CREATE INDEX idx_forecasts_product_period ON demand_forecasts(product_id, target_period);
 CREATE INDEX idx_purchase_orders_status ON purchase_orders(status);
 CREATE INDEX idx_activity_logs_created_at ON activity_logs(created_at);
+CREATE INDEX idx_notifications_user_read ON notifications(user_id, is_read, created_at);
+CREATE INDEX idx_notifications_role_read ON notifications(role_id, is_read, created_at);
 
 CREATE TABLE po_discrepancies (
     discrepancy_id INT PRIMARY KEY AUTO_INCREMENT,

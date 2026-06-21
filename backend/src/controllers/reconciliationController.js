@@ -1,5 +1,6 @@
 const { pool } = require('../db');
 const { safeLogAction, getActorId } = require('./activityLogController');
+const notificationService = require('../services/notificationService');
 
 exports.getPendingDiscrepancies = async (req, res) => {
     try {
@@ -43,7 +44,7 @@ exports.resolveDiscrepancy = async (req, res) => {
         }
 
         // Kiểm tra xem đơn hàng (PO) còn discrepancy nào Pending không
-        const [discRows] = await pool.query('SELECT po_id FROM po_discrepancies WHERE discrepancy_id = ?', [id]);
+        const [discRows] = await pool.query('SELECT po_id, reported_by FROM po_discrepancies WHERE discrepancy_id = ?', [id]);
         if (discRows.length > 0) {
             const poId = discRows[0].po_id;
             const [pending] = await pool.query("SELECT COUNT(*) as cnt FROM po_discrepancies WHERE po_id = ? AND status = 'Pending'", [poId]);
@@ -55,6 +56,17 @@ exports.resolveDiscrepancy = async (req, res) => {
 
         await safeLogAction(userId, 'RESOLVE_DISCREPANCY', `Manager xử lý biên bản chênh lệch ID ${id} thành ${status}`, 'po_discrepancies', id, req.ip);
 
+        if (discRows.length > 0) {
+            await notificationService.safeCreateForUser({
+                userId: discRows[0].reported_by,
+                title: 'PO discrepancy processed',
+                message: `Your PO discrepancy report #${id} was ${status}.`,
+                type: status === 'Resolved' ? 'success' : 'info',
+                entityType: 'po_discrepancies',
+                entityId: id,
+                link: 'purchase-orders.html'
+            });
+        }
         res.status(200).json({ success: true, message: 'Xử lý biên bản chênh lệch thành công.' });
     } catch (error) {
         console.error('Error resolving discrepancy:', error);
@@ -124,6 +136,15 @@ exports.resolveAdjustment = async (req, res) => {
         await connection.commit();
         await safeLogAction(userId, 'RESOLVE_INVENTORY_ADJ', `Manager xử lý phiếu hao hụt kho ID ${id} thành ${status}`, 'inventory_adjustments', id, req.ip);
 
+        await notificationService.safeCreateForUser({
+            userId: adj.reported_by,
+            title: 'Inventory report processed',
+            message: `Your inventory adjustment #${id} was ${status}.`,
+            type: status === 'Approved' ? 'success' : 'info',
+            entityType: 'inventory_adjustments',
+            entityId: id,
+            link: 'inventory-adjustment.html'
+        });
         res.status(200).json({ success: true, message: 'Đã xử lý phiếu báo cáo hao hụt.' });
     } catch (error) {
         await connection.rollback();

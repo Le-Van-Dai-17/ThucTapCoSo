@@ -21,6 +21,7 @@ const dashboardController = require('../controllers/dashboardController');
 const mlopsController = require('../controllers/mlopsController');
 const inventoryController = require('../controllers/inventoryController');
 const reconciliationController = require('../controllers/reconciliationController');
+const notificationController = require('../controllers/notificationController');
 
 // Middleware
 const authMiddleware = require('../middleware/authMiddleware');
@@ -38,6 +39,9 @@ router.post('/auth/register', (req, res) => {
 });
 router.post('/auth/login', authController.login);
 router.post('/auth/logout', authMiddleware.verifyToken, authController.logout);
+router.get('/notifications', authMiddleware.verifyToken, notificationController.getNotifications);
+router.put('/notifications/read-all', authMiddleware.verifyToken, notificationController.markAllRead);
+router.put('/notifications/:id/read', authMiddleware.verifyToken, notificationController.markRead);
 
 // ==========================================
 // 2. USERS API — Chỉ dành cho Admin [BE-01]

@@ -1,5 +1,6 @@
 const { pool } = require('../db');
 const { getActorId, parseNonNegativeNumber, parsePositiveNumber, safeLogAction } = require('../utils/controllerUtils');
+const notificationService = require('../services/notificationService');
 
 const normalizeStatus = (status) => {
   if (!status) return 'Pending';
@@ -103,6 +104,14 @@ exports.createPurchase = async (req, res) => {
     await connection.commit();
 
     await safeLogAction(createdBy, 'CREATE_PURCHASE_ORDER', `Tạo đơn nhập hàng ${poCode}`, 'purchase_orders', poId, req.ip);
+    await notificationService.safeCreateForRoles(['Manager', 'Admin'], {
+      title: 'New purchase order',
+      message: `Purchase order ${poCode} was created and is waiting for review.`,
+      type: 'info',
+      entityType: 'purchase_orders',
+      entityId: poId,
+      link: 'purchase-orders.html'
+    });
     res.status(201).json({ success: true, message: 'Tạo đơn nhập hàng thành công', data: { id: poId, po_id: poId, po_code: poCode, total_value: totalValue } });
   } catch (error) {
     await connection.rollback();
@@ -240,6 +249,14 @@ exports.approvePurchase = async (req, res) => {
     }
 
     await safeLogAction(managerId, 'APPROVE_PURCHASE_ORDER', `Manager phê duyệt đơn nhập hàng ID: ${id}`, 'purchase_orders', id, req.ip);
+    await notificationService.safeCreateForRoles(['Staff', 'Manager', 'Admin'], {
+      title: 'Purchase order approved',
+      message: `Purchase order #${id} has been approved and is ready to receive.`,
+      type: 'success',
+      entityType: 'purchase_orders',
+      entityId: id,
+      link: 'purchase-orders.html'
+    });
     res.status(200).json({ success: true, message: 'Đơn nhập hàng đã được phê duyệt thành công!' });
   } catch (error) {
     console.error('Error approving purchase:', error);
@@ -262,6 +279,14 @@ exports.shipPurchase = async (req, res) => {
     }
 
     await safeLogAction(actorId, 'SHIP_PURCHASE_ORDER', `Chuyển đơn hàng ID: ${id} sang trạng thái Đang giao`, 'purchase_orders', id, req.ip);
+    await notificationService.safeCreateForRoles(['Staff', 'Manager', 'Admin'], {
+      title: 'Purchase order shipped',
+      message: `Purchase order #${id} is now shipping. Prepare to receive inventory.`,
+      type: 'info',
+      entityType: 'purchase_orders',
+      entityId: id,
+      link: 'purchase-orders.html'
+    });
     res.status(200).json({ success: true, message: 'Cập nhật trạng thái Đang giao thành công!' });
   } catch (error) {
     console.error('Error shipping purchase:', error);
@@ -357,6 +382,16 @@ exports.receiveOrder = async (req, res) => {
     const logDescription = `Staff xác nhận nhập kho (Trạng thái: ${newStatus}) cho đơn PO ID: ${id}.${staffNote ? ' Ghi chú: ' + staffNote : ''}`;
     await safeLogAction(getActorId(req), 'RECEIVE_PURCHASE_ORDER', logDescription, 'purchase_orders', id, req.ip);
     
+    await notificationService.safeCreateForRoles(['Manager', 'Admin'], {
+      title: hasDiscrepancy ? 'Purchase discrepancy reported' : 'Purchase order received',
+      message: hasDiscrepancy
+        ? `Purchase order #${id} was received with quantity discrepancies and needs reconciliation.`
+        : `Purchase order #${id} was received and inventory was updated.`,
+      type: hasDiscrepancy ? 'warning' : 'success',
+      entityType: hasDiscrepancy ? 'po_discrepancies' : 'purchase_orders',
+      entityId: id,
+      link: hasDiscrepancy ? 'reconciliation.html' : 'purchase-orders.html'
+    });
     res.status(200).json({ success: true, message: hasDiscrepancy ? 'Đã nhận hàng nhưng có chênh lệch, chờ Manager đối soát.' : 'Xác nhận nhập hàng thực tế và cập nhật tồn kho thành công' });
   } catch (error) {
     await connection.rollback(); console.error('Error receiving purchase:', error);
@@ -688,6 +723,14 @@ exports.createPurchaseOrdersFromForecast = async (req, res) => {
       req.ip
     );
 
+    await notificationService.safeCreateForRoles(['Manager', 'Admin'], {
+      title: 'Forecast purchase orders created',
+      message: `Created ${createdOrders.length} purchase orders from forecast period ${targetPeriod}.`,
+      type: 'success',
+      entityType: 'purchase_orders',
+      entityId: null,
+      link: 'purchase-orders.html'
+    });
     res.status(201).json({
       success: true,
       message: 'Da tao PO cho tung nha cung cap va chuyen sang trang thai cho duyet',

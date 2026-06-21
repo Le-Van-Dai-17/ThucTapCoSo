@@ -331,7 +331,7 @@ const layoutHtml = `
                         <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
                             <div>
                                 <h3 class="text-sm font-semibold text-gray-900">Notifications</h3>
-                                <p id="notificationPeriod" class="text-xs text-gray-500 mt-0.5">Forecast purchase recommendations</p>
+                                <p id="notificationPeriod" class="text-xs text-gray-500 mt-0.5">Latest updates</p>
                             </div>
                             <button id="notificationRefreshBtn" class="w-8 h-8 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 flex items-center justify-center" aria-label="Refresh notifications">
                                 <i data-lucide="refresh-cw" class="w-4 h-4"></i>
@@ -470,28 +470,10 @@ window.showConfirmDialog = function(message, onConfirm) {
 
 
 // ===============================
-// 12. NOTIFICATIONS - FORECAST PURCHASE RECOMMENDATIONS
-// ===============================
-
-let notificationRecommendationGroups = [];
-let notificationTargetPeriod = null;
-
-function formatNotificationMoney(value) {
-    return Number(value || 0).toLocaleString('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        maximumFractionDigits: 0
-    });
-}
-
-function formatNotificationPeriod(value) {
-    if (!value) return '--';
-    const str = String(value);
-    const monthKey = /^\d{4}-\d{2}/.test(str) ? str.slice(0, 7) : null;
-    if (!monthKey) return str;
-    const [year, month] = monthKey.split('-').map(Number);
-    return new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-}
+// 12. NOTIFICATIONS - DATABASE BACKED
+// ==========================================
+let notificationItems = [];
+let notificationUnreadCount = 0;
 
 function escapeLayoutHtml(value) {
     return String(value ?? '')
@@ -502,103 +484,145 @@ function escapeLayoutHtml(value) {
         .replaceAll("'", '&#039;');
 }
 
+function formatNotificationTime(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function notificationTypeClasses(type) {
+    const normalized = String(type || 'info').toLowerCase();
+    if (normalized === 'success') return 'bg-emerald-50 text-emerald-700';
+    if (normalized === 'warning') return 'bg-amber-50 text-amber-700';
+    if (normalized === 'error') return 'bg-red-50 text-red-700';
+    return 'bg-blue-50 text-blue-700';
+}
+
+function notificationTypeIcon(type) {
+    const normalized = String(type || 'info').toLowerCase();
+    if (normalized === 'success') return 'check-circle-2';
+    if (normalized === 'warning') return 'alert-triangle';
+    if (normalized === 'error') return 'x-circle';
+    return 'info';
+}
+
 function renderNotificationPanel() {
     const badge = document.getElementById('notificationBadge');
     const content = document.getElementById('notificationContent');
     const period = document.getElementById('notificationPeriod');
     if (!badge || !content || !period) return;
 
-    const totalItems = notificationRecommendationGroups.reduce((sum, group) => sum + Number(group.item_count || 0), 0);
-    const totalValue = notificationRecommendationGroups.reduce((sum, group) => sum + Number(group.total_value || 0), 0);
-
-    if (notificationRecommendationGroups.length === 0) {
+    if (notificationUnreadCount > 0) {
+        badge.classList.remove('hidden');
+        badge.textContent = String(Math.min(notificationUnreadCount, 99));
+    } else {
         badge.classList.add('hidden');
         badge.textContent = '';
-        period.textContent = 'No pending forecast recommendations';
-        content.innerHTML = '<div class="py-8 text-center text-sm text-gray-500">No suggested purchase orders right now.</div>';
+    }
+
+    period.textContent = notificationUnreadCount > 0
+        ? `${notificationUnreadCount} unread notification${notificationUnreadCount > 1 ? 's' : ''}`
+        : 'All caught up';
+
+    if (notificationItems.length === 0) {
+        content.innerHTML = '<div class="py-8 text-center text-sm text-gray-500">No notifications right now.</div>';
         return;
     }
 
-    badge.classList.remove('hidden');
-    badge.textContent = String(Math.min(totalItems, 99));
-    period.textContent = 'Target period: ' + formatNotificationPeriod(notificationTargetPeriod);
-
-    const cards = notificationRecommendationGroups.map(group => {
-        const items = (group.items || []).slice(0, 4).map(item => `
-            <div class="flex items-center justify-between gap-3 text-xs py-1">
-                <span class="text-gray-600 truncate">${escapeLayoutHtml(item.product_name || item.sku || 'Product')}</span>
-                <span class="font-semibold text-gray-900 shrink-0">${Number(item.recommended_order || 0)}</span>
-            </div>
-        `).join('');
-        const remaining = Math.max(0, Number(group.item_count || 0) - 4);
-
+    const items = notificationItems.map(item => {
+        const unread = !item.is_read;
+        const typeClass = notificationTypeClasses(item.type);
+        const icon = notificationTypeIcon(item.type);
         return `
-            <div class="border border-gray-200 rounded-xl p-3 bg-gray-50/70">
-                <div class="flex items-start justify-between gap-3 mb-2">
-                    <div class="min-w-0">
-                        <p class="font-semibold text-sm text-gray-900 truncate">${escapeLayoutHtml(group.supplier_name || 'Supplier')}</p>
-                        <p class="text-xs text-gray-500 mt-0.5">${Number(group.item_count || 0)} items, lead time ${Number(group.max_lead_time_days || 0)} days</p>
-                    </div>
-                    <span class="text-xs font-bold text-[#10B981] shrink-0">${formatNotificationMoney(group.total_value || 0)}</span>
+            <button type="button" class="notification-item w-full text-left rounded-lg border ${unread ? 'border-blue-100 bg-blue-50/40' : 'border-gray-100 bg-white'} p-3 hover:bg-gray-50 transition-colors" data-id="${item.notification_id}" data-link="${escapeLayoutHtml(item.link || '')}">
+                <div class="flex items-start gap-3">
+                    <span class="w-8 h-8 rounded-lg ${typeClass} flex items-center justify-center shrink-0">
+                        <i data-lucide="${icon}" class="w-4 h-4"></i>
+                    </span>
+                    <span class="min-w-0 flex-1">
+                        <span class="flex items-start justify-between gap-3">
+                            <span class="font-semibold text-sm text-gray-900 leading-5">${escapeLayoutHtml(item.title)}</span>
+                            ${unread ? '<span class="w-2 h-2 mt-1.5 rounded-full bg-blue-600 shrink-0"></span>' : ''}
+                        </span>
+                        <span class="block text-xs text-gray-600 mt-1 leading-5">${escapeLayoutHtml(item.message)}</span>
+                        <span class="block text-[11px] text-gray-400 mt-2">${formatNotificationTime(item.created_at)}</span>
+                    </span>
                 </div>
-                <div class="space-y-0.5">${items}</div>
-                ${remaining > 0 ? `<p class="text-xs text-gray-400 mt-1">+${remaining} more items</p>` : ''}
-            </div>
+            </button>
         `;
     }).join('');
 
     content.innerHTML = `
-        <div class="mb-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-            AI forecast created suggested purchase orders: ${notificationRecommendationGroups.length} suppliers, ${totalItems} items, estimated value ${formatNotificationMoney(totalValue)}.
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-medium text-gray-500">Latest updates</span>
+            <button id="notificationMarkAllBtn" type="button" class="text-xs font-semibold text-blue-600 hover:text-blue-700">Mark all read</button>
         </div>
-        <div class="space-y-3">${cards}</div>
-        <button id="notificationCreatePoBtn" class="mt-4 w-full px-4 py-2.5 bg-[#10B981] text-white rounded-xl hover:bg-[#059669] transition-colors flex items-center justify-center gap-2 text-sm font-semibold">
-            <i data-lucide="file-plus-2" class="w-4 h-4"></i>
-            Create suggested POs
-        </button>
+        <div class="space-y-2">${items}</div>
     `;
 
-    const createBtn = document.getElementById('notificationCreatePoBtn');
-    if (createBtn) {
-        createBtn.addEventListener('click', createSuggestedPurchaseOrdersFromNotification);
+    document.querySelectorAll('.notification-item').forEach(button => {
+        button.addEventListener('click', async () => {
+            const id = button.dataset.id;
+            const link = button.dataset.link;
+            await markNotificationRead(id);
+            if (link) {
+                window.location.href = link;
+            } else {
+                await loadNotifications();
+            }
+        });
+    });
+
+    const markAllBtn = document.getElementById('notificationMarkAllBtn');
+    if (markAllBtn) {
+        markAllBtn.addEventListener('click', async (event) => {
+            event.stopPropagation();
+            await markAllNotificationsRead();
+        });
     }
+
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-async function loadForecastNotifications() {
-    if (displayRole !== 'Manager' && displayRole !== 'Admin') return;
+async function loadNotifications() {
     const content = document.getElementById('notificationContent');
     try {
-        const response = typeof apiFetch === 'function'
-            ? await apiFetch('/purchases/recommendations')
-            : { data: [] };
-        notificationTargetPeriod = response?.target_period || null;
-        notificationRecommendationGroups = response?.data || [];
+        if (typeof apiFetch !== 'function') throw new Error('API helper is not available');
+        const response = await apiFetch('/notifications?limit=30');
+        notificationItems = response?.data || [];
+        notificationUnreadCount = Number(response?.unread_count || 0);
         renderNotificationPanel();
     } catch (error) {
-        console.warn('Could not load forecast notifications', error);
-        notificationRecommendationGroups = [];
+        console.warn('Could not load notifications', error);
+        notificationItems = [];
+        notificationUnreadCount = 0;
         if (content) content.innerHTML = '<div class="py-8 text-center text-sm text-gray-500">Could not load notifications.</div>';
         renderNotificationPanel();
     }
 }
 
-async function createSuggestedPurchaseOrdersFromNotification() {
-    const button = document.getElementById('notificationCreatePoBtn');
-    if (button) button.disabled = true;
+async function markNotificationRead(id) {
+    if (!id || typeof apiFetch !== 'function') return;
     try {
-        if (typeof apiFetch !== 'function') throw new Error('API helper is not available');
-        const response = await apiFetch('/purchases/create-from-forecast', {
-            method: 'POST',
-            body: JSON.stringify({ target_period: notificationTargetPeriod })
-        });
-        const count = (response?.data || []).length;
-        showToast(`Created ${count} pending purchase orders.`, 'success');
-        await loadForecastNotifications();
+        await apiFetch(`/notifications/${id}/read`, { method: 'PUT' });
     } catch (error) {
-        showToast('Failed to create suggested POs: ' + error.message, 'error');
-    } finally {
-        if (button) button.disabled = false;
+        console.warn('Could not mark notification read', error);
+    }
+}
+
+async function markAllNotificationsRead() {
+    if (typeof apiFetch !== 'function') return;
+    try {
+        await apiFetch('/notifications/read-all', { method: 'PUT' });
+        await loadNotifications();
+    } catch (error) {
+        showToast('Could not mark notifications as read: ' + error.message, 'error');
     }
 }
 
@@ -612,14 +636,14 @@ async function createSuggestedPurchaseOrdersFromNotification() {
         event.stopPropagation();
         panel.classList.toggle('hidden');
         if (!panel.classList.contains('hidden')) {
-            loadForecastNotifications();
+            loadNotifications();
         }
     });
 
     if (refreshBtn) {
         refreshBtn.addEventListener('click', (event) => {
             event.stopPropagation();
-            loadForecastNotifications();
+            loadNotifications();
         });
     }
 
@@ -629,9 +653,8 @@ async function createSuggestedPurchaseOrdersFromNotification() {
         }
     });
 
-    loadForecastNotifications();
+    loadNotifications();
 })();
-
 // Apply web autozoom 90%
 (function applyAutoZoom() {
     const style = document.createElement('style');

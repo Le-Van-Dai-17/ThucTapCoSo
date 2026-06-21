@@ -1,5 +1,6 @@
 ﻿const { getActorId, safeLogAction } = require('../utils/controllerUtils');
 const mlopsService = require('../services/mlopsService');
+const notificationService = require('../services/notificationService');
 
 exports.getOverview = async (req, res) => {
   try {
@@ -16,6 +17,14 @@ exports.trainNow = async (req, res) => {
     const actorId = getActorId(req);
     const result = await mlopsService.trainMonthly({ actorId, triggerType: 'manual', autoDeploy: true });
     await safeLogAction(actorId, 'MLOPS_TRAIN_NOW', `Train model moi. Deployed=${result.deployed}`, 'ml_models', result.candidate_model_id, req.ip);
+    await notificationService.safeCreateForRoles(['Admin'], {
+      title: 'Model training completed',
+      message: `Training completed. Candidate model ID: ${result.candidate_model_id || 'n/a'}, deployed: ${result.deployed ? 'yes' : 'no'}.`,
+      type: result.deployed ? 'success' : 'info',
+      entityType: 'ml_models',
+      entityId: result.candidate_model_id || null,
+      link: 'model-performance.html'
+    });
     res.status(200).json({ success: true, message: 'Training completed', data: result });
   } catch (error) {
     console.error('Error training model:', error);
@@ -31,6 +40,14 @@ exports.deployModel = async (req, res) => {
 
     const result = await mlopsService.deployModel(modelId, actorId, 'manual deploy from Model Performance');
     await safeLogAction(actorId, 'MLOPS_DEPLOY_MODEL', `Deploy model ID ${modelId}`, 'ml_models', modelId, req.ip);
+    await notificationService.safeCreateForRoles(['Admin'], {
+      title: 'Model deployed',
+      message: `Model ID ${modelId} was deployed successfully.`,
+      type: 'success',
+      entityType: 'ml_models',
+      entityId: modelId,
+      link: 'model-performance.html'
+    });
     res.status(200).json({ success: true, message: 'Model deployed', data: result });
   } catch (error) {
     console.error('Error deploying model:', error);
