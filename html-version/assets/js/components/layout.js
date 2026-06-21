@@ -36,8 +36,12 @@ const ROLE_PERMISSIONS = {
     ],
 
     Staff: [
+        'dashboard.html',
         'pos.html',
         'purchase-orders.html',
+        'products.html',
+        'sales-data.html',
+        'activity-log.html',
         'profile.html'
     ]
 };
@@ -47,13 +51,13 @@ const NAV_ITEMS = [
         href: 'dashboard.html',
         label: 'Dashboard',
         icon: 'bar-chart-3',
-        roles: ['Manager']
+        roles: ['Manager', 'Staff']
     },
     {
         href: 'products.html',
         label: 'Products & Inventory',
         icon: 'box',
-        roles: ['Manager']
+        roles: ['Manager', 'Staff']
     },
     {
         href: 'categories.html',
@@ -63,9 +67,9 @@ const NAV_ITEMS = [
     },
     {
         href: 'sales-data.html',
-        label: 'Demand Data',
+        label: 'Sales History',
         icon: 'line-chart',
-        roles: ['Manager']
+        roles: ['Manager', 'Staff']
     },
     {
         href: 'import.html',
@@ -111,16 +115,17 @@ const NAV_ITEMS = [
     },
     {
         href: 'activity-log.html',
-        label: 'Activity Log',
+        label: 'My Activity',
         icon: 'activity',
-        roles: ['Admin']
+        roles: ['Admin', 'Staff']
     },
     {
         href: 'settings.html',
         label: 'Settings',
         icon: 'settings',
         roles: ['Admin']
-    },
+    }
+,
     {
         href: 'model-performance.html',
         label: 'Model Performance',
@@ -613,4 +618,15 @@ async function createSuggestedPurchaseOrdersFromNotification() {
     });
 
     loadForecastNotifications();
+})();
+
+// Apply web autozoom 90%
+(function applyAutoZoom() {
+    const style = document.createElement('style');
+    style.textContent = `
+        body {
+            zoom: 90%;
+        }
+    `;
+    document.head.appendChild(style);
 })();

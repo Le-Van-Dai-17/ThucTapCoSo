@@ -66,7 +66,7 @@ router.delete('/suppliers/delete/:id', authMiddleware.verifyToken, authMiddlewar
 // ==========================================
 // 5. SALES API — Chỉ dành cho Manager [BE-01]
 // ==========================================
-router.get('/sales/list', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), salesController.getSalesList);
+router.get('/sales/list', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), salesController.getSalesList);
 router.post('/sales/create', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), salesController.createSale);
 router.post('/sales/pos-checkout', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), salesController.posCheckout);
 router.post(
@@ -128,7 +128,7 @@ router.get('/dashboard/low-stock-forecast', authMiddleware.verifyToken, dashboar
 // ==========================================
 // 9. ACTIVITY LOG API — Chỉ dành cho Admin [BE-01]
 // ==========================================
-router.get('/activity-logs/list', authMiddleware.verifyToken, authMiddleware.requireRole('Admin'), activityLogController.getLogs);
+router.get('/activity-logs/list', authMiddleware.verifyToken, authMiddleware.requireRole('Admin', 'Staff'), activityLogController.getLogs);
 
 // ==========================================
 // 10. SETTINGS API — Chỉ dành cho Admin [BE-01]

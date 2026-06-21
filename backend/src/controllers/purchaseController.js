@@ -119,7 +119,7 @@ exports.getPurchases = async (req, res) => {
     const userRole = String(req.user?.role || '').trim().toLowerCase();
     let whereClause = '';
     if (userRole === 'staff') {
-      whereClause = "WHERE LOWER(po.status) IN ('approved', 'shipped')";
+      whereClause = "WHERE LOWER(po.status) IN ('approved', 'shipped', 'completed')";
     }
 
     const [purchases] = await pool.query(
@@ -248,9 +248,9 @@ exports.receiveOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Đơn nhập hàng này đã được hoàn thành trước đó rồi. Không thể nhận hai lần.' });
     }
 
-    if (currentStatus !== 'Pending') {
+    if (currentStatus !== 'Approved' && currentStatus !== 'Shipped') {
       await connection.rollback();
-      return res.status(400).json({ success: false, message: 'Chỉ có thể hoàn thành cho các đơn hàng đang chờ (Pending).' });
+      return res.status(400).json({ success: false, message: 'Chỉ có thể hoàn thành cho các đơn hàng đã duyệt (Approved) hoặc đang giao (Shipped).' });
     }
 
     for (const item of items) {

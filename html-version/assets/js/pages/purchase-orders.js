@@ -37,6 +37,10 @@ async function loadOrders() {
     if (isStaff) {
         const btnCreate = document.getElementById('btnCreateNewPO');
         if (btnCreate) btnCreate.style.display = 'none';
+        const btnExport = document.getElementById('btnExportReport');
+        if (btnExport) btnExport.style.display = 'none';
+        const thVal = document.getElementById('thTotalValue');
+        if (thVal) thVal.style.display = 'none';
     }
 
     if (tableBody) showLoading('tableBody');
@@ -49,7 +53,7 @@ async function loadOrders() {
         }));
         
         if (isStaff) {
-            allOrders = allOrders.filter(o => o.status === 'pending' || o.status === 'completed');
+            allOrders = allOrders.filter(o => ['approved', 'shipped', 'completed', 'received'].includes(o.status));
         }
     } catch (err) {
         console.warn('Backend error:', err.message);
@@ -71,16 +75,20 @@ function populateSupplierFilter() {
 
 function renderStats() {
     if (!statsCardsContainer) return;
+    const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
     const total = allOrders.length;
     const pending = allOrders.filter(o => o.status === 'pending').length;
     const received = allOrders.filter(o => o.status === 'received' || o.status === 'completed').length;
     const totalVal = allOrders.reduce((sum, o) => sum + Number(o.total_amount || o.total_value || 0), 0);
-    const cards = [
+    let cards = [
         { label: 'Total Orders', value: total, icon: 'clipboard-list', color: 'bg-blue-50 text-blue-600 border-blue-100' },
         { label: 'Pending Approval', value: pending, icon: 'clipboard-clock', color: 'bg-orange-50 text-orange-600 border-orange-100' },
         { label: 'Received', value: received, icon: 'package-check', color: 'bg-green-50 text-green-600 border-green-100' },
         { label: 'Total Value', value: formatCurrency(totalVal), icon: 'wallet', color: 'bg-purple-50 text-purple-600 border-purple-100' }
     ];
+    if (isStaff) {
+        cards = cards.filter(c => c.label !== 'Total Value');
+    }
     statsCardsContainer.innerHTML = cards.map(card => `
         <article class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex items-center gap-5 min-h-[120px]">
             <div class="w-14 h-14 rounded-full ${card.color} border flex items-center justify-center shrink-0"><i data-lucide="${card.icon}" class="w-7 h-7"></i></div>
@@ -124,8 +132,9 @@ function renderTable() {
         const cfg = statusConfig[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-700' };
         const source = order.source || 'Manual';
         const sourceClass = source === 'AI Forecast' ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-700';
-        const canComplete = order.status === 'pending';
+        const canComplete = ['approved', 'shipped'].includes(order.status);
         const canCancel = ['draft', 'pending'].includes(order.status);
+        const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-50 transition-colors';
         tr.innerHTML = `
@@ -134,12 +143,12 @@ function renderTable() {
             <td class="px-5 py-4 text-gray-700">${order.created_by_name || '--'}</td>
             <td class="px-5 py-4 text-gray-700">${formatDate(order.expected_delivery_date || order.order_date)}</td>
             <td class="px-5 py-4 text-center"><span class="inline-flex items-center px-3 py-1 rounded-lg text-sm font-semibold ${cfg.color}">${cfg.label}</span></td>
-            <td class="px-5 py-4 text-right font-semibold text-gray-950">${formatCurrency(order.total_amount || order.total_value)}</td>
+            ${isStaff ? '' : `<td class="px-5 py-4 text-right font-semibold text-gray-950">${formatCurrency(order.total_amount || order.total_value)}</td>`}
             <td class="px-5 py-4 text-center"><span class="inline-flex items-center px-3 py-1 rounded-lg text-sm font-semibold ${sourceClass}">${source}</span></td>
             <td class="px-5 py-4"><div class="flex items-center justify-center gap-2">
                 <button onclick="viewDetail(${order.id})" class="w-9 h-9 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 flex items-center justify-center" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>
                 ${canComplete ? `<button onclick="openConfirmReceive(${order.id})" class="w-9 h-9 rounded-lg border border-gray-200 text-green-600 hover:bg-green-50 flex items-center justify-center" title="Receive"><i data-lucide="check-circle" class="w-4 h-4"></i></button>` : ''}
-                ${canCancel ? `<button onclick="openActionModal(${order.id}, 'cancel')" class="w-9 h-9 rounded-lg border border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-600 flex items-center justify-center" title="Cancel"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>` : ''}
+                ${canCancel ? `<button onclick="openActionModal(${order.id}, 'cancel')" class="w-9 h-9 rounded-lg border border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-600 flex items-center justify-center" title="Cancel"><i data-lucide="x-circle" class="w-4 h-4"></i></button>` : ''}
             </div></td>`;
         tableBody.appendChild(tr);
     });
@@ -284,14 +293,17 @@ window.viewDetail = async function (id) {
         
         const cfg = statusConfig[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-700' };
 
+        const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
         let rows = details.map((d, i) => `
             <tr class="border-b border-gray-100">
                 <td class="py-4 text-center text-gray-500">${i+1}</td>
                 <td class="py-4 text-gray-900 font-medium">${d.product_name || 'N/A'}</td>
                 <td class="py-4 text-center text-gray-700 font-semibold">${d.quantity || d.ordered_quantity}</td>
                 <td class="py-4 text-center text-[#10B981] font-semibold">${d.received_quantity || 0}</td>
+                ${isStaff ? '' : `
                 <td class="py-4 text-right text-gray-700">${formatCurrency(d.unit_price || d.unit_cost)}</td>
                 <td class="py-4 text-right font-bold text-gray-900">${formatCurrency(d.total_amount || d.line_total)}</td>
+                `}
             </tr>`).join('');
 
         content.innerHTML = `
@@ -315,17 +327,21 @@ window.viewDetail = async function (id) {
                         <th class="py-3 text-left text-gray-500 font-semibold">Product Description</th>
                         <th class="py-3 text-center text-gray-500 font-semibold w-32">Ordered Quantity</th>
                         <th class="py-3 text-center text-gray-500 font-semibold w-32">Received Quantity</th>
+                        ${isStaff ? '' : `
                         <th class="py-3 text-right text-gray-500 font-semibold w-32">Unit Price</th>
                         <th class="py-3 text-right text-gray-500 font-semibold w-32">Total</th>
+                        `}
                     </tr>
                 </thead>
                 <tbody>${rows}</tbody>
+                ${isStaff ? '' : `
                 <tfoot>
                     <tr>
                         <td colspan="5" class="py-6 text-right font-semibold text-gray-500 uppercase tracking-wider text-xs">Total Amount:</td>
                         <td class="py-6 text-right font-bold text-2xl text-[#2563EB]">${formatCurrency(order.total_amount)}</td>
                     </tr>
                 </tfoot>
+                `}
             </table>`;
     } catch (err) {
         content.innerHTML = `<div class="py-10 text-center text-red-500">Failed to load invoice details: ${err.message}</div>`;
