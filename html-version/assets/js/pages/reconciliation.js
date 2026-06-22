@@ -325,8 +325,11 @@ window.openActionModal = async function(id, type) {
         const poItemsContainer = document.getElementById('modalPoItemsContainer');
         const poItemsBody = document.getElementById('modalPoItemsBody');
         poItemsContainer.classList.remove('hidden');
-        poItemsBody.innerHTML = '<tr><td colspan="4" class="text-center py-4"><i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto text-blue-500"></i></td></tr>';
+        poItemsBody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto text-blue-500"></i></td></tr>';
         lucide.createIcons();
+
+        const poSupplierEl = document.getElementById('modalPoSupplier');
+        if (poSupplierEl) poSupplierEl.textContent = record.supplier_name || 'N/A';
 
         try {
             const res = await fetch(`${API_BASE_URL}/purchases/detail/${record.po_id}`, {
@@ -346,6 +349,7 @@ window.openActionModal = async function(id, type) {
                             <td class="px-4 py-3 text-center">${item.quantity}</td>
                             <td class="px-4 py-3 text-center ${isDiff ? 'text-red-600 font-bold' : 'text-gray-900'}">${item.received_quantity}</td>
                             <td class="px-4 py-3 text-center ${isDiff ? 'text-red-600 font-bold' : 'text-gray-400'}">${isDiff ? item.quantity - item.received_quantity : 0}</td>
+                            <td class="px-4 py-3 flex justify-center">${(item.product_id === record.product_id && record.evidence_url) ? renderEvidence(record.evidence_url) : (isDiff ? '<span class="text-gray-400 text-xs italic">Other Discrepancy</span>' : '-')}</td>
                         </tr>
                     `;
                 }).join('');
