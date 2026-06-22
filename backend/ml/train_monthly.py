@@ -1,4 +1,4 @@
-﻿import json
+import json
 import math
 import os
 import sys
@@ -47,6 +47,16 @@ def build_monthly_frame(rows):
 
     if monthly.empty:
         raise ValueError("Sales history is empty after aggregation")
+
+    # DEMAND UNCONSTRAINING (Outlier & Stockout Mitigation)
+    # Replace abnormally low quantities (e.g. < 30% of rolling mean) with the 3-month rolling mean
+    # This prevents the AI from learning false drops in demand caused by stockouts.
+    monthly["rolling_mean"] = monthly.groupby("product_code")["quantity"].transform(
+        lambda x: x.shift(1).rolling(window=3, min_periods=1).mean()
+    )
+    mask = (monthly["rolling_mean"] > 0) & (monthly["quantity"] < 0.3 * monthly["rolling_mean"])
+    monthly.loc[mask, "quantity"] = monthly.loc[mask, "rolling_mean"].round()
+    monthly = monthly.drop(columns=["rolling_mean"])
 
     for lag in [1, 2, 3]:
         monthly[f"lag_{lag}"] = monthly.groupby("product_code")["quantity"].shift(lag)

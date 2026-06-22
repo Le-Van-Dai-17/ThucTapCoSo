@@ -1,4 +1,4 @@
-﻿const { pool } = require('../db');
+const { pool } = require('../db');
 const { getActorId, safeLogAction } = require('../utils/controllerUtils');
 const { predictDemandBatch } = require('../services/mlForecastService');
 const notificationService = require('../services/notificationService');
@@ -233,11 +233,26 @@ const buildAiInputs = (products, lagMap, targetPeriod) => {
             lag_3: 0
         };
 
+        let l1 = Number(lags.lag_1 || 0);
+        let l2 = Number(lags.lag_2 || 0);
+        let l3 = Number(lags.lag_3 || 0);
+
+        // DEMAND UNCONSTRAINING (Stockout Mitigation)
+        // If a lag is abnormally low (< 30% of the average of the other two), impute it.
+        const avg23 = (l2 + l3) / 2;
+        if (avg23 > 0 && l1 < 0.3 * avg23) l1 = Math.round(avg23);
+
+        const avg13 = (l1 + l3) / 2;
+        if (avg13 > 0 && l2 < 0.3 * avg13) l2 = Math.round(avg13);
+
+        const avg12 = (l1 + l2) / 2;
+        if (avg12 > 0 && l3 < 0.3 * avg12) l3 = Math.round(avg12);
+
         return {
             product_code: product.sku,
-            lag_1: Number(lags.lag_1 || 0),
-            lag_2: Number(lags.lag_2 || 0),
-            lag_3: Number(lags.lag_3 || 0),
+            lag_1: l1,
+            lag_2: l2,
+            lag_3: l3,
             target_month: targetMonth
         };
     });
