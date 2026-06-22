@@ -366,8 +366,6 @@ window.closeConfirmReceive = function() {
     window.receiveItemsData = null;
     const noteEl = document.getElementById('receiveNoteInput');
     if (noteEl) noteEl.value = '';
-    const fileEl = document.getElementById('receiveImage');
-    if (fileEl) fileEl.value = '';
 };
 
 document.getElementById('btnProceedReceive')?.addEventListener('click', async () => {

@@ -147,12 +147,12 @@ function renderEvidence(evidence_url) {
         urls = [evidence_url];
     }
     if (urls.length === 0) return '<span class="text-gray-400 text-xs italic">N/A</span>';
+    const fullUrls = urls.map(u => API_BASE_URL.replace('/api', '') + u);
+    const escapedUrls = JSON.stringify(fullUrls).replace(/"/g, '&quot;');
     
-    return `<div class="flex items-center gap-1 flex-wrap">` + 
-        urls.map(url => {
-            const fullUrl = API_BASE_URL.replace('/api', '') + url;
-            return `<img src="${fullUrl}" class="w-8 h-8 object-cover rounded cursor-pointer border border-gray-200 hover:opacity-80 transition-opacity" onclick="event.stopPropagation(); window.openImageViewer(this.src)" title="Click to view" />`;
-        }).join('') + `</div>`;
+    return `<button onclick="event.stopPropagation(); window.openGallery(${escapedUrls})" class="flex items-center gap-1.5 px-3 py-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-800 rounded-lg transition-colors font-medium text-sm border border-blue-200">
+        <i data-lucide="eye" class="w-4 h-4"></i> View ${urls.length > 1 ? `(${urls.length})` : ''}
+    </button>`;
 }
 
 function filterRecords(records) {
