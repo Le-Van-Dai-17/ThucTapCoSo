@@ -195,7 +195,7 @@ exports.resolveAdjustment = async (req, res) => {
             type: status === 'Approved' ? 'success' : 'info',
             entityType: 'inventory_adjustments',
             entityId: id,
-            link: 'inventory-adjustment.html'
+            link: 'reconciliation.html'
         });
         res.status(200).json({ success: true, message: 'Đã xử lý phiếu báo cáo hao hụt.' });
     } catch (error) {
