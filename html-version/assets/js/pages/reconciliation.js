@@ -35,6 +35,15 @@ window.switchTab = function(tab) {
 
     document.getElementById('sectionPO').classList.toggle('hidden', tab !== 'PO');
     document.getElementById('sectionInv').classList.toggle('hidden', tab !== 'INV');
+    
+    const btnNewStocktake = document.getElementById('btnNewStocktake');
+    if (btnNewStocktake) {
+        if (tab === 'INV') {
+            btnNewStocktake.classList.remove('hidden');
+        } else {
+            btnNewStocktake.classList.add('hidden');
+        }
+    }
 
     loadData();
 };
@@ -126,6 +135,9 @@ function renderTable() {
                     </td>
                     <td class="px-6 py-4 text-gray-900 font-medium">${r.reason}</td>
                     <td class="px-6 py-4">
+                        ${r.evidence_url ? `<a href="${API_BASE_URL.replace('/api', '')}${r.evidence_url}" target="_blank" class="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"><i data-lucide="image" class="w-4 h-4"></i> View</a>` : '<span class="text-gray-400 text-xs italic">N/A</span>'}
+                    </td>
+                    <td class="px-6 py-4">
                         <span class="px-2.5 py-1 text-xs font-medium rounded-full ${r.status === 'Pending' ? 'bg-amber-50 text-amber-600' : r.status === 'Rejected' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}">
                             ${r.status}
                         </span>
@@ -156,9 +168,12 @@ function renderTable() {
                         <div class="font-medium text-gray-900">${r.reported_by_name || 'N/A'}</div>
                     </td>
                     <td class="px-6 py-4">
-                        <span class="text-red-500 font-bold">-${r.quantity}</span>
+                        <span class="${r.adjustment_type === 'Addition' ? 'text-green-500' : 'text-red-500'} font-bold">${r.adjustment_type === 'Addition' ? '+' : '-'}${r.quantity}</span>
                     </td>
                     <td class="px-6 py-4 text-gray-900 font-medium">${r.reason}</td>
+                    <td class="px-6 py-4">
+                        ${r.evidence_url ? `<a href="${API_BASE_URL.replace('/api', '')}${r.evidence_url}" target="_blank" class="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"><i data-lucide="image" class="w-4 h-4"></i> View</a>` : '<span class="text-gray-400 text-xs italic">N/A</span>'}
+                    </td>
                     <td class="px-6 py-4">
                         <span class="px-2.5 py-1 text-xs font-medium rounded-full ${r.status === 'Pending' ? 'bg-amber-50 text-amber-600' : r.status === 'Rejected' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}">
                             ${r.status}
@@ -304,3 +319,273 @@ window.submitResolution = async function(status) {
         showToast(e.message, 'error');
     }
 }
+// ==========================================
+// INVENTORY STOCKTAKING FEATURE
+// ==========================================
+
+let stocktakeProducts = [];
+
+window.openStocktakeModal = async function() {
+    const modal = document.getElementById('stocktakeModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+    
+    document.getElementById('stocktakeTableBody').innerHTML = '<tr><td colspan="6" class="p-6 text-center text-gray-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i> Loading products...</td></tr>';
+    lucide.createIcons();
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/products/list`, { headers: { 'Authorization': `Bearer ${Auth.getToken()}` } });
+        const data = await res.json();
+        stocktakeProducts = data.data || data;
+        stocktakeProducts = stocktakeProducts.filter(p => p.status === 'active');
+        
+        stocktakeProducts.forEach(p => {
+            p.actual_count = p.current_stock;
+            p.diff = 0;
+            p.reason = '';
+            p.evidence_file = null;
+        });
+
+        renderStocktakeTable();
+    } catch (error) {
+        showToast('Cannot load products.', 'error');
+        closeStocktakeModal();
+    }
+};
+
+window.closeStocktakeModal = function() {
+    const modal = document.getElementById('stocktakeModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+    document.getElementById('stocktakeSearch').value = '';
+    stocktakeProducts = [];
+};
+
+window.renderStocktakeTable = function() {
+    const search = document.getElementById('stocktakeSearch').value.toLowerCase().trim();
+    const tbody = document.getElementById('stocktakeTableBody');
+    tbody.innerHTML = '';
+
+    const filtered = stocktakeProducts.filter(p => {
+        const sku = (p.sku || '').toLowerCase();
+        const name = (p.name || '').toLowerCase();
+        return sku.includes(search) || name.includes(search);
+    });
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center p-6 text-gray-500">No products found.</td></tr>';
+        return;
+    }
+
+    filtered.forEach(p => {
+        let diffColor = 'text-gray-500';
+        if (p.diff < 0) diffColor = 'text-red-600 font-semibold';
+        else if (p.diff > 0) diffColor = 'text-green-600 font-semibold';
+
+        const tr = document.createElement('tr');
+        
+        let evidenceHtml = p.diff === 0 
+            ? '<span class="text-gray-400 italic text-xs">N/A</span>' 
+            : `
+                <div class="flex items-center flex-wrap gap-2 justify-center">
+                    <label class="cursor-pointer text-blue-600 hover:text-blue-800 flex items-center gap-1 text-xs font-medium bg-blue-50 px-2 py-1 rounded border border-blue-100 transition-colors">
+                        <i data-lucide="upload" class="w-3 h-3"></i> ${(p.evidence_files && p.evidence_files.length > 0) ? 'Add' : 'Upload'}
+                        <input type="file" accept="image/*" multiple class="hidden" onchange="handleEvidenceUpload(${p.product_id || p.id}, this.files)">
+                    </label>
+                    ${(p.evidence_previews || []).map((preview, pIdx) => `
+                        <div class="relative group">
+                            <img src="${preview}" class="w-8 h-8 object-cover rounded cursor-pointer border border-gray-200" onclick="window.open(this.src, '_blank')" />
+                            <button onclick="removeEvidenceImage(${p.product_id || p.id}, ${pIdx})" class="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <i data-lucide="x" class="w-2.5 h-2.5"></i>
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+        tr.innerHTML = `
+            <td class="px-4 py-3"><span class="font-mono text-gray-700">${p.sku}</span></td>
+            <td class="px-4 py-3 font-medium text-gray-900">${p.name}</td>
+            <td class="px-4 py-3 text-center"><span class="px-2.5 py-1 bg-gray-100 rounded-lg text-gray-700 font-medium">${p.current_stock}</span></td>
+            <td class="px-4 py-3 text-center">
+                <input type="number" min="0" class="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-center focus:outline-none focus:border-blue-500" value="${p.actual_count}" oninput="updateStocktakeCount(${p.product_id || p.id}, this.value)">
+            </td>
+            <td class="px-4 py-3 text-center ${diffColor}">${p.diff > 0 ? '+' : ''}${p.diff}</td>
+            <td class="px-4 py-3">
+                <input type="text" class="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 ${p.diff === 0 ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}" 
+                    placeholder="${p.diff === 0 ? 'No changes' : 'Reason...'}" 
+                    value="${p.reason || ''}" 
+                    ${p.diff === 0 ? 'disabled' : ''}
+                    oninput="updateStocktakeReason(${p.product_id || p.id}, this.value)">
+            </td>
+            <td class="px-4 py-3 text-center">${evidenceHtml}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+    lucide.createIcons();
+};
+
+window.updateStocktakeCount = function(id, value) {
+    const val = parseInt(value, 10);
+    const p = stocktakeProducts.find(x => (x.product_id || x.id) == id);
+    if (p) {
+        p.actual_count = isNaN(val) ? 0 : val;
+        p.diff = p.actual_count - p.current_stock;
+        if (p.diff === 0) {
+            p.reason = '';
+            p.evidence_files = [];
+            p.evidence_previews = [];
+        }
+    }
+};
+
+window.updateStocktakeReason = function(id, value) {
+    const p = stocktakeProducts.find(x => (x.product_id || x.id) == id);
+    if (p) {
+        p.reason = value;
+    }
+};
+
+window.handleEvidenceUpload = async function(id, files) {
+    if (!files || files.length === 0) return;
+    const p = stocktakeProducts.find(x => (x.product_id || x.id) == id);
+    if (p) {
+        if (!p.evidence_files) {
+            p.evidence_files = [];
+            p.evidence_previews = [];
+        }
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            p.evidence_files.push(file);
+            p.evidence_previews.push(URL.createObjectURL(file));
+        }
+        renderStocktakeTable();
+    }
+};
+
+window.removeEvidenceImage = function(id, pIdx) {
+    const p = stocktakeProducts.find(x => (x.product_id || x.id) == id);
+    if (p && p.evidence_previews) {
+        URL.revokeObjectURL(p.evidence_previews[pIdx]);
+        p.evidence_previews.splice(pIdx, 1);
+        p.evidence_files.splice(pIdx, 1);
+        renderStocktakeTable();
+    }
+};
+
+document.getElementById('stocktakeTableBody').addEventListener('change', (e) => {
+    if(e.target.tagName === 'INPUT' && e.target.type === 'number') {
+        renderStocktakeTable();
+    }
+});
+
+window.submitStocktake = async function() {
+    const changedItems = stocktakeProducts.filter(p => p.diff !== 0);
+    
+    if (changedItems.length === 0) {
+        showToast('No missing or surplus stock found.', 'info');
+        closeStocktakeModal();
+        return;
+    }
+
+    const missingReason = changedItems.find(p => !(p.reason || '').trim());
+    if (missingReason) {
+        showToast('Please provide a reason for product: ' + missingReason.name, 'error');
+        return;
+    }
+
+    const missingEvidence = changedItems.find(p => !p.evidence_files || p.evidence_files.length === 0);
+    if (missingEvidence) {
+        showToast('Please upload evidence image for product: ' + missingEvidence.name, 'error');
+        return;
+    }
+
+    const msg = 'Found ' + changedItems.length + ' product(s) with discrepancies. Submit reports for approval?';
+    document.getElementById('confirmStocktakeMsg').innerText = msg;
+    const overlay = document.getElementById('confirmStocktakeOverlay');
+    if (overlay) {
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+    }
+    
+    window.proceedStocktakeSubmit = async function() {
+        if (overlay) {
+            overlay.classList.add('hidden');
+            overlay.classList.remove('flex');
+        }
+        await doSubmitStocktake(changedItems);
+    };
+};
+
+window.closeConfirmStocktake = function() {
+    const overlay = document.getElementById('confirmStocktakeOverlay');
+    if (overlay) {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+    }
+};
+
+async function doSubmitStocktake(changedItems) {
+    try {
+        const btn = document.querySelector('button[onclick="submitStocktake()"]');
+        let originalText = 'Submit Report';
+        if (btn) {
+            originalText = btn.innerHTML;
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Submitting...';
+            btn.disabled = true;
+        }
+
+        const promises = changedItems.map(async p => {
+            let uploadedUrls = [];
+            if (p.evidence_files && p.evidence_files.length > 0) {
+                for (const file of p.evidence_files) {
+                    const formData = new FormData();
+                    formData.append('evidence', file);
+                    const uploadRes = await fetch(`${API_BASE_URL}/upload/image`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${Auth.getToken()}` },
+                        body: formData
+                    });
+                    const uploadData = await uploadRes.json();
+                    if (!uploadRes.ok) throw new Error(uploadData.message || 'Image upload failed');
+                    uploadedUrls.push(uploadData.url);
+                }
+            }
+
+            // Then submit adjustment
+            const quantity = Math.abs(p.diff);
+            const type = p.diff > 0 ? 'Addition' : 'Deduction';
+            
+            return fetch(`${API_BASE_URL}/inventory/adjust`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${Auth.getToken()}`
+                },
+                body: JSON.stringify({
+                    product_id: p.product_id || p.id,
+                    quantity: quantity,
+                    type: type,
+                    reason: p.reason.trim(),
+                    evidence_urls: uploadedUrls
+                })
+            });
+        });
+
+        await Promise.all(promises);
+        showToast('Inventory adjustments submitted successfully.', 'success');
+        closeStocktakeModal();
+        loadData();
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+        const btn = document.querySelector('button[onclick="submitStocktake()"]');
+        if (btn) {
+            btn.innerHTML = 'Submit Report';
+            btn.disabled = false;
+        }
+    }
+};

@@ -1,11 +1,13 @@
-﻿lucide.createIcons();
+lucide.createIcons();
 if (typeof Auth !== 'undefined') Auth.requireAuth();
 
 const params = new URLSearchParams(window.location.search);
 const editingId = params.get('id');
 let suppliers = [];
-const categoryNames = ['Gao', 'Mi goi', 'Bot', 'Gia vi', 'Ngu coc', 'Dau an', 'Nuoc cham'];
-const selectedCategories = new Set(['Gao', 'Mi goi', 'Bot', 'Gia vi']);
+let categoryNames = [];
+const selectedCategories = new Set();
+
+const provinces = ["An Giang", "Bà Rịa - Vũng Tàu", "Bắc Giang", "Bắc Kạn", "Bạc Liêu", "Bắc Ninh", "Bến Tre", "Bình Định", "Bình Dương", "Bình Phước", "Bình Thuận", "Cà Mau", "Cần Thơ", "Cao Bằng", "Đà Nẵng", "Đắk Lắk", "Đắk Nông", "Điện Biên", "Đồng Nai", "Đồng Tháp", "Gia Lai", "Hà Giang", "Hà Nam", "Hà Nội", "Hà Tĩnh", "Hải Dương", "Hải Phòng", "Hậu Giang", "Hòa Bình", "Hưng Yên", "Khánh Hòa", "Kiên Giang", "Kon Tum", "Lai Châu", "Lâm Đồng", "Lạng Sơn", "Lào Cai", "Long An", "Nam Định", "Nghệ An", "Ninh Bình", "Ninh Thuận", "Phú Thọ", "Phú Yên", "Quảng Bình", "Quảng Nam", "Quảng Ngãi", "Quảng Ninh", "Quảng Trị", "Sóc Trăng", "Sơn La", "Tây Ninh", "Thái Bình", "Thái Nguyên", "Thanh Hóa", "Thừa Thiên Huế", "Tiền Giang", "TP Hồ Chí Minh", "Trà Vinh", "Tuyên Quang", "Vĩnh Long", "Vĩnh Phúc", "Yên Bái"];
 
 function val(id) { return document.getElementById(id)?.value?.trim() || ''; }
 function setVal(id, value) { const el = document.getElementById(id); if (el) el.value = value || ''; }
@@ -22,14 +24,14 @@ function renderCategories() {
         renderCategories();
         updatePreview();
     }));
-    lucide.createIcons();
+    if (window.lucide) lucide.createIcons();
 }
 
 function checkDone(key) {
     const checks = {
         basic: !!val('name'),
         contact: !!val('contact') && !!val('phone'),
-        address: !!val('address'),
+        address: !!val('address') && !!val('province'),
         lead: !!val('leadTime'),
         payment: !!val('paymentTerms') || !!val('minOrder'),
         categories: selectedCategories.size > 0,
@@ -52,7 +54,7 @@ function renderChecklist() {
         const done = checkDone(key);
         return `<div class="flex items-start gap-3"><span class="mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center ${done ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 text-transparent'}"><i data-lucide="check" class="w-3.5 h-3.5"></i></span><div><p class="font-semibold text-sm">${title}</p><p class="text-xs text-gray-500 mt-0.5">${sub}</p></div></div>`;
     }).join('');
-    lucide.createIcons();
+    if (window.lucide) lucide.createIcons();
 }
 
 function updatePreview() {
@@ -66,7 +68,119 @@ function updatePreview() {
 }
 
 async function loadForm() {
+
+    const provinceInput = document.getElementById('province');
+    const provinceDropdown = document.getElementById('provinceDropdown');
+    const districtInput = document.getElementById('district');
+    const districtDropdown = document.getElementById('districtDropdown');
+    
+    let apiProvinces = [];
+    let currentDistricts = [];
+
+    // Fetch administrative units
+    try {
+        const res = await fetch('https://provinces.open-api.vn/api/?depth=2');
+        apiProvinces = await res.json();
+    } catch(e) {
+        console.error("Failed to fetch provinces", e);
+        apiProvinces = provinces.map(p => ({ name: p, districts: [] })); // fallback
+    }
+
+    function renderProvinceDropdown(filterText = '') {
+        if (!provinceDropdown) return;
+        const text = filterText.toLowerCase();
+        const filtered = apiProvinces.filter(p => p.name.toLowerCase().includes(text));
+        
+        if (filtered.length === 0) {
+            provinceDropdown.innerHTML = `<div class="px-4 py-3 text-gray-500 text-sm">No matches found</div>`;
+            return;
+        }
+        
+        provinceDropdown.innerHTML = filtered.map(p => `
+            <div class="province-option px-4 py-2.5 hover:bg-blue-50 cursor-pointer text-gray-700 text-sm transition-colors" data-value="${p.name}" data-code="${p.code}">
+                ${p.name}
+            </div>
+        `).join('');
+
+        document.querySelectorAll('.province-option').forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                const pName = e.target.dataset.value;
+                if (provinceInput) provinceInput.value = pName;
+                provinceDropdown.classList.add('hidden');
+                
+                // Set districts
+                const selectedP = apiProvinces.find(p => p.name === pName);
+                currentDistricts = selectedP ? selectedP.districts : [];
+                if (districtInput) {
+                    districtInput.disabled = false;
+                    districtInput.value = '';
+                }
+                
+                updatePreview();
+            });
+        });
+    }
+
+    function renderDistrictDropdown(filterText = '') {
+        if (!districtDropdown) return;
+        const text = filterText.toLowerCase();
+        const filtered = currentDistricts.filter(d => d.name.toLowerCase().includes(text));
+        
+        if (filtered.length === 0) {
+            districtDropdown.innerHTML = `<div class="px-4 py-3 text-gray-500 text-sm">No districts found</div>`;
+            return;
+        }
+        
+        districtDropdown.innerHTML = filtered.map(d => `
+            <div class="district-option px-4 py-2.5 hover:bg-blue-50 cursor-pointer text-gray-700 text-sm transition-colors" data-value="${d.name}">
+                ${d.name}
+            </div>
+        `).join('');
+
+        document.querySelectorAll('.district-option').forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                if (districtInput) districtInput.value = e.target.dataset.value;
+                districtDropdown.classList.add('hidden');
+                updatePreview();
+            });
+        });
+    }
+
+    if (provinceInput && provinceDropdown) {
+        ['focus', 'click', 'input'].forEach(evt => {
+            provinceInput.addEventListener(evt, (e) => {
+                renderProvinceDropdown(provinceInput.value);
+                provinceDropdown.classList.remove('hidden');
+            });
+        });
+    }
+
+    if (districtInput && districtDropdown) {
+        ['focus', 'click', 'input'].forEach(evt => {
+            districtInput.addEventListener(evt, (e) => {
+                renderDistrictDropdown(districtInput.value);
+                districtDropdown.classList.remove('hidden');
+            });
+        });
+    }
+
+    document.addEventListener('click', (e) => {
+        if (provinceInput && provinceDropdown && !provinceInput.contains(e.target) && !provinceDropdown.contains(e.target)) {
+            provinceDropdown.classList.add('hidden');
+        }
+        if (districtInput && districtDropdown && !districtInput.contains(e.target) && !districtDropdown.contains(e.target)) {
+            districtDropdown.classList.add('hidden');
+        }
+    });
+
+    try {
+        const catData = await API.categories.getAll();
+        categoryNames = catData.map(c => c.name || c.category_name);
+    } catch (e) {
+        console.error("Failed to load categories:", e);
+    }
     renderCategories();
+
     if (editingId) {
         document.getElementById('pageTitle').textContent = 'Edit Supplier';
         document.getElementById('breadcrumbCurrent').textContent = 'Edit Supplier';
@@ -78,16 +192,37 @@ async function loadForm() {
             setVal('contact', supplier.contact_name || supplier.contact_person);
             setVal('phone', supplier.phone);
             setVal('email', supplier.email);
-            setVal('address', supplier.address);
+            
+            const parts = (supplier.address || '').split(', ').map(s => s.trim());
+            if (parts.length >= 3) {
+                const pName = parts.pop();
+                setVal('province', pName);
+                const selectedP = apiProvinces.find(prov => prov.name === pName);
+                currentDistricts = selectedP ? selectedP.districts : [];
+                if (districtInput) districtInput.disabled = false;
+                
+                setVal('district', parts.pop());
+                setVal('address', parts.join(', '));
+            } else {
+                setVal('address', supplier.address);
+                if (districtInput) districtInput.disabled = true;
+            }
+            
             setVal('leadTime', supplier.lead_time_days || 7);
             setVal('code', `SUP-${String(supplier.supplier_id || supplier.id).padStart(3, '0')}`);
+            setVal('taxCode', supplier.tax_code);
+            setVal('notes', supplier.notes);
+            setVal('minOrder', supplier.min_order_value);
+            setVal('paymentTerms', supplier.payment_terms);
+            setVal('aiRelevance', supplier.ai_relevance || 'Medium');
+
             selectedCategories.clear();
             (supplier.supplied_categories || []).forEach(c => selectedCategories.add(c));
             renderCategories();
         }
     }
     updatePreview();
-    lucide.createIcons();
+    if (window.lucide) lucide.createIcons();
 }
 
 document.querySelectorAll('input, select, textarea').forEach(el => {
@@ -108,7 +243,13 @@ function collectPayload() {
         phone: val('phone'),
         email: val('email'),
         address: [val('address'), val('district'), val('province')].filter(Boolean).join(', '),
-        lead_time_days: Number(val('leadTime') || 7)
+        lead_time_days: Number(val('leadTime') || 7),
+        tax_code: val('taxCode'),
+        notes: val('notes'),
+        min_order_value: Number(val('minOrder') || 0),
+        payment_terms: val('paymentTerms'),
+        ai_relevance: val('aiRelevance'),
+        supplied_categories: Array.from(selectedCategories)
     };
 }
 

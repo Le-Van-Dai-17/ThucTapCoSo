@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -26,11 +26,10 @@
                 <section id="supplierCard" class="bg-white rounded-xl border border-gray-200 shadow-sm p-6"></section>
 
                 <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
-                        <label><span class="text-sm font-medium text-gray-600">Created By</span><select id="createdBy" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg bg-white"><option>Nguyen Van An</option></select></label>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                        <label><span class="text-sm font-medium text-gray-600">Created By</span><input id="createdBy" readonly class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 cursor-not-allowed"></label>
                         <label><span class="text-sm font-medium text-gray-600">Expected Delivery Date</span><input id="expectedDate" type="date" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg bg-white"></label>
                         <label><span class="text-sm font-medium text-gray-600">Priority</span><select id="priority" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg bg-white"><option>Normal</option><option>High</option><option>Urgent</option></select></label>
-                        <div><span class="text-sm font-medium text-gray-600">Source</span><div class="mt-2 grid grid-cols-2 border border-gray-200 rounded-lg overflow-hidden"><button id="sourceAIBtn" class="py-3 bg-blue-50 text-[#2563EB] font-semibold border-r border-blue-100"><i data-lucide="sparkles" class="w-4 h-4 inline mr-1"></i> AI Forecast</button><button id="sourceManualBtn" class="py-3 bg-white text-gray-600 font-semibold"><i data-lucide="user" class="w-4 h-4 inline mr-1"></i> Manual</button></div></div>
                     </div>
                 </section>
 

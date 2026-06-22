@@ -22,6 +22,7 @@ const mlopsController = require('../controllers/mlopsController');
 const inventoryController = require('../controllers/inventoryController');
 const reconciliationController = require('../controllers/reconciliationController');
 const notificationController = require('../controllers/notificationController');
+const uploadController = require('../controllers/uploadController');
 
 // Middleware
 const authMiddleware = require('../middleware/authMiddleware');
@@ -30,6 +31,8 @@ const authMiddleware = require('../middleware/authMiddleware');
 // 1. SYSTEM & AUTH API
 // ==========================================
 router.get('/status', apiController.getStatus);
+
+router.post('/upload/image', authMiddleware.verifyToken, uploadController.uploadImage);
 
 router.post('/auth/register', (req, res) => {
     res.status(410).json({

@@ -1,5 +1,5 @@
 const { pool } = require('../db');
-const { safeLogAction, getActorId } = require('./activityLogController');
+const { safeLogAction, getActorId } = require('../utils/controllerUtils');
 const notificationService = require('../services/notificationService');
 
 exports.getPendingDiscrepancies = async (req, res) => {
@@ -32,27 +32,49 @@ exports.resolveDiscrepancy = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Trạng thái không hợp lệ.' });
     }
 
+    const connection = await pool.getConnection();
     try {
+        await connection.beginTransaction();
         const userId = getActorId(req);
-        const [result] = await pool.query(
+
+        // Fetch discrepancy details first
+        const [discRows] = await connection.query('SELECT * FROM po_discrepancies WHERE discrepancy_id = ? FOR UPDATE', [id]);
+        if (discRows.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ success: false, message: 'Không tìm thấy biên bản chênh lệch.' });
+        }
+        const discrepancy = discRows[0];
+
+        // If Rejected, add the missing items back to inventory and update po_items
+        if (status === 'Rejected' && discrepancy.status === 'Pending') {
+            const missingQty = discrepancy.discrepancy_quantity;
+            const poItemId = discrepancy.po_item_id;
+
+            // Get product_id from po_items
+            const [poItemRows] = await connection.query('SELECT product_id FROM po_items WHERE po_item_id = ?', [poItemId]);
+            if (poItemRows.length > 0) {
+                const productId = poItemRows[0].product_id;
+                // Add to stock
+                await connection.query('UPDATE products SET current_stock = current_stock + ? WHERE product_id = ?', [missingQty, productId]);
+                // Update received_quantity in po_items
+                await connection.query('UPDATE po_items SET received_quantity = received_quantity + ? WHERE po_item_id = ?', [missingQty, poItemId]);
+            }
+        }
+
+        await connection.query(
             'UPDATE po_discrepancies SET status = ?, resolution_note = ?, resolved_by = ? WHERE discrepancy_id = ?',
             [status, resolution_note || '', userId, id]
         );
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ success: false, message: 'Không tìm thấy biên bản chênh lệch.' });
+        // Kiểm tra xem đơn hàng (PO) còn discrepancy nào Pending không
+        const poId = discrepancy.po_id;
+        const [pending] = await connection.query("SELECT COUNT(*) as cnt FROM po_discrepancies WHERE po_id = ? AND status = 'Pending'", [poId]);
+        if (pending[0].cnt === 0) {
+            // Nếu không còn pending discrepancy nào, cập nhật PO thành Received
+            await connection.query("UPDATE purchase_orders SET status = 'Received' WHERE po_id = ?", [poId]);
         }
 
-        // Kiểm tra xem đơn hàng (PO) còn discrepancy nào Pending không
-        const [discRows] = await pool.query('SELECT po_id, reported_by FROM po_discrepancies WHERE discrepancy_id = ?', [id]);
-        if (discRows.length > 0) {
-            const poId = discRows[0].po_id;
-            const [pending] = await pool.query("SELECT COUNT(*) as cnt FROM po_discrepancies WHERE po_id = ? AND status = 'Pending'", [poId]);
-            if (pending[0].cnt === 0) {
-                // Nếu không còn pending discrepancy nào, cập nhật PO thành Received
-                await pool.query("UPDATE purchase_orders SET status = 'Received' WHERE po_id = ?", [poId]);
-            }
-        }
+        await connection.commit();
 
         await safeLogAction(userId, 'RESOLVE_DISCREPANCY', `Manager xử lý biên bản chênh lệch ID ${id} thành ${status}`, 'po_discrepancies', id, req.ip);
 
@@ -69,8 +91,11 @@ exports.resolveDiscrepancy = async (req, res) => {
         }
         res.status(200).json({ success: true, message: 'Xử lý biên bản chênh lệch thành công.' });
     } catch (error) {
+        if (connection) await connection.rollback();
         console.error('Error resolving discrepancy:', error);
         res.status(500).json({ success: false, message: 'Lỗi server khi xử lý chênh lệch.' });
+    } finally {
+        if (connection) connection.release();
     }
 };
 

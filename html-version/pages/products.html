@@ -20,21 +20,28 @@
         <!-- Top Bar -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 mb-6 shrink-0">
             <div class="flex items-center gap-4">
-                <div class="flex-1 relative">
-                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"></i>
-                    <input type="text" id="searchInput" placeholder="Search by product name or SKU..."
-                        class="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] transition-all duration-200"/>
-                </div>
-                <select id="categoryFilter"
-                    class="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] transition-all duration-200 font-medium text-gray-700 bg-white min-w-[180px]">
-                    <option value="All Categories">All Categories</option>
-                    <option value="Gạo">Gạo</option>
-                    <option value="Mì gói">Mì gói</option>
-                    <option value="Miến/Bún khô">Miến/Bún khô</option>
-                    <option value="Bột">Bột</option>
-                    <option value="Gia vị cơ bản">Gia vị cơ bản</option>
-                    <option value="Ngũ cốc">Ngũ cốc</option>
-                </select>
+                  <div class="relative flex-1">
+                      <i data-lucide="search" class="w-5 h-5 absolute left-3.5 top-3 text-gray-400"></i>
+                      <input type="text" id="searchInput" placeholder="Search by product name or SKU..."
+                          class="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] transition-all duration-200"/>
+                  </div>
+                  <select id="categoryFilter"
+                      class="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] transition-all duration-200 font-medium text-gray-700 bg-white min-w-[180px]">
+                      <option value="All Categories">All Categories</option>
+                      <option value="Gạo">Gạo</option>
+                      <option value="Đồ đóng hộp">Đồ đóng hộp</option>
+                      <option value="Gia vị">Gia vị</option>
+                      <option value="Bánh kẹo">Bánh kẹo</option>
+                      <option value="Đồ uống">Đồ uống</option>
+                      <option value="Khác">Khác</option>
+                  </select>
+                  <select id="stockFilter"
+                      class="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] transition-all duration-200 font-medium text-gray-700 bg-white min-w-[180px]">
+                      <option value="All Status">All Statuses</option>
+                      <option value="Low Stock">Low Stock</option>
+                      <option value="Out of Stock">Out of Stock</option>
+                      <option value="In Stock">In Stock</option>
+                  </select>
                 <!-- FE-01: Nút Add Product — gọi openAddModal() thay vì inline onclick cũ -->
                 <button id="btnAddProduct" onclick="openAddModal()"
                     class="px-6 py-2.5 bg-[#2563EB] text-white rounded-xl hover:bg-[#1d4ed8] transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow-md font-medium">

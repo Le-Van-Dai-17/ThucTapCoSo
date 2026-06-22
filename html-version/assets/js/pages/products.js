@@ -81,10 +81,27 @@ function renderStats(data) {
 function renderTable() {
     const query = (searchInput?.value || '').toLowerCase();
     const cat   = categoryFilter?.value || 'All Categories';
+    const stockStatus = document.getElementById('stockFilter')?.value || 'All Status';
+    
     const filtered = allProducts.filter(p => {
         const matchSearch = (p.name || '').toLowerCase().includes(query) || (p.sku || '').toLowerCase().includes(query);
         const matchCat = cat === 'All Categories' || String(p.category_id) === String(cat) || p.category === cat;
-        return matchSearch && matchCat;
+        
+        let matchStock = true;
+        if (stockStatus !== 'All Status') {
+            const current = p.current_stock || 0;
+            const min = p.warning_stock_level || p.min_stock_level || p.min_stock || 0;
+            
+            if (stockStatus === 'Out of Stock') {
+                matchStock = current === 0;
+            } else if (stockStatus === 'Low Stock') {
+                matchStock = current > 0 && current <= min;
+            } else if (stockStatus === 'In Stock') {
+                matchStock = current > min;
+            }
+        }
+        
+        return matchSearch && matchCat && matchStock;
     });
 
     tableBody.innerHTML = '';
@@ -318,6 +335,8 @@ window.confirmDeleteProduct = async function () {
 
 if (searchInput)    searchInput.addEventListener('input', renderTable);
 if (categoryFilter) categoryFilter.addEventListener('change', renderTable);
+const stockFilter = document.getElementById('stockFilter');
+if (stockFilter) stockFilter.addEventListener('change', renderTable);
 
   document.addEventListener('DOMContentLoaded', () => {
       fetchAndPopulateCategories().then(() => loadProducts());

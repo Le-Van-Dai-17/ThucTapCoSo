@@ -49,6 +49,12 @@ const ROLE_PERMISSIONS = {
 
 const NAV_ITEMS = [
     {
+        href: 'dashboard.html',
+        label: 'Dashboard',
+        icon: 'bar-chart-3',
+        roles: ['Manager']
+    },
+    {
         href: 'pos.html',
         label: 'Sales (POS)',
         icon: 'shopping-bag',
@@ -72,12 +78,7 @@ const NAV_ITEMS = [
         icon: 'line-chart',
         roles: ['Manager', 'Staff']
     },
-    {
-        href: 'dashboard.html',
-        label: 'Dashboard',
-        icon: 'bar-chart-3',
-        roles: ['Manager']
-    },
+
     {
         href: 'categories.html',
         label: 'Categories',
@@ -281,7 +282,7 @@ const navHtml = NAV_ITEMS
 // ===============================
 
 const layoutHtml = `
-    <aside class="fixed left-0 top-0 h-screen w-[240px] bg-white border-r border-gray-200 shadow-sm z-30 flex flex-col">
+    <aside class="fixed left-0 top-0 bottom-0 w-[240px] bg-white border-r border-gray-200 shadow-sm z-30 flex flex-col">
         <div class="p-6">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 rounded-lg bg-[#2563EB] flex items-center justify-center">

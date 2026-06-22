@@ -7,13 +7,11 @@ let currentPOIdToDelete = null;
 let editingOrderId = null;
 
 const statusConfig = {
-    draft:     { label: "Draft",     color: "bg-gray-100 text-gray-700" },
-    pending:   { label: "Pending",   color: "bg-orange-100 text-orange-700" },
-    approved:  { label: "Approved",  color: "bg-blue-100 text-blue-700" },
-    shipped:   { label: "Shipped",   color: "bg-purple-100 text-purple-700" },
-    received:  { label: "Received",  color: "bg-green-100 text-green-700" },
-    completed: { label: "Received",  color: "bg-green-100 text-green-700" },
-    cancelled: { label: "Cancelled", color: "bg-red-100 text-red-700" },
+    pending:     { label: "Pending",     color: "bg-orange-100 text-orange-700" },
+    approved:    { label: "Approved",    color: "bg-blue-100 text-blue-700" },
+    received:    { label: "Received",    color: "bg-green-100 text-green-700" },
+    discrepancy: { label: "Discrepancy", color: "bg-yellow-100 text-yellow-700" },
+    cancelled:   { label: "Cancelled",   color: "bg-red-100 text-red-700" },
 };
 
 const statusFilter        = document.getElementById('statusFilter');
@@ -53,7 +51,7 @@ async function loadOrders() {
         }));
         
         if (isStaff) {
-            allOrders = allOrders.filter(o => ['approved', 'shipped', 'completed', 'received'].includes(o.status));
+            allOrders = allOrders.filter(o => ['approved', 'received', 'discrepancy'].includes(o.status));
         }
     } catch (err) {
         console.warn('Backend error:', err.message);
@@ -65,9 +63,20 @@ async function loadOrders() {
     renderTable();
 }
 
+let urlSupplierLoaded = false;
 function populateSupplierFilter() {
     if (!supplierFilter) return;
-    const current = supplierFilter.value || 'all';
+    let current = supplierFilter.value || 'all';
+    if (!urlSupplierLoaded) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const filterFromUrl = urlParams.get('supplier');
+        if (filterFromUrl) {
+            current = filterFromUrl;
+            // Also override the date filter to show all time to ensure the user sees all history
+            if (dateRangeFilter) dateRangeFilter.value = 'all';
+        }
+        urlSupplierLoaded = true;
+    }
     const suppliers = Array.from(new Set(allOrders.map(o => o.supplier_name).filter(Boolean))).sort();
     supplierFilter.innerHTML = '<option value="all">All Suppliers</option>' + suppliers.map(name => `<option value="${name}">${name}</option>`).join('');
     supplierFilter.value = suppliers.includes(current) ? current : 'all';
@@ -78,12 +87,14 @@ function renderStats() {
     const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
     const total = allOrders.length;
     const pending = allOrders.filter(o => o.status === 'pending').length;
-    const received = allOrders.filter(o => o.status === 'received' || o.status === 'completed').length;
+    const received = allOrders.filter(o => o.status === 'received').length;
+    const discrepancy = allOrders.filter(o => o.status === 'discrepancy').length;
     const totalVal = allOrders.reduce((sum, o) => sum + Number(o.total_amount || o.total_value || 0), 0);
     let cards = [
         { label: 'Total Orders', value: total, icon: 'clipboard-list', color: 'bg-blue-50 text-blue-600 border-blue-100' },
         { label: 'Pending Approval', value: pending, icon: 'clipboard-clock', color: 'bg-orange-50 text-orange-600 border-orange-100' },
         { label: 'Received', value: received, icon: 'package-check', color: 'bg-green-50 text-green-600 border-green-100' },
+        { label: 'Discrepancy', value: discrepancy, icon: 'alert-triangle', color: 'bg-yellow-50 text-yellow-600 border-yellow-100' },
         { label: 'Total Value', value: formatCurrency(totalVal), icon: 'wallet', color: 'bg-purple-50 text-purple-600 border-purple-100' }
     ];
     if (isStaff) {
@@ -134,8 +145,7 @@ function renderTable() {
         const sourceClass = source === 'AI Forecast' ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-700';
         const canCancel = ['draft', 'pending'].includes(order.status);
         const canApprove = order.status === 'pending';
-        const canShip = order.status === 'approved';
-        const canComplete = ['approved', 'shipped'].includes(order.status);
+        const canComplete = ['approved'].includes(order.status);
         const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-50 transition-colors';
@@ -150,7 +160,6 @@ function renderTable() {
             <td class="px-5 py-4"><div class="flex items-center justify-center gap-2">
                 <button onclick="viewDetail(${order.id})" class="w-9 h-9 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 flex items-center justify-center" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>
                 ${canApprove && !isStaff ? `<button onclick="openActionModal(${order.id}, 'approve')" class="w-9 h-9 rounded-lg border border-gray-200 text-purple-600 hover:bg-purple-50 flex items-center justify-center" title="Approve"><i data-lucide="check-circle" class="w-4 h-4"></i></button>` : ''}
-                ${canShip && !isStaff ? `<button onclick="openActionModal(${order.id}, 'ship')" class="w-9 h-9 rounded-lg border border-gray-200 text-yellow-600 hover:bg-yellow-50 flex items-center justify-center" title="Ship"><i data-lucide="truck" class="w-4 h-4"></i></button>` : ''}
                 ${canComplete ? `<button onclick="openConfirmReceive(${order.id})" class="w-9 h-9 rounded-lg border border-gray-200 text-green-600 hover:bg-green-50 flex items-center justify-center" title="Receive"><i data-lucide="package-check" class="w-4 h-4"></i></button>` : ''}
                 ${canCancel ? `<button onclick="openActionModal(${order.id}, 'cancel')" class="w-9 h-9 rounded-lg border border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-600 flex items-center justify-center" title="Cancel"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>` : ''}
             </div></td>`;
@@ -219,41 +228,64 @@ window.openConfirmReceive = async function(id) {
         window.receiveItemsData = details.map(d => ({
             product_id: d.product_id,
             product_name: d.product_name,
-            ordered_quantity: d.quantity || d.ordered_quantity || 0
+            ordered_quantity: d.quantity || d.ordered_quantity || 0,
+            evidence_file: null
         }));
         
-        if (container) {
-            if (window.receiveItemsData.length === 0) {
-                container.innerHTML = '<p class="text-sm text-gray-500">No products found in this order.</p>';
-            } else {
-                container.innerHTML = window.receiveItemsData.map((item, idx) => `
-                    <div class="flex flex-col gap-2 bg-gray-50 p-3 rounded-xl border border-gray-200 mb-2">
-                        <div class="flex items-center justify-between">
-                            <div class="text-xs font-semibold text-gray-800 truncate max-w-[200px]" title="${item.product_name}">${item.product_name}</div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-[11px] text-gray-400 font-mono">Ordered: ${item.ordered_quantity}</span>
-                                <input type="number" id="actualQtyInput_${idx}" min="0" value="${item.ordered_quantity}" 
-                                    oninput="toggleReasonSelect(${idx}, ${item.ordered_quantity})"
-                                    class="w-16 px-2 py-1 text-xs border-2 border-gray-200 rounded-lg text-right font-bold focus:outline-none focus:border-[#10B981]" />
+        window.renderReceivePOModal = function() {
+            if (container) {
+                if (window.receiveItemsData.length === 0) {
+                    container.innerHTML = '<p class="text-sm text-gray-500">No products found in this order.</p>';
+                } else {
+                    container.innerHTML = window.receiveItemsData.map((item, idx) => `
+                        <div class="flex flex-col gap-2 bg-gray-50 p-3 rounded-xl border border-gray-200 mb-2">
+                            <div class="flex items-center justify-between">
+                                <div class="text-xs font-semibold text-gray-800 truncate max-w-[200px]" title="${item.product_name}">${item.product_name}</div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[11px] text-gray-400 font-mono">Ordered: ${item.ordered_quantity}</span>
+                                    <input type="number" id="actualQtyInput_${idx}" min="0" value="${item.actual_quantity !== undefined ? item.actual_quantity : item.ordered_quantity}" 
+                                        oninput="toggleReasonSelect(${idx}, ${item.ordered_quantity})"
+                                        class="w-16 px-2 py-1 text-xs border-2 border-gray-200 rounded-lg text-right font-bold focus:outline-none focus:border-[#10B981]" />
+                                </div>
+                            </div>
+                            <div id="reasonContainer_${idx}" class="${(item.actual_quantity !== undefined && item.actual_quantity !== item.ordered_quantity) ? 'w-full flex flex-col gap-2 mt-2 pt-2 border-t border-gray-100' : 'hidden'}">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <div class="flex-1 min-w-[200px]">
+                                        <select id="reasonSelect_${idx}" class="text-xs border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500 w-full" onchange="updatePoReason(${idx}, this.value)">
+                                            <option value="" disabled ${!item.reason ? 'selected' : ''}>Chọn lý do chênh lệch...</option>
+                                            <option value="Missing" ${item.reason === 'Missing' ? 'selected' : ''}>Missing (Giao thiếu)</option>
+                                            <option value="Damaged" ${item.reason === 'Damaged' ? 'selected' : ''}>Damaged (Hư hỏng)</option>
+                                            <option value="Moldy" ${item.reason === 'Moldy' ? 'selected' : ''}>Moldy (Ẩm mốc)</option>
+                                            <option value="Torn Packaging" ${item.reason === 'Torn Packaging' ? 'selected' : ''}>Torn Packaging (Rách bao bì)</option>
+                                            <option value="Other" ${item.reason === 'Other' ? 'selected' : ''}>Other (Lý do khác)</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex items-center flex-wrap gap-2 shrink-0">
+                                        <label class="cursor-pointer text-blue-600 hover:text-blue-800 flex items-center gap-1 text-[11px] font-medium bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 transition-colors">
+                                            <i data-lucide="upload" class="w-3.5 h-3.5"></i> ${(item.evidence_files && item.evidence_files.length > 0) ? 'Add Image' : 'Upload Image (Req)'}
+                                            <input type="file" accept="image/*" multiple class="hidden" onchange="handlePoEvidenceUpload(${idx}, this.files)">
+                                        </label>
+                                        ${(item.evidence_previews || []).map((preview, pIdx) => `
+                                            <div class="relative group">
+                                                <img src="${preview}" class="w-8 h-8 object-cover rounded cursor-pointer border border-gray-200" onclick="window.open(this.src, '_blank')" />
+                                                <button onclick="removePoEvidenceImage(${idx}, ${pIdx})" class="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <i data-lucide="x" class="w-2.5 h-2.5"></i>
+                                                </button>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                                <div id="reasonOtherContainer_${idx}" class="${item.reason === 'Other' ? 'w-full' : 'hidden'}">
+                                    <input type="text" id="reasonOther_${idx}" placeholder="Nhập lý do cụ thể..." class="w-full text-xs border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500" value="${item.reasonOther || ''}" oninput="updatePoReasonOther(${idx}, this.value)" />
+                                </div>
                             </div>
                         </div>
-                        <div id="reasonContainer_${idx}" class="hidden w-full flex flex-col gap-1 mt-1 items-end">
-                            <select id="reasonSelect_${idx}" class="text-xs border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-500 w-full max-w-[200px]" onchange="document.getElementById('reasonOtherContainer_${idx}').classList.toggle('hidden', this.value !== 'Other')">
-                                <option value="" disabled selected>Chọn lý do chênh lệch...</option>
-                                <option value="Missing">Missing (Giao thiếu)</option>
-                                <option value="Damaged">Damaged (Hư hỏng)</option>
-                                <option value="Moldy">Moldy (Ẩm mốc)</option>
-                                <option value="Torn Packaging">Torn Packaging (Rách bao bì)</option>
-                                <option value="Other">Other (Lý do khác)</option>
-                            </select>
-                            <div id="reasonOtherContainer_${idx}" class="hidden w-full max-w-[200px]">
-                                <input type="text" id="reasonOther_${idx}" placeholder="Nhập lý do cụ thể..." class="w-full text-xs border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-500" />
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
+                    `).join('');
+                }
+                lucide.createIcons();
             }
-        }
+        };
+        window.renderReceivePOModal();
     } catch (e) {
         if (container) container.innerHTML = '<p class="text-sm text-red-500">Failed to load items for verification.</p>';
     }
@@ -261,15 +293,55 @@ window.openConfirmReceive = async function(id) {
 
 window.toggleReasonSelect = function(idx, orderedQty) {
     const inputEl = document.getElementById(`actualQtyInput_${idx}`);
-    const reasonContainer = document.getElementById(`reasonContainer_${idx}`);
-    if (inputEl && reasonContainer) {
-        if (parseInt(inputEl.value) !== parseInt(orderedQty)) {
-            reasonContainer.classList.remove('hidden');
-        } else {
-            reasonContainer.classList.add('hidden');
+    if (inputEl) {
+        let val = parseInt(inputEl.value);
+        if (isNaN(val)) val = 0;
+        if (val > orderedQty) {
+            val = orderedQty;
+            inputEl.value = orderedQty;
         }
+        window.receiveItemsData[idx].actual_quantity = val;
+        if (val === orderedQty) {
+            window.receiveItemsData[idx].reason = '';
+            window.receiveItemsData[idx].reasonOther = '';
+            window.receiveItemsData[idx].evidence_files = [];
+            window.receiveItemsData[idx].evidence_previews = [];
+        }
+        window.renderReceivePOModal();
     }
 };
+
+window.updatePoReason = function(idx, val) {
+    window.receiveItemsData[idx].reason = val;
+    window.renderReceivePOModal();
+};
+
+window.updatePoReasonOther = function(idx, val) {
+    window.receiveItemsData[idx].reasonOther = val;
+};
+
+window.handlePoEvidenceUpload = function(idx, files) {
+    if (files && files.length > 0) {
+        if (!window.receiveItemsData[idx].evidence_files) {
+            window.receiveItemsData[idx].evidence_files = [];
+            window.receiveItemsData[idx].evidence_previews = [];
+        }
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            window.receiveItemsData[idx].evidence_files.push(file);
+            window.receiveItemsData[idx].evidence_previews.push(URL.createObjectURL(file));
+        }
+        window.renderReceivePOModal();
+    }
+};
+
+window.removePoEvidenceImage = function(idx, pIdx) {
+    URL.revokeObjectURL(window.receiveItemsData[idx].evidence_previews[pIdx]);
+    window.receiveItemsData[idx].evidence_previews.splice(pIdx, 1);
+    window.receiveItemsData[idx].evidence_files.splice(pIdx, 1);
+    window.renderReceivePOModal();
+};
+
 window.closeConfirmReceive = function() {
     hideModal('confirmReceiveOverlay', 'confirmReceiveModal');
     currentPOIdToReceive = null;
@@ -284,56 +356,89 @@ document.getElementById('btnProceedReceive')?.addEventListener('click', async ()
     btn.disabled = true;
     btn.textContent = 'Processing...';
     try {
-        const payloadItems = window.receiveItemsData.map((item, idx) => {
-            const inputEl = document.getElementById(`actualQtyInput_${idx}`);
-            const reasonEl = document.getElementById(`reasonSelect_${idx}`);
-            const reasonOtherEl = document.getElementById(`reasonOther_${idx}`);
-            const val = inputEl ? parseInt(inputEl.value) : item.ordered_quantity;
-            
-            let finalReason = reasonEl && !reasonEl.parentElement.classList.contains('hidden') ? reasonEl.value : null;
+        // Validation
+        const finalPayloadItems = [];
+        for (let i = 0; i < window.receiveItemsData.length; i++) {
+            const item = window.receiveItemsData[i];
+            const val = item.actual_quantity !== undefined ? item.actual_quantity : item.ordered_quantity;
+            let finalReason = item.reason || null;
             if (finalReason === 'Other') {
-                const otherVal = reasonOtherEl ? reasonOtherEl.value.trim() : '';
-                if (otherVal) {
-                    finalReason = `Other - ${otherVal}`;
-                } else {
-                    finalReason = null; // Forces validation to fail
+                const otherVal = (item.reasonOther || '').trim();
+                if (otherVal) finalReason = `Other - ${otherVal}`;
+                else finalReason = null;
+            }
+
+            if (val !== item.ordered_quantity) {
+                if (!finalReason) {
+                    throw new Error(`Vui lòng chọn lý do và cung cấp chi tiết cho sản phẩm có chênh lệch.`);
+                }
+                if (!item.evidence_files || item.evidence_files.length === 0) {
+                    throw new Error(`Vui lòng tải lên hình ảnh bằng chứng cho sản phẩm có chênh lệch: ${item.product_name}`);
+                }
+            }
+            
+            finalPayloadItems.push({
+                product_id: item.product_id,
+                received_quantity: val,
+                reason: finalReason,
+                evidence_files: item.evidence_files || []
+            });
+        }
+
+        const promises = finalPayloadItems.map(async p => {
+            if (p.received_quantity === window.receiveItemsData.find(i => i.product_id === p.product_id).ordered_quantity) {
+                return {
+                    product_id: p.product_id,
+                    received_quantity: p.received_quantity,
+                    reason: null,
+                    evidence_urls: []
+                };
+            }
+            
+            let uploadedUrls = [];
+            if (p.evidence_files && p.evidence_files.length > 0) {
+                for (const file of p.evidence_files) {
+                    const formData = new FormData();
+                    formData.append('evidence', file);
+                    const uploadRes = await fetch(API_BASE_URL + '/upload/image', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${Auth.getToken()}` },
+                        body: formData
+                    });
+                    const uploadData = await uploadRes.json();
+                    if (!uploadRes.ok) throw new Error(uploadData.message || 'Lỗi upload ảnh');
+                    uploadedUrls.push(uploadData.url);
                 }
             }
 
             return {
-                product_id: item.product_id,
-                received_quantity: isNaN(val) || val < 0 ? 0 : val,
-                reason: finalReason
+                product_id: p.product_id,
+                received_quantity: p.received_quantity,
+                reason: p.reason,
+                evidence_urls: uploadedUrls
             };
         });
 
-        // Validation
-        const missingReasons = payloadItems.filter(p => p.received_quantity !== window.receiveItemsData.find(i => i.product_id === p.product_id).ordered_quantity && !p.reason);
-        if (missingReasons.length > 0) {
-            btn.disabled = false;
-            btn.textContent = 'Confirm Receipt';
-            showToast('Vui lòng chọn lý do chênh lệch cho sản phẩm bị thiếu/dư!', 'error');
-            return;
-        }
-
+        const finalItems = await Promise.all(promises);
         const noteEl = document.getElementById('receiveNoteInput');
-        const noteVal = noteEl ? noteEl.value.trim() : '';
+        const noteVal = noteEl ? noteEl.value : '';
 
-        const res = await API.orders.receive(currentPOIdToReceive, { items: payloadItems, note: noteVal });
-        showToast(res.message || '✅ Inventory successfully updated with actual count!', 'success');
-        closeConfirmReceive();
-        await loadOrders();
+        const res = await API.orders.receive(currentPOIdToReceive, { items: finalItems, note: noteVal });
 
-
+        if (res.success) {
+            showToast(res.message || 'Purchase order received successfully', 'success');
+            closeConfirmReceive();
+            loadData();
+        } else {
+            showToast(res.message || 'Failed to receive purchase order', 'error');
+        }
     } catch (e) {
-        showToast(e.message, 'error');
+        showToast(e.message || 'An error occurred', 'error');
     } finally {
         btn.disabled = false;
         btn.textContent = 'Confirm Receipt';
     }
 });
-
-// DELETE MODAL
 
 
 

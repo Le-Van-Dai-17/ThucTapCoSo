@@ -334,6 +334,11 @@ exports.receiveOrder = async (req, res) => {
       const productId = item.product_id;
       const receivedQuantity = Number(item.received_quantity);
       const reason = item.reason;
+      let evidenceUrls = item.evidence_urls;
+      if (!evidenceUrls && item.evidence_url) {
+        evidenceUrls = [item.evidence_url];
+      }
+      const evidenceJson = evidenceUrls && evidenceUrls.length > 0 ? JSON.stringify(evidenceUrls) : null;
 
       if (!productId || Number.isNaN(receivedQuantity) || receivedQuantity < 0) {
         await connection.rollback();
@@ -346,7 +351,12 @@ exports.receiveOrder = async (req, res) => {
         return res.status(400).json({ success: false, message: `Sản phẩm ID ${productId} không thuộc đơn hàng này.` });
       }
 
-      const orderedQuantity = poItem.ordered_quantity;
+      const orderedQuantity = poItem.ordered_quantity || poItem.quantity;
+      if (receivedQuantity > orderedQuantity) {
+        await connection.rollback();
+        return res.status(400).json({ success: false, message: `Sản phẩm ID ${productId}: Số lượng nhận (${receivedQuantity}) không được lớn hơn số lượng đặt (${orderedQuantity}).` });
+      }
+
       const discrepancyQuantity = Math.abs(receivedQuantity - orderedQuantity);
 
       if (receivedQuantity !== orderedQuantity) {
@@ -354,12 +364,16 @@ exports.receiveOrder = async (req, res) => {
           await connection.rollback();
           return res.status(400).json({ success: false, message: `Sản phẩm ID ${productId} có chênh lệch số lượng, vui lòng chọn lý do.` });
         }
+        if (!evidenceJson) {
+          await connection.rollback();
+          return res.status(400).json({ success: false, message: `Sản phẩm ID ${productId} có chênh lệch số lượng, vui lòng tải lên hình ảnh bằng chứng.` });
+        }
         hasDiscrepancy = true;
         // Ghi lại báo cáo chênh lệch
         await connection.query(`
-            INSERT INTO po_discrepancies (po_item_id, po_id, expected_quantity, actual_quantity, discrepancy_quantity, reason, reported_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [poItem.po_item_id, id, orderedQuantity, receivedQuantity, discrepancyQuantity, reason, getActorId(req)]);
+            INSERT INTO po_discrepancies (po_item_id, po_id, expected_quantity, actual_quantity, discrepancy_quantity, reason, evidence_url, reported_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [poItem.po_item_id, id, orderedQuantity, receivedQuantity, discrepancyQuantity, reason, evidenceJson, getActorId(req)]);
       }
 
       // Cập nhật số lượng thực nhận thực tế do Staff nhập vào hệ thống bảng po_items

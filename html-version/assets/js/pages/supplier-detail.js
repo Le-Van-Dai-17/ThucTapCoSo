@@ -37,6 +37,7 @@ function renderDetail() {
     document.getElementById('supplierName').textContent = name;
     document.getElementById('editSupplierBtn').href = `supplier-form.html?id=${id}`;
     document.getElementById('createPOBtn').href = `purchase-order-form.html?supplier_id=${id}`;
+    document.getElementById('viewHistoryBtn').href = `purchase-orders.html?supplier=${encodeURIComponent(name)}`;
     const openOrders = orders.filter(o => !['received', 'completed', 'cancelled'].includes(String(o.status || '').toLowerCase())).length;
     const lastOrder = orders.slice().sort((a, b) => new Date(b.order_date || b.created_at || 0) - new Date(a.order_date || a.created_at || 0))[0];
     const categories = new Set(products.map(p => p.category || p.category_name).filter(Boolean));
@@ -55,16 +56,37 @@ function renderDetail() {
         <div><p class="text-gray-500">Supplier Name</p><p class="font-semibold mt-1">${name}</p></div>
         <div><p class="text-gray-500">Address</p><p class="font-semibold mt-1">${supplier.address || '--'}</p></div>
         <div><p class="text-gray-500">Contact Person</p><p class="font-semibold mt-1">${supplier.contact_name || supplier.contact_person || '--'}</p></div>
-        <div><p class="text-gray-500">Tax Code</p><p class="font-semibold mt-1">0318 456 221</p></div>
+        <div><p class="text-gray-500">Tax Code</p><p class="font-semibold mt-1">${supplier.tax_code || '--'}</p></div>
         <div><p class="text-gray-500">Phone</p><p class="font-semibold mt-1">${supplier.phone || '--'}</p></div>
-        <div><p class="text-gray-500">Notes</p><p class="font-semibold mt-1">Reliable supplier for reorder planning.</p></div>
+        <div><p class="text-gray-500">Notes</p><p class="font-semibold mt-1">${supplier.notes || '--'}</p></div>
         <div><p class="text-gray-500">Email</p><p class="font-semibold mt-1">${supplier.email || '--'}</p></div>
     `;
 
+    // Tính toán On-time Delivery Rate
+    const receivedOrders = orders.filter(o => o.status === 'Received');
+    let onTimeCount = 0;
+    receivedOrders.forEach(o => {
+        if (o.received_date && o.expected_delivery_date) {
+            if (new Date(o.received_date) <= new Date(o.expected_delivery_date)) onTimeCount++;
+        } else {
+            // Nếu không có received_date, coi như On-time (mặc định)
+            onTimeCount++;
+        }
+    });
+    const onTimeRate = receivedOrders.length ? Math.round((onTimeCount / receivedOrders.length) * 100) : 100;
+    
+    // Màu sắc cho AI Relevance
+    const aiLevel = supplier.ai_relevance || 'Medium';
+    const aiColors = {
+        'High': 'border-green-100 bg-green-50 text-green-700',
+        'Medium': 'border-yellow-100 bg-yellow-50 text-yellow-700',
+        'Low': 'border-gray-200 bg-gray-50 text-gray-600'
+    };
+
     document.getElementById('logisticsInfo').innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="space-y-5 text-sm"><div class="flex justify-between"><span class="text-gray-500">Lead Time</span><b>${supplier.lead_time_days || 0} days</b></div><div class="flex justify-between"><span class="text-gray-500">Minimum Order Value</span><b>5.000.000 d</b></div><div class="flex justify-between"><span class="text-gray-500">Payment Terms</span><b>Net 15</b></div></div>
-            <div><div class="flex justify-between text-sm"><span class="text-gray-500">On-time Delivery Rate</span><b class="text-green-600">96%</b></div><div class="h-2 rounded-full bg-gray-100 mt-3"><div class="h-full rounded-full bg-green-500" style="width:96%"></div></div><p class="text-sm text-gray-500 mt-5">AI Relevance</p><div class="mt-2 inline-flex items-center gap-2 rounded-lg border border-green-100 bg-green-50 px-4 py-2 text-green-700 font-semibold"><i data-lucide="sparkles" class="w-4 h-4"></i> High</div></div>
+            <div class="space-y-5 text-sm"><div class="flex justify-between"><span class="text-gray-500">Lead Time</span><b>${supplier.lead_time_days || 0} days</b></div><div class="flex justify-between"><span class="text-gray-500">Minimum Order Value</span><b>${money(supplier.min_order_value || 0)}</b></div><div class="flex justify-between"><span class="text-gray-500">Payment Terms</span><b>${supplier.payment_terms || 'Net 30'}</b></div></div>
+            <div><div class="flex justify-between text-sm"><span class="text-gray-500">On-time Delivery Rate</span><b class="${onTimeRate >= 90 ? 'text-green-600' : 'text-orange-600'}">${onTimeRate}%</b></div><div class="h-2 rounded-full bg-gray-100 mt-3"><div class="h-full rounded-full ${onTimeRate >= 90 ? 'bg-green-500' : 'bg-orange-400'}" style="width:${onTimeRate}%"></div></div><p class="text-sm text-gray-500 mt-5">AI Relevance</p><div class="mt-2 inline-flex items-center gap-2 rounded-lg border ${aiColors[aiLevel]} px-4 py-2 font-semibold"><i data-lucide="sparkles" class="w-4 h-4"></i> ${aiLevel}</div></div>
         </div>`;
 
     renderProducts();

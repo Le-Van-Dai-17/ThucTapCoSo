@@ -1,19 +1,26 @@
 const { pool } = require('../db');
-const { safeLogAction, getActorId } = require('./activityLogController');
+const { safeLogAction, getActorId } = require('../utils/controllerUtils');
 const notificationService = require('../services/notificationService');
 
 exports.submitAdjustment = async (req, res) => {
-    const { product_id, quantity, reason } = req.body;
+    const { product_id, quantity, reason, type, evidence_url, evidence_urls } = req.body;
     if (!product_id || !quantity || !reason || quantity <= 0) {
         return res.status(400).json({ success: false, message: 'Vui lòng cung cấp đầy đủ ID sản phẩm, số lượng hợp lệ và lý do.' });
     }
 
+    let urls = evidence_urls;
+    if (!urls && evidence_url) {
+        urls = [evidence_url];
+    }
+    const evidenceJson = urls && urls.length > 0 ? JSON.stringify(urls) : null;
+
     try {
         const userId = getActorId(req);
+        const adjType = (type === 'Addition' || type === 'Deduction') ? type : 'Deduction';
         const [result] = await pool.query(
-            `INSERT INTO inventory_adjustments (product_id, adjustment_type, quantity, reason, reported_by, status)
-             VALUES (?, 'Deduction', ?, ?, ?, 'Pending')`,
-            [product_id, quantity, reason, userId]
+            `INSERT INTO inventory_adjustments (product_id, adjustment_type, quantity, reason, evidence_url, reported_by, status)
+             VALUES (?, ?, ?, ?, ?, ?, 'Pending')`,
+            [product_id, adjType, quantity, reason, evidenceJson, userId]
         );
 
         await safeLogAction(userId, 'SUBMIT_INVENTORY_ADJUSTMENT', `Staff báo cáo hao hụt sản phẩm ID ${product_id}, số lượng ${quantity}, lý do: ${reason}`, 'inventory_adjustments', result.insertId, req.ip);
