@@ -332,7 +332,6 @@ window.confirmDeleteProduct = async function () {
 
 if (searchInput)    searchInput.addEventListener('input', renderTable);
 if (categoryFilter) categoryFilter.addEventListener('change', renderTable);
-const stockFilter = document.getElementById('stockFilter');
 if (stockFilter) stockFilter.addEventListener('change', renderTable);
 
   document.addEventListener('DOMContentLoaded', () => {

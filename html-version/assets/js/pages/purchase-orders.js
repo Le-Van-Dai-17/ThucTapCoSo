@@ -7,13 +7,6 @@ let currentPOIdToDelete = null;
 let editingOrderId = null;
 
 const statusConfig = {
-<<<<<<< HEAD
-    pending:     { label: "Pending",     color: "bg-orange-100 text-orange-700" },
-    approved:    { label: "Approved",    color: "bg-blue-100 text-blue-700" },
-    received:    { label: "Received",    color: "bg-green-100 text-green-700" },
-    discrepancy: { label: "Discrepancy", color: "bg-yellow-100 text-yellow-700" },
-    cancelled:   { label: "Cancelled",   color: "bg-red-100 text-red-700" },
-=======
     draft:     { label: "Draft",     color: "bg-gray-100 text-gray-700" },
     pending:   { label: "Pending",   color: "bg-orange-100 text-orange-700" },
     approved:  { label: "Approved",  color: "bg-blue-100 text-blue-700" },
@@ -22,7 +15,6 @@ const statusConfig = {
     completed: { label: "Received",  color: "bg-green-100 text-green-700" },
     cancelled: { label: "Cancelled", color: "bg-red-100 text-red-700" },
     discrepancy: { label: "⚠️ Discrepancy", color: "bg-amber-100 text-amber-800 border border-amber-300 font-bold" },
->>>>>>> origin/kit-backend
 };
 
 const statusFilter        = document.getElementById('statusFilter');
@@ -245,7 +237,7 @@ window.openConfirmReceive = async function(id) {
             evidence_file: null
         }));
         
-<<<<<<< HEAD
+
         window.renderReceivePOModal = function() {
             if (container) {
                 if (window.receiveItemsData.length === 0) {
@@ -325,7 +317,7 @@ window.toggleReasonSelect = function(idx, orderedQty) {
                 reasonContainer.classList.remove('flex');
             }
         }
-        }
+        
         window.receiveItemsData[idx].actual_quantity = val;
         if (val === orderedQty) {
             window.receiveItemsData[idx].reason = '';
