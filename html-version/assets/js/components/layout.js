@@ -462,6 +462,43 @@ window.showConfirmDialog = function(message, onConfirm) {
     });
 };
 
+// Global Image Viewer
+window.openImageViewer = function(src) {
+    const existing = document.getElementById('_global_image_viewer');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = '_global_image_viewer';
+    overlay.className = 'fixed inset-0 bg-black/80 z-[10000] flex items-center justify-center p-4 opacity-0 transition-opacity duration-300';
+    
+    overlay.innerHTML = `
+        <div class="relative max-w-4xl max-h-[90vh] w-full flex items-center justify-center" onclick="event.stopPropagation()">
+            <img src="${src}" class="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl transform scale-95 transition-transform duration-300" />
+            <button id="_btnCloseImageViewer" class="absolute -top-4 -right-4 w-10 h-10 bg-white text-gray-900 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-100 transition-colors">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    // Animate in
+    requestAnimationFrame(() => {
+        overlay.classList.remove('opacity-0');
+        overlay.querySelector('img').classList.remove('scale-95');
+    });
+
+    const close = () => {
+        overlay.classList.add('opacity-0');
+        overlay.querySelector('img').classList.add('scale-95');
+        setTimeout(() => overlay.remove(), 300);
+    };
+
+    overlay.addEventListener('click', close);
+    document.getElementById('_btnCloseImageViewer').addEventListener('click', close);
+};
+
 
 // ===============================
 // 12. NOTIFICATIONS - DATABASE BACKED

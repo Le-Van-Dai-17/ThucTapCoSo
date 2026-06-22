@@ -281,7 +281,7 @@ window.openConfirmReceive = async function(id) {
                                         </label>
                                         ${(item.evidence_previews || []).map((preview, pIdx) => `
                                             <div class="relative group">
-                                                <img src="${preview}" class="w-8 h-8 object-cover rounded cursor-pointer border border-gray-200" onclick="window.open(this.src, '_blank')" />
+                                                <img src="${preview}" class="w-8 h-8 object-cover rounded cursor-pointer border border-gray-200" onclick="window.openImageViewer(this.src)" />
                                                 <button onclick="removePoEvidenceImage(${idx}, ${pIdx})" class="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <i data-lucide="x" class="w-2.5 h-2.5"></i>
                                                 </button>
