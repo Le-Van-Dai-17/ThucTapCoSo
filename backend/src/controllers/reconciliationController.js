@@ -119,9 +119,10 @@ exports.getPendingAdjustments = async (req, res) => {
         const userId = getActorId(req);
 
         let query = `
-            SELECT a.*, p.name as product_name, p.sku, u.full_name as reported_by_name
+            SELECT a.*, p.name as product_name, p.sku, u.full_name as reported_by_name, s.name as supplier_name
             FROM inventory_adjustments a
             JOIN products p ON a.product_id = p.product_id
+            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
             JOIN users u ON a.reported_by = u.user_id
         `;
 

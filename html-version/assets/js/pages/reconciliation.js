@@ -155,6 +155,20 @@ function renderEvidence(evidence_url) {
     </button>`;
 }
 
+function renderThumbnails(evidence_url) {
+    if (!evidence_url) return '<span class="text-gray-400 text-xs italic">N/A</span>';
+    let urls = [];
+    try { urls = typeof evidence_url === 'string' && evidence_url.startsWith('[') ? JSON.parse(evidence_url) : [evidence_url]; } catch (e) { urls = [evidence_url]; }
+    if (urls.length === 0) return '<span class="text-gray-400 text-xs italic">N/A</span>';
+    
+    const fullUrls = urls.map(u => API_BASE_URL.replace('/api', '') + u);
+    const escapedUrls = JSON.stringify(fullUrls).replace(/"/g, '&quot;');
+    
+    return `<div class="flex flex-wrap gap-2">` + fullUrls.map((url) => `
+        <img src="${url}" class="w-24 h-24 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity" onclick="window.openGallery(${escapedUrls})" title="Click to view full gallery" />
+    `).join('') + `</div>`;
+}
+
 function filterRecords(records) {
     const search = document.getElementById('searchInput').value.trim().toLowerCase();
     const status = document.getElementById('statusFilter').value;
@@ -293,14 +307,14 @@ window.openActionModal = async function(id, type) {
     document.getElementById('resolutionNote').value = record.resolution_note || '';
 
     const modalImageContainer = document.getElementById('modalImageContainer');
-    const modalImage = document.getElementById('modalImage');
-    if (modalImageContainer && modalImage) {
-        if (record.image_path) {
-            const backendHost = API_BASE_URL.replace('/api', '');
-            modalImage.src = `${backendHost}${record.image_path}`;
+    const modalImageContent = document.getElementById('modalImageContent');
+    if (modalImageContainer && modalImageContent) {
+        const urlField = record.evidence_url || record.image_path;
+        if (urlField) {
+            modalImageContent.innerHTML = renderThumbnails(urlField);
             modalImageContainer.classList.remove('hidden');
         } else {
-            modalImage.src = '';
+            modalImageContent.innerHTML = '';
             modalImageContainer.classList.add('hidden');
         }
     }
@@ -308,6 +322,9 @@ window.openActionModal = async function(id, type) {
     if (type === 'PO') {
         document.getElementById('modalSupplierContainer').classList.remove('hidden');
         document.getElementById('modalSupplier').textContent = record.supplier_name || 'N/A';
+        const poSupplierEl = document.getElementById('modalPoSupplier');
+        if (poSupplierEl) poSupplierEl.textContent = record.supplier_name || 'N/A';
+        
         document.getElementById('actionModalTitle').textContent = `Resolve Discrepancy: ${record.po_code}`;
         
         const approvedByContainer = document.getElementById('modalApprovedByContainer');
@@ -360,7 +377,8 @@ window.openActionModal = async function(id, type) {
             poItemsBody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-red-500">Error loading PO details.</td></tr>';
         }
     } else {
-        document.getElementById('modalSupplierContainer').classList.add('hidden');
+        document.getElementById('modalSupplierContainer').classList.remove('hidden');
+        document.getElementById('modalSupplier').textContent = record.supplier_name || 'N/A';
         document.getElementById('actionModalTitle').textContent = `Resolve Shrinkage: ${record.product_name}`;
         document.getElementById('modalPoItemsContainer').classList.add('hidden');
         
