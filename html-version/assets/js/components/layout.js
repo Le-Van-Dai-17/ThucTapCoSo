@@ -41,13 +41,25 @@ const ROLE_PERMISSIONS = {
         'purchase-orders.html',
         'products.html',
         'sales-data.html',
-        'inventory-adjustment.html',
+        'reconciliation.html',
         'activity-log.html',
         'profile.html'
     ]
 };
 
 const NAV_ITEMS = [
+    {
+        href: 'dashboard.html',
+        label: 'Dashboard',
+        icon: 'bar-chart-3',
+        roles: ['Manager']
+    },
+    {
+        href: 'forecast.html',
+        label: 'Forecast',
+        icon: 'trending-up',
+        roles: ['Manager']
+    },
     {
         href: 'pos.html',
         label: 'Sales (POS)',
@@ -65,18 +77,6 @@ const NAV_ITEMS = [
         label: 'Products & Inventory',
         icon: 'box',
         roles: ['Manager', 'Staff']
-    },
-    {
-        href: 'sales-data.html',
-        label: 'Transaction History',
-        icon: 'line-chart',
-        roles: ['Manager', 'Staff']
-    },
-    {
-        href: 'dashboard.html',
-        label: 'Dashboard',
-        icon: 'bar-chart-3',
-        roles: ['Manager']
     },
     {
         href: 'categories.html',
@@ -103,22 +103,16 @@ const NAV_ITEMS = [
         roles: ['Manager']
     },
     {
-        href: 'inventory-adjustment.html',
-        label: 'Shrinkage Report',
-        icon: 'package-minus',
-        roles: ['Staff']
-    },
-    {
         href: 'reconciliation.html',
         label: 'Reconciliation',
         icon: 'clipboard-check',
-        roles: ['Manager']
+        roles: ['Manager', 'Staff']
     },
     {
-        href: 'forecast.html',
-        label: 'Forecast',
-        icon: 'trending-up',
-        roles: ['Manager']
+        href: 'sales-data.html',
+        label: 'Transaction History',
+        icon: 'line-chart',
+        roles: ['Manager', 'Staff']
     },
     {
         href: 'users.html',
@@ -221,7 +215,7 @@ const displayRole = currentUser ? capitalizeFirstLayout(currentUser.role || curr
     const allowedPages = ROLE_PERMISSIONS[displayRole] || [];
 
     if (!allowedPages.includes(currentPage)) {
-        showToast('Báº¡n khÃ´ng cÃ³ quyá»n truy cáº­p trang nÃ y. Vui lÃ²ng Ä‘Äƒng nháº­p láº¡i.', 'info');
+        showToast('You do not have permission to access this page. Please log in again.', 'info');
 
         if (typeof Auth !== 'undefined' && typeof Auth.clear === 'function') {
             Auth.clear();

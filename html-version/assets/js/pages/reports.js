@@ -17,7 +17,8 @@ function formatCurrency(value) {
 
     return new Intl.NumberFormat('vi-VN', {
         style: 'currency',
-        currency: 'VND'
+        currency: 'VND',
+        minimumFractionDigits: 0
     }).format(numberValue);
 }
 
@@ -44,7 +45,7 @@ async function downloadReport(type) {
         window.URL.revokeObjectURL(url);
     } catch (error) {
         console.error('Download report error:', error);
-        showToast('Không thể tải báo cáo. Vui lòng kiểm tra backend.', 'info');
+        showToast('Could not download report. Please check the backend.', 'info');
     }
 }
 
@@ -417,7 +418,7 @@ async function loadReports() {
         renderCategoryChart(categorySales);
     } catch (error) {
         console.error('Load reports error:', error);
-        showError('Không thể tải dữ liệu Reports. Hãy kiểm tra backend, token đăng nhập hoặc API reports.');
+        showError('Could not load report data. Please check backend, login token, or report API.');
         renderEmptyCharts();
     }
 }

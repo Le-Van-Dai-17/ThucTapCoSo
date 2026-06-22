@@ -18,13 +18,13 @@ function setText(id, value) {
 }
 
 function formatNumber(value) {
-    return new Intl.NumberFormat('en-US').format(numberValue(value));
+    return new Intl.NumberFormat('vi-VN').format(numberValue(value));
 }
 
 function formatMoney(value) {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('vi-VN', {
         style: 'currency',
-        currency: 'USD',
+        currency: 'VND',
         notation: Math.abs(numberValue(value)) >= 1000000 ? 'compact' : 'standard',
         maximumFractionDigits: 1
     }).format(numberValue(value));
@@ -34,7 +34,7 @@ function formatDateTime(value) {
     if (!value) return '--';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return String(value);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 }
 
 function percentageChange(current, previous) {
@@ -292,7 +292,7 @@ function renderStockWarnings(rows) {
             <td class="px-5 py-3 text-right text-gray-700">${formatNumber(forecast)}</td>
             <td class="px-5 py-3 text-right text-gray-900 font-semibold">${formatNumber(suggested)}</td>
             <td class="px-5 py-3 text-center"><span class="px-2 py-1 rounded-full text-xs font-semibold ${critical ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}">${critical ? 'Critical' : 'Low'}</span></td>
-            ${isStaff ? '' : `<td class="px-5 py-3 text-center"><button onclick="createLowStockPO(${item.product_id})" class="px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-semibold hover:bg-blue-50 disabled:opacity-50" ${disabled}>Tạo đơn nhập</button></td>`}
+            ${isStaff ? '' : `<td class="px-5 py-3 text-center"><button onclick="createLowStockPO(${item.product_id})" class="px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-semibold hover:bg-blue-50 disabled:opacity-50" ${disabled}>Create PO</button></td>`}
         </tr>`;
     }).join('');
     updateCreateAllPOsButton();
@@ -489,7 +489,7 @@ async function refreshPurchaseSections() {
     renderRecentActivities([], purchaseData, enrichedLowStockItems);
 }
 function renderForecastSummary(lowStock, stats, inventory) {
-    const targetPeriod = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    const targetPeriod = new Date().toLocaleDateString('vi-VN', { month: '2-digit', year: 'numeric' });
     const estimatedImportValue = lowStock.reduce((sum, item) => sum + numberValue(item.recommended_order) * 10000, 0);
     const isStaff = typeof Auth !== 'undefined' && Auth.getRole() === 'staff';
     const rows = [
@@ -558,7 +558,7 @@ function renderRecentActivities(logs, purchases, lowStock) {
 }
 
 function compactNumber(value) {
-    return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(numberValue(value));
+    return new Intl.NumberFormat('vi-VN', { notation: 'compact', maximumFractionDigits: 1 }).format(numberValue(value));
 }
 
 function chartBaseOptions({ yMoney = false } = {}) {

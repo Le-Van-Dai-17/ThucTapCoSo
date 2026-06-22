@@ -1,4 +1,4 @@
-﻿lucide.createIcons();
+lucide.createIcons();
 if (typeof Auth !== 'undefined') Auth.requireAuth();
 
 const params = new URLSearchParams(window.location.search);
@@ -9,7 +9,7 @@ let items = [];
 let source = 'AI Forecast';
 
 function unwrap(res) { return Array.isArray(res) ? res : (res?.data || []); }
-function money(value) { return `${Math.round(Number(value || 0)).toLocaleString('vi-VN')} d`; }
+function money(value) { return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0); }
 function isoDatePlus(days) { const d = new Date(); d.setDate(d.getDate() + Number(days || 0)); return d.toISOString().slice(0, 10); }
 
 async function loadForm() {

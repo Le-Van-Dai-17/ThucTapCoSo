@@ -43,7 +43,7 @@ const Auth = {
 async function apiFetch(endpoint, options = {}, skipAuthRedirect = false) {
     const token = Auth.getToken();
     const headers = {
-        'Content-Type': 'application/json',
+        ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
         ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         ...(options.headers || {})
     };
@@ -57,7 +57,7 @@ async function apiFetch(endpoint, options = {}, skipAuthRedirect = false) {
             data = textStr ? JSON.parse(textStr) : {};
         } catch(e) {
             if (!res.ok) {
-                throw new Error(`Lỗi ${res.status}: Backend chưa hỗ trợ API này hoặc trả về HTML. Vui lòng báo cho BE.`);
+                throw new Error(`Error ${res.status}: Backend does not support this API or returned HTML. Please check the backend.`);
             }
             data = {};
         }
@@ -70,14 +70,14 @@ async function apiFetch(endpoint, options = {}, skipAuthRedirect = false) {
         }
 
         if (!res.ok) {
-            throw new Error(data.message || `Lỗi ${res.status}`);
+            throw new Error(data.message || `Error ${res.status}`);
         }
 
         return data;
 
     } catch (err) {
         if (err.name === 'TypeError' && err.message.includes('fetch')) {
-            console.warn('[API] Backend chưa khởi động.');
+            console.warn('[API] Backend is offline.');
             throw new Error('BACKEND_OFFLINE');
         }
         throw err;
@@ -149,7 +149,7 @@ const API = {
         async delete(id)    { return apiFetch(`/purchases/delete/${id}`, { method: 'DELETE' }); },
         async approve(id)   { return apiFetch(`/purchases/approve/${id}`, { method: 'PUT' }); },
         async ship(id)      { return apiFetch(`/purchases/ship/${id}`, { method: 'PUT' }); },
-        async receive(id, data)   { return apiFetch(`/purchases/receive/${id}`, { method: 'PUT', body: JSON.stringify(data) }); },
+        async receive(id, data)   { return apiFetch(`/purchases/receive/${id}`, { method: 'PUT', body: data instanceof FormData ? data : JSON.stringify(data) }); },
         async cancel(id)    { return apiFetch(`/purchases/cancel/${id}`, { method: 'PUT' }); }
     },
 
@@ -237,7 +237,7 @@ const API = {
                 headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
             }).then(res => {
                 if (res.status === 401) { Auth.logout(); return; }
-                if (res.status === 403) throw new Error('Ban khong co quyen thuc hien thao tac nay.');
+                if (res.status === 403) throw new Error('You do not have permission to perform this action.');
                 if (!res.ok) throw new Error('Cannot download Excel');
                 return res.blob();
             });
@@ -247,7 +247,7 @@ const API = {
                 headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
             }).then(res => {
                 if (res.status === 401) { Auth.logout(); return; }
-                if (res.status === 403) throw new Error('Ban khong co quyen thuc hien thao tac nay.');
+                if (res.status === 403) throw new Error('You do not have permission to perform this action.');
                 if (!res.ok) throw new Error('Cannot download PDF');
                 return res.blob();
             });
@@ -279,7 +279,7 @@ const API = {
     }
 };
 
-function showLoading(tbodyId, message = 'Đang tải dữ liệu...') {
+function showLoading(tbodyId, message = 'Loading data...') {
     const el = document.getElementById(tbodyId);
     if (!el) return;
     el.innerHTML = `

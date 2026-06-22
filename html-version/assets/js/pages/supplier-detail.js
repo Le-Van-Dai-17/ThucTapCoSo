@@ -8,8 +8,8 @@ let products = [];
 let orders = [];
 
 function unwrap(res) { return Array.isArray(res) ? res : (res?.data || []); }
-function money(value) { return `${Math.round(Number(value || 0)).toLocaleString('vi-VN')} d`; }
-function fmtDate(value) { return value ? new Date(value).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '--'; }
+function money(value) { return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0); }
+function fmtDate(value) { return value ? new Date(value).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '--'; }
 function statusBadge(status) {
     const s = String(status || 'Draft').toLowerCase();
     const cls = s.includes('received') || s.includes('completed') ? 'bg-green-50 text-green-700' : s.includes('pending') ? 'bg-orange-50 text-orange-700' : s.includes('approved') ? 'bg-blue-50 text-blue-700' : s.includes('cancel') ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-700';

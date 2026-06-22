@@ -61,32 +61,32 @@ function normalizeActionText(action) {
     if (!action) return 'Unknown action';
 
     const map = {
-        CREATE_USER: 'Tạo người dùng',
-        UPDATE_USER: 'Cập nhật người dùng',
-        DELETE_USER: 'Xóa / vô hiệu hóa người dùng',
+        CREATE_USER: 'Create user',
+        UPDATE_USER: 'Update user',
+        DELETE_USER: 'Delete / disable user',
 
-        LOGIN_SUCCESS: 'Đăng nhập thành công',
+        LOGIN_SUCCESS: 'Login success',
 
-        CREATE_PRODUCT: 'Tạo sản phẩm',
-        UPDATE_PRODUCT: 'Cập nhật sản phẩm',
-        DELETE_PRODUCT: 'Ngừng kinh doanh sản phẩm',
+        CREATE_PRODUCT: 'Create product',
+        UPDATE_PRODUCT: 'Update product',
+        DELETE_PRODUCT: 'Discontinue product',
 
-        CREATE_SALE: 'Tạo dữ liệu bán hàng',
-        IMPORT_SALES_CSV: 'Import dữ liệu bán hàng CSV',
-        IMPORT_SALES_DATA: 'Import dữ liệu bán hàng',
+        CREATE_SALE: 'Create sale data',
+        IMPORT_SALES_CSV: 'Import sales CSV',
+        IMPORT_SALES_DATA: 'Import sales data',
 
-        RUN_FORECAST: 'Chạy dự báo',
+        RUN_FORECAST: 'Run forecast',
 
-        CREATE_PURCHASE: 'Tạo đơn nhập hàng',
-        CREATE_PURCHASE_ORDER: 'Tạo đơn nhập hàng',
-        UPDATE_PURCHASE: 'Cập nhật đơn nhập hàng',
-        UPDATE_PURCHASE_ORDER: 'Cập nhật đơn nhập hàng',
-        DELETE_PURCHASE: 'Xóa đơn nhập hàng',
-        DELETE_PURCHASE_ORDER: 'Xóa đơn nhập hàng',
-        RECEIVE_PURCHASE: 'Xác nhận nhập kho',
-        RECEIVE_PURCHASE_ORDER: 'Xác nhận nhập kho',
+        CREATE_PURCHASE: 'Create purchase order',
+        CREATE_PURCHASE_ORDER: 'Create purchase order',
+        UPDATE_PURCHASE: 'Update purchase order',
+        UPDATE_PURCHASE_ORDER: 'Update purchase order',
+        DELETE_PURCHASE: 'Delete purchase order',
+        DELETE_PURCHASE_ORDER: 'Delete purchase order',
+        RECEIVE_PURCHASE: 'Confirm receipt',
+        RECEIVE_PURCHASE_ORDER: 'Confirm receipt',
 
-        VIEW_FORECAST_DETAIL: 'Xem chi tiết dự báo'
+        VIEW_FORECAST_DETAIL: 'View forecast detail'
     };
 
     return map[action] || action;
@@ -95,23 +95,23 @@ function normalizeActionText(action) {
 function getActionBadgeClasses(action) {
     const l = String(action || '').toLowerCase();
 
-    if (l.includes('login') || l.includes('logout') || l.includes('đăng nhập')) {
-        return 'bg-blue-100 text-blue-700 border border-blue-200'; // xanh dương
+    if (l.includes('login') || l.includes('logout')) {
+        return 'bg-blue-100 text-blue-700 border border-blue-200'; // blue
     }
     if (l.includes('import') || l.includes('export')) {
-        return 'bg-purple-100 text-purple-700 border border-purple-200'; // tím
+        return 'bg-purple-100 text-purple-700 border border-purple-200'; // purple
     }
-    if (l.includes('forecast') || l.includes('dự báo')) {
-        return 'bg-orange-100 text-orange-700 border border-orange-200'; // cam
+    if (l.includes('forecast') || l.includes('prediction')) {
+        return 'bg-orange-100 text-orange-700 border border-orange-200'; // orange
     }
-    if (l.includes('create') || l.includes('tạo')) {
-        return 'bg-green-100 text-green-700 border border-green-200'; // xanh lá
+    if (l.includes('create') || l.includes('add')) {
+        return 'bg-green-100 text-green-700 border border-green-200'; // green
     }
-    if (l.includes('delete') || l.includes('xóa') || l.includes('ngừng')) {
-        return 'bg-red-100 text-red-700 border border-red-200'; // đỏ
+    if (l.includes('delete') || l.includes('remove') || l.includes('discontinue')) {
+        return 'bg-red-100 text-red-700 border border-red-200'; // red
     }
-    if (l.includes('update') || l.includes('cập nhật') || l.includes('modified')) {
-        return 'bg-yellow-100 text-yellow-800 border border-yellow-200'; // vàng
+    if (l.includes('update') || l.includes('modify') || l.includes('edit') || l.includes('modified')) {
+        return 'bg-yellow-100 text-yellow-800 border border-yellow-200'; // yellow
     }
 
     return 'bg-gray-100 text-gray-700 border border-gray-200';
@@ -228,7 +228,7 @@ async function loadActivityLogs() {
         tableBody.innerHTML = `
             <tr>
                 <td colspan="5" class="px-6 py-10 text-center text-gray-500">
-                    Đang tải nhật ký hoạt động...
+                    Loading activity log...
                 </td>
             </tr>
         `;
@@ -249,7 +249,7 @@ async function loadActivityLogs() {
         renderData();
 
     } catch (error) {
-        console.error('Lỗi tải Activity Log:', error);
+        console.error('Error loading Activity Log:', error);
 
         activities = [];
 
@@ -267,7 +267,7 @@ async function loadActivityLogs() {
         tableBody.innerHTML = `
             <tr>
                 <td colspan="5" class="px-6 py-10 text-center text-red-500">
-                    Không thể tải nhật ký hoạt động từ backend.
+                    Could not load activity log from backend.
                     <br>
                     <span class="text-xs text-gray-500">
                         ${escapeHtml(error.message)}
@@ -469,7 +469,7 @@ function renderData() {
         const matchesUser =
             selectedUser === 'All Users' ||
             activity.user === selectedUser;
-            
+
         const matchesAction =
             selectedAction === 'All Actions' ||
             activity.action === selectedAction;

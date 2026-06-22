@@ -12,6 +12,7 @@ let editingId   = null;
 
 const searchInput    = document.getElementById('searchInput');
 const categoryFilter = document.getElementById('categoryFilter');
+const stockFilter    = document.getElementById('stockFilter');
 const tableBody      = document.getElementById('tableBody');
 const statsCards     = document.getElementById('statsCards');
 
@@ -43,7 +44,7 @@ async function loadProducts() {
 // HELPERS
 // ============================================================
 function formatCurrency(v) {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0);
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v || 0);
 }
 function getStockHtml(stock, minStock, maxStock) {
     if (stock === 0) return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Out of Stock (${stock})</span>`;
@@ -81,10 +82,22 @@ function renderStats(data) {
 function renderTable() {
     const query = (searchInput?.value || '').toLowerCase();
     const cat   = categoryFilter?.value || 'All Categories';
+    const stockStatus = stockFilter?.value || 'All Statuses';
     const filtered = allProducts.filter(p => {
         const matchSearch = (p.name || '').toLowerCase().includes(query) || (p.sku || '').toLowerCase().includes(query);
         const matchCat = cat === 'All Categories' || String(p.category_id) === String(cat) || p.category === cat;
-        return matchSearch && matchCat;
+        
+        let matchStock = true;
+        const warningLevel = p.warning_stock_level || p.min_stock_level || p.min_stock || 0;
+        if (stockStatus === 'In Stock') {
+            matchStock = p.current_stock > 0;
+        } else if (stockStatus === 'Low Stock') {
+            matchStock = p.current_stock > 0 && p.current_stock <= warningLevel;
+        } else if (stockStatus === 'Out of Stock') {
+            matchStock = p.current_stock === 0;
+        }
+        
+        return matchSearch && matchCat && matchStock;
     });
 
     tableBody.innerHTML = '';
@@ -318,6 +331,7 @@ window.confirmDeleteProduct = async function () {
 
 if (searchInput)    searchInput.addEventListener('input', renderTable);
 if (categoryFilter) categoryFilter.addEventListener('change', renderTable);
+if (stockFilter)    stockFilter.addEventListener('change', renderTable);
 
   document.addEventListener('DOMContentLoaded', () => {
       fetchAndPopulateCategories().then(() => loadProducts());

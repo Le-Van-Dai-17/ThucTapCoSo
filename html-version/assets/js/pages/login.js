@@ -1,11 +1,11 @@
 lucide.createIcons();
 
-// Đã đăng nhập rồi → không cần vào đây nữa
+// Already logged in -> no need to visit this page
 if (typeof Auth !== 'undefined' && Auth.isLoggedIn()) {
     window.location.href = typeof Auth.getHomePage === 'function' ? Auth.getHomePage() : 'dashboard.html';
 }
 
-// Toggle hiện/ẩn mật khẩu
+// Toggle show/hide password
 const togglePassword = document.getElementById('togglePassword');
 const passwordInput  = document.getElementById('password');
 if (togglePassword && passwordInput) {
@@ -17,7 +17,7 @@ if (togglePassword && passwordInput) {
     });
 }
 
-// Xử lý submit form login
+// Handle login form submit
 document.getElementById('loginForm').addEventListener('submit', async function (e) {
     e.preventDefault();
 
@@ -29,7 +29,7 @@ document.getElementById('loginForm').addEventListener('submit', async function (
     if (errorBox) { errorBox.classList.add('hidden'); errorBox.textContent = ''; }
 
     if (!username || !password) {
-        showLoginError(errorBox, 'Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.');
+        showLoginError(errorBox, 'Please enter both username and password.');
         return;
     }
 
@@ -38,7 +38,7 @@ document.getElementById('loginForm').addEventListener('submit', async function (
     submitBtn.innerHTML = `
         <span class="flex items-center justify-center gap-2">
             <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            Đang đăng nhập...
+            Logging in...
         </span>`;
 
     try {
@@ -58,21 +58,21 @@ document.getElementById('loginForm').addEventListener('submit', async function (
             } else if (role === 'staff') {
                 window.location.href = 'purchase-orders.html';
             } else {
-                showToast('Tài khoản chưa được phân quyền hợp lệ.', 'info');
+                showToast('Account is not assigned to a valid role.', 'info');
                 Auth.clear();
                 window.location.href = 'login.html';
             }
         } else {
-            // Server trả 200 nhưng success: false (hiếm)
-            showLoginError(errorBox, result?.message || 'Đăng nhập thất bại.');
+            // Server returned 200 but success: false (rare)
+            showLoginError(errorBox, result?.message || 'Login failed.');
         }
 
     } catch (err) {
         if (err.message === 'BACKEND_OFFLINE') {
-            showLoginError(errorBox, '⚠️ Không kết nối được server. Hãy chắc Kiệt đã chạy: cd backend → npm run dev');
+            showLoginError(errorBox, '⚠️ Cannot connect to server. Please make sure the backend is running.');
         } else {
-            // Sai mật khẩu → server trả 401 → apiFetch throw message từ server
-            showLoginError(errorBox, err.message || 'Sai tên đăng nhập hoặc mật khẩu.');
+            // Invalid password -> server returns 401 -> apiFetch throws message from server
+            showLoginError(errorBox, err.message || 'Invalid username or password.');
         }
     } finally {
         submitBtn.disabled = false;

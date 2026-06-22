@@ -1,22 +1,36 @@
 const { pool } = require('../db');
-const { safeLogAction, getActorId } = require('./activityLogController');
+const { safeLogAction, getActorId } = require('../utils/controllerUtils');
 const notificationService = require('../services/notificationService');
 
 exports.getPendingDiscrepancies = async (req, res) => {
     try {
-        const [rows] = await pool.query(`
+        const userRole = String(req.user?.role || '').trim().toLowerCase();
+        const userId = getActorId(req);
+
+        let query = `
             SELECT d.*, 
                    pi.product_id, p.name as product_name, p.sku,
                    po.po_code, po.supplier_id, s.name as supplier_name,
-                   u.full_name as reported_by_name
+                   u.full_name as reported_by_name,
+                   approver.full_name as approved_by_name
             FROM po_discrepancies d
             JOIN po_items pi ON d.po_item_id = pi.po_item_id
             JOIN products p ON pi.product_id = p.product_id
             JOIN purchase_orders po ON d.po_id = po.po_id
             JOIN suppliers s ON po.supplier_id = s.supplier_id
             JOIN users u ON d.reported_by = u.user_id
-            ORDER BY d.created_at DESC
-        `);
+            LEFT JOIN users approver ON po.approved_by = approver.user_id
+        `;
+
+        const params = [];
+        if (userRole === 'staff') {
+            query += ' WHERE d.reported_by = ?';
+            params.push(userId);
+        }
+
+        query += ' ORDER BY d.created_at DESC';
+
+        const [rows] = await pool.query(query, params);
         res.status(200).json({ success: true, data: rows });
     } catch (error) {
         console.error('Error fetching discrepancies:', error);
@@ -76,13 +90,25 @@ exports.resolveDiscrepancy = async (req, res) => {
 
 exports.getPendingAdjustments = async (req, res) => {
     try {
-        const [rows] = await pool.query(`
+        const userRole = String(req.user?.role || '').trim().toLowerCase();
+        const userId = getActorId(req);
+
+        let query = `
             SELECT a.*, p.name as product_name, p.sku, u.full_name as reported_by_name
             FROM inventory_adjustments a
             JOIN products p ON a.product_id = p.product_id
             JOIN users u ON a.reported_by = u.user_id
-            ORDER BY a.created_at DESC
-        `);
+        `;
+
+        const params = [];
+        if (userRole === 'staff') {
+            query += ' WHERE a.reported_by = ?';
+            params.push(userId);
+        }
+
+        query += ' ORDER BY a.created_at DESC';
+
+        const [rows] = await pool.query(query, params);
         res.status(200).json({ success: true, data: rows });
     } catch (error) {
         console.error('Error fetching adjustments:', error);
