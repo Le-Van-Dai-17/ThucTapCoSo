@@ -138,8 +138,25 @@ async function loadData() {
     }
 }
 
+function renderEvidence(evidence_url) {
+    if (!evidence_url) return '<span class="text-gray-400 text-xs italic">N/A</span>';
+    let urls = [];
+    try {
+        urls = typeof evidence_url === 'string' && evidence_url.startsWith('[') ? JSON.parse(evidence_url) : [evidence_url];
+    } catch (e) {
+        urls = [evidence_url];
+    }
+    if (urls.length === 0) return '<span class="text-gray-400 text-xs italic">N/A</span>';
+    
+    return `<div class="flex items-center gap-1 flex-wrap">` + 
+        urls.map(url => {
+            const fullUrl = API_BASE_URL.replace('/api', '') + url;
+            return `<img src="${fullUrl}" class="w-8 h-8 object-cover rounded cursor-pointer border border-gray-200 hover:opacity-80 transition-opacity" onclick="event.stopPropagation(); window.openImageViewer(this.src)" title="Click to view" />`;
+        }).join('') + `</div>`;
+}
+
 function filterRecords(records) {
-    const search = document.getElementById('searchInput').value.toLowerCase().trim();
+    const search = document.getElementById('searchInput').value.trim().toLowerCase();
     const status = document.getElementById('statusFilter').value;
     const dateRange = document.getElementById('dateFilter').value;
 
@@ -203,7 +220,7 @@ function renderTable() {
                     </td>
                     <td class="px-6 py-4 text-gray-900 font-medium">${r.reason}</td>
                     <td class="px-6 py-4">
-                        ${r.evidence_url ? `<a href="${API_BASE_URL.replace('/api', '')}${r.evidence_url}" target="_blank" class="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"><i data-lucide="image" class="w-4 h-4"></i> View</a>` : '<span class="text-gray-400 text-xs italic">N/A</span>'}
+                        ${renderEvidence(r.evidence_url)}
                     </td>
                     <td class="px-6 py-4">
                         <span class="px-2.5 py-1 text-xs font-medium rounded-full ${r.status === 'Pending' ? 'bg-amber-50 text-amber-600' : r.status === 'Rejected' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}">
@@ -240,7 +257,7 @@ function renderTable() {
                     </td>
                     <td class="px-6 py-4 text-gray-900 font-medium">${r.reason}</td>
                     <td class="px-6 py-4">
-                        ${r.evidence_url ? `<a href="${API_BASE_URL.replace('/api', '')}${r.evidence_url}" target="_blank" class="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"><i data-lucide="image" class="w-4 h-4"></i> View</a>` : '<span class="text-gray-400 text-xs italic">N/A</span>'}
+                        ${renderEvidence(r.evidence_url)}
                     </td>
                     <td class="px-6 py-4">
                         <span class="px-2.5 py-1 text-xs font-medium rounded-full ${r.status === 'Pending' ? 'bg-amber-50 text-amber-600' : r.status === 'Rejected' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}">
@@ -263,9 +280,11 @@ window.openActionModal = async function(id, type) {
     if (!record) return;
 
     // Populate Modal Read-only Data
-    document.getElementById('modalReportedBy').textContent = record.reported_by_name || 'Unknown User';
-    document.getElementById('modalReportDate').textContent = new Date(record.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    document.getElementById('modalReason').textContent = record.reason;
+    if (record) {
+        document.getElementById('modalReportDate').textContent = new Date(record.created_at).toLocaleString('vi-VN');
+        document.getElementById('modalReportedBy').textContent = record.reported_by_name || 'N/A';
+        document.getElementById('modalReason').textContent = record.reason || 'No specific reason provided';
+    }
     
     // Additional Note is not supported by the DB schema, so we hide it or leave empty
     const modalNoteContainer = document.getElementById('modalNote').parentElement;
@@ -393,6 +412,10 @@ window.submitResolution = async function(status) {
         showToast('Please provide a resolution note (e.g. how was the missing quantity handled).', 'warning');
         document.getElementById('resolutionNote').focus();
         return;
+    }
+
+    if (status === 'Resolved' && currentTab === 'INV') {
+        status = 'Approved'; // The API expects 'Approved' for inventory adjustments
     }
 
     const endpoint = currentTab === 'PO' 
