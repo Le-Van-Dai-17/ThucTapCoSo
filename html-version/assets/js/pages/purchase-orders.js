@@ -7,11 +7,22 @@ let currentPOIdToDelete = null;
 let editingOrderId = null;
 
 const statusConfig = {
+<<<<<<< HEAD
     pending:     { label: "Pending",     color: "bg-orange-100 text-orange-700" },
     approved:    { label: "Approved",    color: "bg-blue-100 text-blue-700" },
     received:    { label: "Received",    color: "bg-green-100 text-green-700" },
     discrepancy: { label: "Discrepancy", color: "bg-yellow-100 text-yellow-700" },
     cancelled:   { label: "Cancelled",   color: "bg-red-100 text-red-700" },
+=======
+    draft:     { label: "Draft",     color: "bg-gray-100 text-gray-700" },
+    pending:   { label: "Pending",   color: "bg-orange-100 text-orange-700" },
+    approved:  { label: "Approved",  color: "bg-blue-100 text-blue-700" },
+    shipped:   { label: "Shipped",   color: "bg-purple-100 text-purple-700" },
+    received:  { label: "Received",  color: "bg-green-100 text-green-700" },
+    completed: { label: "Received",  color: "bg-green-100 text-green-700" },
+    cancelled: { label: "Cancelled", color: "bg-red-100 text-red-700" },
+    discrepancy: { label: "⚠️ Discrepancy", color: "bg-amber-100 text-amber-800 border border-amber-300 font-bold" },
+>>>>>>> origin/kit-backend
 };
 
 const statusFilter        = document.getElementById('statusFilter');
@@ -51,7 +62,7 @@ async function loadOrders() {
         }));
         
         if (isStaff) {
-            allOrders = allOrders.filter(o => ['approved', 'received', 'discrepancy'].includes(o.status));
+            allOrders = allOrders.filter(o => ['approved', 'shipped', 'completed', 'received', 'discrepancy'].includes(o.status));
         }
     } catch (err) {
         console.warn('Backend error:', err.message);
@@ -148,7 +159,9 @@ function renderTable() {
         const canComplete = ['approved'].includes(order.status);
         const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
         const tr = document.createElement('tr');
-        tr.className = 'hover:bg-gray-50 transition-colors';
+        tr.className = order.status === 'discrepancy'
+            ? 'bg-amber-50/50 hover:bg-amber-100/50 transition-colors border-l-4 border-amber-500 font-medium'
+            : 'hover:bg-gray-50 transition-colors';
         tr.innerHTML = `
             <td class="px-5 py-4 font-semibold text-gray-950">${order.order_number || order.po_code || '--'}</td>
             <td class="px-5 py-4 text-gray-700">${order.supplier_name || '--'}</td>
@@ -232,6 +245,7 @@ window.openConfirmReceive = async function(id) {
             evidence_file: null
         }));
         
+<<<<<<< HEAD
         window.renderReceivePOModal = function() {
             if (container) {
                 if (window.receiveItemsData.length === 0) {
@@ -252,12 +266,12 @@ window.openConfirmReceive = async function(id) {
                                 <div class="flex flex-wrap items-center justify-between gap-2">
                                     <div class="flex-1 min-w-[200px]">
                                         <select id="reasonSelect_${idx}" class="text-xs border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500 w-full" onchange="updatePoReason(${idx}, this.value)">
-                                            <option value="" disabled ${!item.reason ? 'selected' : ''}>Chọn lý do chênh lệch...</option>
-                                            <option value="Missing" ${item.reason === 'Missing' ? 'selected' : ''}>Missing (Giao thiếu)</option>
-                                            <option value="Damaged" ${item.reason === 'Damaged' ? 'selected' : ''}>Damaged (Hư hỏng)</option>
-                                            <option value="Moldy" ${item.reason === 'Moldy' ? 'selected' : ''}>Moldy (Ẩm mốc)</option>
-                                            <option value="Torn Packaging" ${item.reason === 'Torn Packaging' ? 'selected' : ''}>Torn Packaging (Rách bao bì)</option>
-                                            <option value="Other" ${item.reason === 'Other' ? 'selected' : ''}>Other (Lý do khác)</option>
+                                            <option value="" disabled ${!item.reason ? 'selected' : ''}>Select discrepancy reason...</option>
+                                            <option value="Missing" ${item.reason === 'Missing' ? 'selected' : ''}>Missing</option>
+                                            <option value="Damaged" ${item.reason === 'Damaged' ? 'selected' : ''}>Damaged</option>
+                                            <option value="Moldy" ${item.reason === 'Moldy' ? 'selected' : ''}>Moldy</option>
+                                            <option value="Torn Packaging" ${item.reason === 'Torn Packaging' ? 'selected' : ''}>Torn Packaging</option>
+                                            <option value="Other" ${item.reason === 'Other' ? 'selected' : ''}>Other</option>
                                         </select>
                                     </div>
                                     <div class="flex items-center flex-wrap gap-2 shrink-0">
@@ -276,7 +290,7 @@ window.openConfirmReceive = async function(id) {
                                     </div>
                                 </div>
                                 <div id="reasonOtherContainer_${idx}" class="${item.reason === 'Other' ? 'w-full' : 'hidden'}">
-                                    <input type="text" id="reasonOther_${idx}" placeholder="Nhập lý do cụ thể..." class="w-full text-xs border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500" value="${item.reasonOther || ''}" oninput="updatePoReasonOther(${idx}, this.value)" />
+                                    <input type="text" id="reasonOther_${idx}" placeholder="Enter specific reason..." class="w-full text-xs border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500" value="${item.reasonOther || ''}" oninput="updatePoReasonOther(${idx}, this.value)" />
                                 </div>
                             </div>
                         </div>
@@ -293,12 +307,24 @@ window.openConfirmReceive = async function(id) {
 
 window.toggleReasonSelect = function(idx, orderedQty) {
     const inputEl = document.getElementById(`actualQtyInput_${idx}`);
+    const reasonContainer = document.getElementById(`reasonContainer_${idx}`);
     if (inputEl) {
         let val = parseInt(inputEl.value);
         if (isNaN(val)) val = 0;
         if (val > orderedQty) {
+            showToast(`Received quantity cannot exceed ordered quantity (${orderedQty})`, 'error');
             val = orderedQty;
             inputEl.value = orderedQty;
+        }
+        if (reasonContainer) {
+            if (val !== parseInt(orderedQty)) {
+                reasonContainer.classList.remove('hidden');
+                reasonContainer.classList.add('flex');
+            } else {
+                reasonContainer.classList.add('hidden');
+                reasonContainer.classList.remove('flex');
+            }
+        }
         }
         window.receiveItemsData[idx].actual_quantity = val;
         if (val === orderedQty) {
@@ -348,6 +374,8 @@ window.closeConfirmReceive = function() {
     window.receiveItemsData = null;
     const noteEl = document.getElementById('receiveNoteInput');
     if (noteEl) noteEl.value = '';
+    const fileEl = document.getElementById('receiveImage');
+    if (fileEl) fileEl.value = '';
 };
 
 document.getElementById('btnProceedReceive')?.addEventListener('click', async () => {
@@ -419,9 +447,20 @@ document.getElementById('btnProceedReceive')?.addEventListener('click', async ()
             };
         });
 
+        const exceedingItems = finalPayloadItems.filter(p => {
+            const ordered = window.receiveItemsData.find(i => i.product_id === p.product_id).ordered_quantity;
+            return p.received_quantity > ordered;
+        });
+        if (exceedingItems.length > 0) {
+            btn.disabled = false;
+            btn.textContent = 'Confirm Receipt';
+            showToast('Received quantity cannot exceed ordered quantity!', 'error');
+            return;
+        }
+
         const finalItems = await Promise.all(promises);
         const noteEl = document.getElementById('receiveNoteInput');
-        const noteVal = noteEl ? noteEl.value : '';
+        const noteVal = noteEl ? noteEl.value.trim() : '';
 
         const res = await API.orders.receive(currentPOIdToReceive, { items: finalItems, note: noteVal });
 
@@ -462,23 +501,29 @@ window.viewDetail = async function (id) {
         const cfg = statusConfig[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-700' };
 
         const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
-        let rows = details.map((d, i) => `
+        let rows = details.map((d, i) => {
+            const ordered = d.quantity || d.ordered_quantity || 0;
+            const received = d.received_quantity || 0;
+            const isShort = received < ordered;
+            const textClass = isShort ? 'text-red-600' : 'text-[#10B981]';
+            return `
             <tr class="border-b border-gray-100">
                 <td class="py-4 text-center text-gray-500">${i+1}</td>
                 <td class="py-4 text-gray-900 font-medium">${d.product_name || 'N/A'}</td>
-                <td class="py-4 text-center text-gray-700 font-semibold">${d.quantity || d.ordered_quantity}</td>
-                <td class="py-4 text-center text-[#10B981] font-semibold">${d.received_quantity || 0}</td>
+                <td class="py-4 text-center text-gray-700 font-semibold">${ordered}</td>
+                <td class="py-4 text-center ${textClass} font-semibold">${received}</td>
                 ${isStaff ? '' : `
                 <td class="py-4 text-right text-gray-700">${formatCurrency(d.unit_price || d.unit_cost)}</td>
                 <td class="py-4 text-right font-bold text-gray-900">${formatCurrency(d.total_amount || d.line_total)}</td>
                 `}
-            </tr>`).join('');
+            </tr>`;
+        }).join('');
 
         let staffNoteHtml = '';
         if (result.order && result.order.staff_note) {
             staffNoteHtml = `
                 <div class="col-span-2 bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-xl text-sm font-medium">
-                    <span class="font-bold">Ghi chú nhận hàng:</span> ${result.order.staff_note}
+                    <span class="font-bold">Receiving Note:</span> ${result.order.staff_note}
                 </div>
             `;
         }
@@ -734,7 +779,7 @@ document.getElementById('addPOItemBtn')?.addEventListener('click', function() {
     const existingProd = window.dbProductsList ? window.dbProductsList.find(p => p.name.toLowerCase() === productName.toLowerCase()) : null;
 
     if (!existingProd) {
-        showToast('Chỉ có thể nhập các sản phẩm đã có trong hệ thống!', 'error');
+        showToast('Only existing products in the system can be added!', 'error');
         return;
     }
 
@@ -798,11 +843,11 @@ window.removeSelectedItem = function(index) {
 };
 
 // HELPERS
-function formatCurrency(v) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0); }
+function formatCurrency(v) { return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v || 0); }
 function formatDate(str) {
     if (!str || str === '--') return '--';
     const d = new Date(str);
-    return isNaN(d) ? str : d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    return isNaN(d) ? str : d.toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' });
 }
 
 
@@ -831,36 +876,36 @@ window.openActionModal = function(id, type) {
     btn.className = 'flex-1 px-4 py-3 text-white rounded-xl transition-all font-medium shadow-sm ';
     
     if (type === 'delete') {
-        titleEl.textContent = 'Xóa đơn hàng';
-        descEl.textContent = 'Bạn có chắc chắn muốn xóa đơn hàng này? Hành động này không thể hoàn tác.';
+        titleEl.textContent = 'Delete Order';
+        descEl.textContent = 'Are you sure you want to delete this purchase order? This action cannot be undone.';
         iconBg.className = 'w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center';
         icon.className = 'w-6 h-6 text-red-600';
         icon.setAttribute('data-lucide', 'trash-2');
-        btn.textContent = 'Xóa đơn hàng';
+        btn.textContent = 'Delete Order';
         btn.classList.add('bg-red-600', 'hover:bg-red-700');
     } else if (type === 'cancel') {
-        titleEl.textContent = 'Hủy đơn hàng';
-        descEl.textContent = 'Bạn có chắc chắn muốn hủy đơn hàng này?';
+        titleEl.textContent = 'Cancel Order';
+        descEl.textContent = 'Are you sure you want to cancel this purchase order?';
         iconBg.className = 'w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center';
         icon.className = 'w-6 h-6 text-red-600';
         icon.setAttribute('data-lucide', 'x-circle');
-        btn.textContent = 'Hủy đơn hàng';
+        btn.textContent = 'Cancel Order';
         btn.classList.add('bg-red-600', 'hover:bg-red-700');
     } else if (type === 'approve') {
-        titleEl.textContent = 'Duyệt đơn hàng';
-        descEl.textContent = 'Bạn có chắc chắn muốn duyệt đơn hàng này?';
+        titleEl.textContent = 'Approve Order';
+        descEl.textContent = 'Are you sure you want to approve this purchase order?';
         iconBg.className = 'w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center';
         icon.className = 'w-6 h-6 text-purple-600';
         icon.setAttribute('data-lucide', 'check-circle');
-        btn.textContent = 'Duyệt đơn hàng';
+        btn.textContent = 'Approve Order';
         btn.classList.add('bg-purple-600', 'hover:bg-purple-700');
     } else if (type === 'ship') {
-        titleEl.textContent = 'Giao hàng';
-        descEl.textContent = 'Xác nhận chuyển trạng thái đơn hàng sang Đang giao (Shipped)?';
+        titleEl.textContent = 'Ship Order';
+        descEl.textContent = 'Confirm changing purchase order status to Shipped?';
         iconBg.className = 'w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center';
         icon.className = 'w-6 h-6 text-yellow-600';
         icon.setAttribute('data-lucide', 'truck');
-        btn.textContent = 'Đang giao';
+        btn.textContent = 'Ship Order';
         btn.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
     }
     
@@ -879,20 +924,20 @@ document.getElementById('btnProceedAction')?.addEventListener('click', async () 
     const btn = document.getElementById('btnProceedAction');
     const originalText = btn.textContent;
     btn.disabled = true;
-    btn.textContent = 'Đang xử lý...';
+    btn.textContent = 'Processing...';
     try {
         if (currentActionType === 'delete') {
             await API.orders.delete(currentActionId);
-            showToast('Đã xóa đơn hàng!', 'success');
+            showToast('Purchase order deleted!', 'success');
         } else if (currentActionType === 'cancel') {
             await API.orders.cancel(currentActionId);
-            showToast('Đã hủy đơn hàng!', 'success');
+            showToast('Purchase order cancelled!', 'success');
         } else if (currentActionType === 'approve') {
             await API.orders.approve(currentActionId);
-            showToast('Đã duyệt đơn hàng!', 'success');
+            showToast('Purchase order approved!', 'success');
         } else if (currentActionType === 'ship') {
             await API.orders.ship(currentActionId);
-            showToast('Đã chuyển trạng thái Đang giao!', 'success');
+            showToast('Status updated to Shipped!', 'success');
         }
         closeConfirmAction();
         await loadOrders();

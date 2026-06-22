@@ -195,7 +195,7 @@ exports.getPurchasesDetail = async (req, res) => {
 
     const order = orders[0];
     const orderStatus = String(order.status).trim().toLowerCase();
-    if (userRole === 'staff' && !['approved', 'shipped', 'completed', 'received'].includes(orderStatus)) {
+    if (userRole === 'staff' && !['approved', 'shipped', 'completed', 'received', 'discrepancy'].includes(orderStatus)) {
       return res.status(403).json({ success: false, message: 'Bạn không có quyền xem chi tiết đơn nhập hàng ở trạng thái này.' });
     }
 
@@ -297,7 +297,15 @@ exports.shipPurchase = async (req, res) => {
 // BE-03: Cho phép Staff truyền mảng items chứa số lượng thực nhận lên để kiểm kho thực tế
 exports.receiveOrder = async (req, res) => {
   const { id } = req.params;
-  const { items, note } = req.body; // Cấu trúc mong đợi: items = [{ product_id: 1, received_quantity: 45 }]
+  let { items, note } = req.body;
+  
+  if (typeof items === 'string') {
+    try {
+      items = JSON.parse(items);
+    } catch (e) {
+      return res.status(400).json({ success: false, message: 'Danh sách sản phẩm không đúng định dạng JSON.' });
+    }
+  }
   
   if (!items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ success: false, message: 'Vui lòng truyền danh sách số lượng thực nhận của các sản phẩm.' });

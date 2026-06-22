@@ -183,7 +183,7 @@ function formatMonthLabel(monthKey) {
     if (!monthKey) return '--';
     const [year, month] = monthKey.split('-').map(Number);
     const date = new Date(year, month - 1, 1);
-    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    return date.toLocaleDateString('vi-VN', { month: '2-digit', year: 'numeric' });
 }
 
 function buildProductForecastSeries(detail) {
@@ -321,10 +321,10 @@ async function openForecastDetail(forecast) {
 
         if (series.accuracy === null) {
             detailAccuracy.textContent = '--';
-            detailAccuracyNote.textContent = 'Chưa đủ tháng có cả doanh số thực tế và dự báo để tính độ chính xác.';
+            detailAccuracyNote.textContent = 'Not enough months with both actual sales and forecast to calculate accuracy.';
         } else {
             detailAccuracy.textContent = `${series.accuracy.toFixed(1)}%`;
-            detailAccuracyNote.textContent = `Tính theo MAPE trên ${series.comparableCount} tháng có đủ actual và predicted.`;
+            detailAccuracyNote.textContent = `Calculated using MAPE on ${series.comparableCount} months with both actual and predicted data.`;
         }
 
         setDetailLoading(false);
@@ -354,11 +354,11 @@ function formatDate(str) {
     if (!str) return '--';
     const d = new Date(str);
     if (isNaN(d)) return str;
-    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' }) + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatMoney(value) {
-    return Number(value || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+    return Number(value || 0).toLocaleString('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 });
 }
 
 function escapeHtml(value) {

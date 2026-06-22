@@ -16,7 +16,7 @@ const addModal = document.getElementById('addModal');
 const deleteModalOverlay = document.getElementById('deleteModalOverlay');
 const deleteModal = document.getElementById('deleteModal');
 
-// Load users từ API
+// Load users from API
 async function loadUsers() {
     if (tableBody) showLoading('tableBody', 'Loading users...');
     try {
@@ -60,7 +60,7 @@ function getRoleBadgeColor(role) {
 function formatDateStr(str) {
     if (!str) return '--';
     const d = new Date(str);
-    return isNaN(d) ? str : d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
+    return isNaN(d) ? str : d.toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' });
 }
 
 // Stats
@@ -143,7 +143,7 @@ function renderTable() {
                 <td class="px-6 py-4">
                     <div class="flex justify-center">
                         <select onchange="changeRole(${user.id}, this.value)"
-                            ${isAdmin ? 'disabled' : ''} title="${isAdmin ? 'Không thể đổi role của Admin' : ''}"
+                            ${isAdmin ? 'disabled' : ''} title="${isAdmin ? 'Cannot change Admin\'s role' : ''}"
                             class="px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border-2 border-transparent hover:border-gray-300 transition-all duration-200 ${badgeColor} outline-none ${isAdmin ? 'opacity-50 cursor-not-allowed' : ''}"
                             style="appearance:none;padding-right:28px;text-align:center;">
                             ${roleOptions}
@@ -152,7 +152,7 @@ function renderTable() {
                 </td>
                 <td class="px-6 py-4">
                     <div class="flex justify-center">
-                        <button onclick="${isAdmin ? 'showToast(\'Không thể khoá tài khoản Admin duy nhất.\', \'info\')' : `toggleStatus(${user.id})`}"
+                        <button onclick="${isAdmin ? 'showToast(\'Cannot lock the only Admin account.\', \'info\')' : `toggleStatus(${user.id})`}"
                             class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${toggleBg} ${isAdmin ? 'opacity-50 cursor-not-allowed' : ''}">
                             <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 shadow-sm ${toggleThumb}"></span>
                         </button>
@@ -166,11 +166,11 @@ function renderTable() {
                 </td>
                 <td class="px-6 py-4">
                     <div class="flex items-center justify-center gap-2">
-                        <button onclick="${isAdmin ? 'showToast(\'Không thể sửa tài khoản Admin.\', \'info\')' : `openEditModal(${user.id})`}"
+                        <button onclick="${isAdmin ? 'showToast(\'Cannot edit Admin account.\', \'info\')' : `openEditModal(${user.id})`}"
                             class="p-2 text-orange-500 hover:bg-orange-50 rounded-lg transition-all duration-150 ${isAdmin ? 'opacity-50 cursor-not-allowed' : ''}" title="Edit Profile">
                             <i data-lucide="edit" class="w-4 h-4"></i>
                         </button>
-                        <button onclick="${isAdmin ? 'showToast(\'Không thể xoá tài khoản Admin duy nhất.\', \'info\')' : `prepareDelete(${user.id})`}"
+                        <button onclick="${isAdmin ? 'showToast(\'Cannot delete the only Admin account.\', \'info\')' : `prepareDelete(${user.id})`}"
                             class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-150 ${isAdmin ? 'opacity-50 cursor-not-allowed' : ''}" title="Delete User">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
@@ -193,13 +193,13 @@ window.toggleStatus = async function (id) {
         user.status = newStatus;
         renderTable();
         formatStats();
-        showToast(`Tài khoản ${user.username} đã ${newStatus === 'active' ? 'kích hoạt' : 'vô hiệu hoá'}.`, 'info');
+        showToast(`Account ${user.username} has been ${newStatus === 'active' ? 'activated' : 'deactivated'}.`, 'info');
     } catch (err) {
-        showToast('Cập nhật thất bại: ' + err.message, 'error');
+        showToast('Update failed: ' + err.message, 'error');
     }
 };
 
-// Đổi role
+// Change role
 window.changeRole = async function (id, newRole) {
     const user = users.find(u => u.id === id);
     if (!user) return;
@@ -209,9 +209,9 @@ window.changeRole = async function (id, newRole) {
         user.role = newRole;
         renderTable();
         formatStats();
-        showToast(`Đã đổi quyền ${user.username} thành ${newRole}.`, 'success');
+        showToast(`Role of ${user.username} successfully changed to ${newRole}.`, 'success');
     } catch (err) {
-        showToast('Đổi quyền thất bại: ' + err.message, 'error');
+        showToast('Change role failed: ' + err.message, 'error');
         // revert select
         renderTable();
     }
@@ -237,11 +237,11 @@ window.confirmDeleteUser = async function () {
     const user = users.find(u => u.id === userToDeleteId);
     try {
         await API.users.delete(userToDeleteId);
-        showToast(`Đã xoá tài khoản ${user?.username || ''}.`, 'success');
+        showToast(`Account ${user?.username || ''} deleted.`, 'success');
         closeDeleteModal();
         await loadUsers(); // Sync
     } catch (err) {
-        showToast('Xoá thất bại: ' + err.message, 'error');
+        showToast('Delete failed: ' + err.message, 'error');
     }
 };
 
@@ -372,7 +372,7 @@ function closeModal(overlay, modal) {
 searchInput.addEventListener('input', renderTable);
 roleFilter.addEventListener('change', renderTable);
 
-// Khởi động
+// Initialize
 loadUsers();
 
 document.addEventListener('DOMContentLoaded', () => {

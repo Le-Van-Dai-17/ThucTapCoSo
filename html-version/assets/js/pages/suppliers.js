@@ -1,4 +1,4 @@
-﻿lucide.createIcons();
+lucide.createIcons();
 if (typeof Auth !== 'undefined') Auth.requireAuth();
 
 let suppliers = [];
@@ -24,7 +24,7 @@ function unwrap(res) {
 }
 
 function money(value) {
-    return `${Math.round(Number(value || 0)).toLocaleString('vi-VN')} d`;
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
 }
 
 function supplierId(supplier) {

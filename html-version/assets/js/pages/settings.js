@@ -113,31 +113,31 @@ function collectSettingsFromForm() {
 
 function validateSettings(settings) {
     if (settings.defaultTimePeriod < 7 || settings.defaultTimePeriod > 365) {
-        return 'Default Analysis Time Period phải nằm trong khoảng 7 đến 365 ngày';
+        return 'Default Analysis Time Period must be between 7 and 365 days';
     }
 
     if (settings.forecastHorizon < 30 || settings.forecastHorizon > 180) {
-        return 'Forecast Horizon phải nằm trong khoảng 30 đến 180 ngày';
+        return 'Forecast Horizon must be between 30 and 180 days';
     }
 
     if (settings.lowStockRange < 0 || settings.lowStockRange > 50) {
-        return 'Low Stock Alert phải nằm trong khoảng 0% đến 50%';
+        return 'Low Stock Alert must be between 0% and 50%';
     }
 
     if (settings.criticalStockRange < 0 || settings.criticalStockRange > 30) {
-        return 'Critical Stock Alert phải nằm trong khoảng 0% đến 30%';
+        return 'Critical Stock Alert must be between 0% and 30%';
     }
 
     if (settings.overStockRange < 100 || settings.overStockRange > 300) {
-        return 'Overstock Alert phải nằm trong khoảng 100% đến 300%';
+        return 'Overstock Alert must be between 100% and 300%';
     }
 
     if (settings.reorderPoint < 0 || settings.reorderPoint > 100) {
-        return 'Default Reorder Point phải nằm trong khoảng 0% đến 100%';
+        return 'Default Reorder Point must be between 0% and 100%';
     }
 
     if (settings.safetyStockDays < 0 || settings.safetyStockDays > 30) {
-        return 'Safety Stock Buffer phải nằm trong khoảng 0 đến 30 ngày';
+        return 'Safety Stock Buffer must be between 0 and 30 days';
     }
 
     return null;
@@ -148,8 +148,8 @@ async function loadSettings() {
         const result = await API.settings.get();
         applySettingsToForm(result.data || result);
     } catch (error) {
-        console.error('Lỗi tải settings:', error);
-        showToast(error.message || 'Không thể tải cấu hình hệ thống', 'error');
+        console.error('Error loading settings:', error);
+        showToast(error.message || 'Could not load system configuration', 'error');
     }
 }
 
@@ -167,14 +167,14 @@ window.toggleSwitch = function (btn) {
 };
 
 window.resetToDefaults = async function () {
-    showConfirmDialog('Bạn có chắc muốn khôi phục toàn bộ cấu hình về mặc định không?', async () => {
+    showConfirmDialog('Are you sure you want to restore all settings to defaults?', async () => {
         try {
             await API.settings.reset();
-            showToast('Cấu hình đã được khôi phục mặc định.', 'info');
+            showToast('Settings have been reset to defaults.', 'info');
             loadSettings();
         } catch (error) {
             console.error('Reset error:', error);
-            showToast('Không thể khôi phục mặc định: ' + error.message, 'info');
+            showToast('Could not reset to defaults: ' + error.message, 'info');
         }
     });
 };
@@ -195,8 +195,8 @@ window.handleSaveSettings = async function (event) {
         state.settings = settings;
         showToast(result.message || 'Settings saved successfully!');
     } catch (error) {
-        console.error('Lỗi lưu settings:', error);
-        showToast(error.message || 'Không thể lưu cấu hình hệ thống', 'error');
+        console.error('Error saving settings:', error);
+        showToast(error.message || 'Could not save system configuration', 'error');
     }
 };
 

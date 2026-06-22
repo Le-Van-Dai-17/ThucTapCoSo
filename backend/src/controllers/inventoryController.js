@@ -4,7 +4,10 @@ const notificationService = require('../services/notificationService');
 
 exports.submitAdjustment = async (req, res) => {
     const { product_id, quantity, reason, type, evidence_url, evidence_urls } = req.body;
-    if (!product_id || !quantity || !reason || quantity <= 0) {
+    const productId = parseInt(product_id);
+    const qty = parseInt(quantity);
+
+    if (!productId || isNaN(qty) || qty <= 0 || !reason) {
         return res.status(400).json({ success: false, message: 'Vui lòng cung cấp đầy đủ ID sản phẩm, số lượng hợp lệ và lý do.' });
     }
 
@@ -20,7 +23,7 @@ exports.submitAdjustment = async (req, res) => {
         const [result] = await pool.query(
             `INSERT INTO inventory_adjustments (product_id, adjustment_type, quantity, reason, evidence_url, reported_by, status)
              VALUES (?, ?, ?, ?, ?, ?, 'Pending')`,
-            [product_id, adjType, quantity, reason, evidenceJson, userId]
+            [productId, adjType, qty, reason, evidenceJson, userId]
         );
 
         await safeLogAction(userId, 'SUBMIT_INVENTORY_ADJUSTMENT', `Staff báo cáo hao hụt sản phẩm ID ${product_id}, số lượng ${quantity}, lý do: ${reason}`, 'inventory_adjustments', result.insertId, req.ip);

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đối soát hao hụt - AI Inventory</title>
+    <title>Reconciliation - AI Inventory</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -20,6 +20,12 @@
                 <div>
                     <h1 class="text-3xl font-semibold text-gray-900 mb-2">Reconciliation</h1>
                     <p class="text-gray-600">Review and resolve purchase order discrepancies and warehouse shrinkage.</p>
+                </div>
+                <div>
+                    <button id="btnOpenShrinkageModal" onclick="openShrinkageModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium transition-colors flex items-center gap-2 shadow-sm shadow-blue-100">
+                        <i data-lucide="plus" class="w-5 h-5"></i>
+                        Report Shrinkage
+                    </button>
                 </div>
             </div>
 
@@ -80,7 +86,7 @@
                         </div>
                         <div id="emptyStatePO" class="hidden text-center py-12">
                             <i data-lucide="check-circle" class="w-12 h-12 text-gray-300 mx-auto mb-3"></i>
-                            <h3 class="text-lg font-medium text-gray-900">Không có chênh lệch nhập hàng</h3>
+                            <h3 class="text-lg font-medium text-gray-900">No purchase discrepancies</h3>
                         </div>
                     </div>
 
@@ -105,7 +111,7 @@
                         </div>
                         <div id="emptyStateInv" class="hidden text-center py-12">
                             <i data-lucide="check-circle" class="w-12 h-12 text-gray-300 mx-auto mb-3"></i>
-                            <h3 class="text-lg font-medium text-gray-900">Không có báo cáo hao hụt kho</h3>
+                            <h3 class="text-lg font-medium text-gray-900">No inventory loss reports</h3>
                         </div>
                     </div>
                 </div>
@@ -141,9 +147,27 @@
                         <span class="text-gray-500 block mb-1">Report Reason</span>
                         <div id="modalReason" class="font-medium text-gray-900 text-red-600"></div>
                     </div>
+                    <div id="modalApprovedByContainer">
+                        <span class="text-gray-500 block mb-1">Approved By Manager</span>
+                        <div id="modalApprovedBy" class="font-medium text-gray-900"></div>
+                    </div>
+                    <div id="modalProductContainer" class="col-span-2">
+                        <span class="text-gray-500 block mb-1">Discrepancy/Shrinkage Product</span>
+                        <div id="modalProduct" class="font-semibold text-gray-900 text-base"></div>
+                    </div>
+                    <div id="modalQtyContainer" class="col-span-2">
+                        <span class="text-gray-500 block mb-1">Difference/Loss Qty</span>
+                        <div id="modalQty" class="font-medium text-gray-900"></div>
+                    </div>
                     <div class="col-span-2">
                         <span class="text-gray-500 block mb-1">Additional Note</span>
                         <div id="modalNote" class="font-medium text-gray-900 bg-white p-3 rounded-lg border border-gray-200 min-h-[40px]"></div>
+                    </div>
+                    <div id="modalImageContainer" class="col-span-2 hidden">
+                        <span class="text-gray-500 block mb-1">Attached Image</span>
+                        <div class="border border-gray-200 rounded-xl overflow-hidden max-w-md bg-white p-2">
+                            <img id="modalImage" src="" alt="Proof Image" class="w-full h-auto object-contain max-h-64 rounded-lg" />
+                        </div>
                     </div>
                 </div>
 
@@ -224,6 +248,7 @@
                 </button>
             </div>
         </div>
+
     </div>
 
     <script src="../assets/js/api.js"></script>
