@@ -320,8 +320,12 @@ window.openActionModal = async function(id, type) {
     }
 
     if (type === 'PO') {
-        document.getElementById('modalSupplierContainer').classList.remove('hidden');
-        document.getElementById('modalSupplier').textContent = record.supplier_name || 'N/A';
+        document.getElementById('modalSupplierContainer').classList.add('hidden');
+        
+        if (modalImageContainer) {
+            modalImageContainer.classList.add('hidden');
+        }
+        
         const poSupplierEl = document.getElementById('modalPoSupplier');
         if (poSupplierEl) poSupplierEl.textContent = record.supplier_name || 'N/A';
         
