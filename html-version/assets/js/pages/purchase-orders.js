@@ -14,7 +14,7 @@ const statusConfig = {
     received:  { label: "Received",  color: "bg-green-100 text-green-700" },
     completed: { label: "Received",  color: "bg-green-100 text-green-700" },
     cancelled: { label: "Cancelled", color: "bg-red-100 text-red-700" },
-    discrepancy: { label: "⚠️ Discrepancy", color: "bg-amber-100 text-amber-800 border border-amber-300 font-bold" },
+    discrepancy: { label: "Discrepancy", color: "bg-amber-100 text-amber-800 border border-amber-300 font-bold" },
 };
 
 const statusFilter        = document.getElementById('statusFilter');
@@ -388,10 +388,10 @@ document.getElementById('btnProceedReceive')?.addEventListener('click', async ()
 
             if (val !== item.ordered_quantity) {
                 if (!finalReason) {
-                    throw new Error(`Vui lòng chọn lý do và cung cấp chi tiết cho sản phẩm có chênh lệch.`);
+                    throw new Error(`Please select a reason and provide details for the discrepant product.`);
                 }
                 if (!item.evidence_files || item.evidence_files.length === 0) {
-                    throw new Error(`Vui lòng tải lên hình ảnh bằng chứng cho sản phẩm có chênh lệch: ${item.product_name}`);
+                    throw new Error(`Please upload evidence images for the discrepant product: ${item.product_name}`);
                 }
             }
             

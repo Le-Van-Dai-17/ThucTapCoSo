@@ -151,7 +151,7 @@ function renderEvidence(evidence_url) {
     const escapedUrls = JSON.stringify(fullUrls).replace(/"/g, '&quot;');
     
     return `<button onclick="event.stopPropagation(); window.openGallery(${escapedUrls})" class="flex items-center gap-1.5 px-3 py-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-800 rounded-lg transition-colors font-medium text-sm border border-blue-200">
-        <i data-lucide="eye" class="w-4 h-4"></i> View ${urls.length > 1 ? `(${urls.length})` : ''}
+        <i data-lucide="eye" class="w-4 h-4"></i> ${urls.length > 1 ? `(${urls.length})` : ''}
     </button>`;
 }
 
