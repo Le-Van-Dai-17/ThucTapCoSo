@@ -345,9 +345,6 @@ window.openActionModal = async function(id, type) {
         poItemsBody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto text-blue-500"></i></td></tr>';
         lucide.createIcons();
 
-        const poSupplierEl = document.getElementById('modalPoSupplier');
-        if (poSupplierEl) poSupplierEl.textContent = record.supplier_name || 'N/A';
-
         try {
             const res = await fetch(`${API_BASE_URL}/purchases/detail/${record.po_id}`, {
                 headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
