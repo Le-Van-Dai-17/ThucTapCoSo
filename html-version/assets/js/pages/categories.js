@@ -30,6 +30,15 @@ async function loadCategories() {
 }
 
 function renderCategories() {
+    const isStaff = Auth.hasRole('staff');
+    
+    if (isStaff) {
+        const addBtn = document.getElementById('addCategoryBtn');
+        if (addBtn) addBtn.style.display = 'none';
+        const actionsCol = document.getElementById('actionsColumn');
+        if (actionsCol) actionsCol.style.display = 'none';
+    }
+
     const query = (searchInput?.value || '').trim().toLowerCase();
     const filtered = categories.filter(c =>
         String(c.name || '').toLowerCase().includes(query) ||
@@ -39,7 +48,7 @@ function renderCategories() {
     if (filtered.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="3" class="py-16 text-center text-gray-500">
+                <td colspan="${isStaff ? 2 : 3}" class="py-16 text-center text-gray-500">
                     <div class="flex justify-center mb-3"><i data-lucide="tags" class="w-12 h-12 text-gray-300"></i></div>
                     <p class="font-medium text-gray-600">No categories found</p>
                 </td>
@@ -52,6 +61,7 @@ function renderCategories() {
         <tr class="hover:bg-gray-50 transition-colors">
             <td class="px-6 py-4 font-medium text-gray-900">${escapeHtml(category.name)}</td>
             <td class="px-6 py-4 text-gray-600">${escapeHtml(category.description || '--')}</td>
+            ${isStaff ? '' : `
             <td class="px-6 py-4">
                 <div class="flex justify-center gap-2">
                     <button onclick="openCategoryModal(${category.category_id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit">
@@ -62,6 +72,7 @@ function renderCategories() {
                     </button>
                 </div>
             </td>
+            `}
         </tr>
     `).join('');
     lucide.createIcons();

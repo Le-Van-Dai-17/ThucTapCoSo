@@ -277,6 +277,15 @@ document.getElementById('editProductForm')?.addEventListener('submit', async fun
         return;
     }
 
+    const oldProduct = allProducts.find(p => p.id === editingId || p.product_id === editingId);
+    // category_id might be numeric or string, category is string name
+    const oldCatVal = String(oldProduct?.category_id || '');
+    if (oldProduct && oldCatVal && oldCatVal !== String(payload.category_id)) {
+        if (!confirm('Sản phẩm này đang được chuyển sang danh mục mới. Điều này sẽ làm thay đổi số liệu báo cáo và dự báo của danh mục. Bạn có chắc chắn không?')) {
+            return;
+        }
+    }
+
     btn.disabled = true;
     btn.textContent = 'Saving...';
     try {

@@ -61,24 +61,29 @@ async function loadTransactions() {
             discount: Number(s.discount_amount || 0),
             creator: s.staff_name || 'System',
             type: 'sell',
-            typeName: 'Sales',
+            typeName: 'Bán hàng',
             status: 'Completed',
-            supplier: null
+            supplier: null,
+            actor: s.staff_name || 'System'
         }));
 
-        const mappedPurchases = purchasesData.map(p => ({
-            id: p.id || p.po_id,
-            code: p.po_code,
-            date: new Date(p.order_date),
-            total: Number(p.total_value || p.total_amount || 0),
-            discount: 0,
-            creator: p.created_by_name || 'System',
-            receiver: p.receiver_name || null,
-            type: 'buy',
-            typeName: 'Purchases',
-            status: p.status || 'Draft',
-            supplier: p.supplier_name || 'N/A'
-        }));
+        const mappedPurchases = purchasesData.map(p => {
+            const isReceived = p.status === 'Received' || p.status === 'Discrepancy';
+            return {
+                id: p.id || p.po_id,
+                code: p.po_code,
+                date: new Date(isReceived && p.received_date ? p.received_date : p.order_date),
+                total: Number(p.total_value || p.total_amount || 0),
+                discount: 0,
+                creator: p.created_by_name || 'System',
+                receiver: p.receiver_name || null,
+                type: isReceived ? 'receive' : 'buy',
+                typeName: isReceived ? 'Nhập kho (PO)' : 'Tạo đơn (PO)',
+                status: p.status || 'Draft',
+                supplier: p.supplier_name || 'N/A',
+                actor: isReceived ? (p.receiver_name || p.created_by_name || 'System') : (p.created_by_name || 'System')
+            };
+        });
 
         // Combine and sort by date descending
         allTransactions = [...mappedSales, ...mappedPurchases].sort((a, b) => b.date - a.date);
@@ -149,7 +154,7 @@ function applyFiltersAndRender() {
                 <td class="px-6 py-4 text-gray-500 text-sm whitespace-nowrap">${dateStr}</td>
                 <td class="px-6 py-4 text-gray-900 font-semibold text-sm whitespace-nowrap font-mono">${t.code}</td>
                 <td class="px-6 py-4 whitespace-nowrap">${typeBadge}</td>
-                <td class="px-6 py-4 text-gray-700 text-sm whitespace-nowrap">${t.type === 'buy' ? (t.receiver || t.creator) : t.creator}</td>
+                <td class="px-6 py-4 text-gray-700 text-sm whitespace-nowrap">${t.actor}</td>
                 <td class="px-6 py-4 text-right text-gray-900 font-bold whitespace-nowrap">${formatCurrency(t.total)}</td>
                 <td class="px-6 py-4 text-center whitespace-nowrap">
                     <button onclick="showTransactionDetails(${t.id}, '${t.type}')" class="px-4 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 mx-auto">
