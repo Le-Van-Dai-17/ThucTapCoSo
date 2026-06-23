@@ -74,6 +74,7 @@ async function loadTransactions() {
                 code: p.po_code,
                 date: new Date(isReceived && p.received_date ? p.received_date : p.order_date),
                 total: Number(p.total_value || p.total_amount || 0),
+                compensation: Number(p.compensation_amount || 0),
                 discount: 0,
                 creator: p.created_by_name || 'System',
                 receiver: p.receiver_name || null,
@@ -155,7 +156,11 @@ function applyFiltersAndRender() {
                 <td class="px-6 py-4 text-gray-900 font-semibold text-sm whitespace-nowrap font-mono">${t.code}</td>
                 <td class="px-6 py-4 whitespace-nowrap">${typeBadge}</td>
                 <td class="px-6 py-4 text-gray-700 text-sm whitespace-nowrap">${t.actor}</td>
-                <td class="px-6 py-4 text-right text-gray-900 font-bold whitespace-nowrap">${formatCurrency(t.total)}</td>
+                <td class="px-6 py-4 text-right text-gray-900 font-bold whitespace-nowrap">
+                    ${(t.type === 'receive' && t.compensation > 0) 
+                        ? `<span class="text-emerald-600 font-bold">${formatCurrency(t.total)}</span> <span class="text-red-500 font-semibold text-xs block">+ ${formatCurrency(t.compensation)}</span>` 
+                        : formatCurrency(t.total)}
+                </td>
                 <td class="px-6 py-4 text-center whitespace-nowrap">
                     <button onclick="showTransactionDetails(${t.id}, '${t.type}')" class="px-4 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 mx-auto">
                         <i data-lucide="eye" class="w-3.5 h-3.5 text-gray-400"></i> Details
@@ -261,7 +266,9 @@ async function showTransactionDetails(id, type) {
                 <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Status / Value</p>
                 <div class="flex items-center gap-2 mt-1">
                     <span class="px-2 py-0.5 rounded text-xs font-bold border ${badgeClass}">${txn.status}</span>
-                    <span class="text-sm font-bold text-indigo-600">${formatCurrency(txn.total)}</span>
+                    ${(txn.type === 'receive' && txn.compensation > 0)
+                        ? `<span class="text-sm font-bold text-emerald-600">${formatCurrency(txn.total)}</span> <span class="text-red-500 font-semibold text-xs">+ ${formatCurrency(txn.compensation)}</span>`
+                        : `<span class="text-sm font-bold text-indigo-600">${formatCurrency(txn.total)}</span>`}
                 </div>
             </div>
         `;

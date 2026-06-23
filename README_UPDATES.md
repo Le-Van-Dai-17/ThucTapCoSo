@@ -74,3 +74,15 @@ Tài liệu này tổng hợp toàn bộ các tính năng, cải tiến và phâ
 ## 7. Cấu Hình Lưu Trữ Hình Ảnh Tải Lên (Physical Uploads Storage)
 * **Nơi lưu trữ**: Toàn bộ tệp tin hình ảnh tải lên khi nhận hàng hoặc điều chỉnh kho được lưu vật lý trong thư mục `backend/uploads/`.
 * **Cơ chế phục vụ file tĩnh**: Express server cung cấp quyền truy cập file tĩnh thông qua đường dẫn URL `/uploads/<tên_file_hash>` giúp frontend tải ảnh trực quan trên giao diện.
+
+---
+
+## 8. Cải Tiến Tìm Kiếm & Hiển Thị Đơn Hàng (Purchase Order Form Enhancements - 23/06/2026)
+* **Gộp ô tìm kiếm nhanh (Single Quick Search Input)**:
+  * Thay thế cấu trúc cũ (nút bấm trigger + ô nhập input lồng nhau) bằng một ô nhập duy nhất (`#quickSearchInput`) trực tiếp, trực quan, hỗ trợ gõ tìm kiếm ngay lập tức.
+  * Tự động hiển thị và ẩn danh sách kết quả (dropdown list) khi focus, nhập ký tự hoặc click ra bên ngoài.
+  * Toàn bộ nội dung gợi ý, placeholder và thông báo trạng thái ("Loading data...", "No matches found") được dịch chuẩn sang tiếng Anh.
+* **Sắp xếp sản phẩm chọn lên đầu bảng (Prioritized Search Product)**:
+  * Khi truy cập trang tạo đơn PO bằng đường dẫn có sản phẩm cụ thể (ví dụ từ liên kết tìm kiếm sản phẩm), sản phẩm được chọn sẽ tự động được ưu tiên đưa lên hàng đầu tiên trong bảng danh mục sản phẩm của nhà cung cấp. Các sản phẩm còn lại (với số lượng đặt mặc định là `0`) sẽ xếp phía dưới để tối ưu hóa thao tác người dùng.
+* **Ẩn thanh tìm kiếm chung của Header**:
+  * Ẩn thanh tìm kiếm chung trên header để tránh nhầm lẫn với thanh tìm kiếm nhà cung cấp/sản phẩm chuyên biệt bên dưới.

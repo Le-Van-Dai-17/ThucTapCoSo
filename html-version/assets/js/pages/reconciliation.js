@@ -371,6 +371,7 @@ window.openActionModal = async function(id, type) {
                         </tr>
                     `;
                 }).join('');
+                lucide.createIcons();
             } else {
                 poItemsBody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">Could not load items.</td></tr>';
             }
@@ -437,6 +438,59 @@ window.submitResolution = async function(status) {
         return;
     }
 
+    if (status === 'Resolved' && currentTab === 'PO') {
+        window.pendingResolveStatus = status;
+        window.pendingResolveNote = note;
+        
+        const overlay = document.getElementById('resolveOptionsOverlay');
+        if (overlay) {
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+            
+            // Premium radio label highlight
+            const labels = overlay.querySelectorAll('label');
+            const radios = overlay.querySelectorAll('input[name="resTypeRadio"]');
+            radios.forEach(radio => {
+                radio.addEventListener('change', () => {
+                    labels.forEach(l => {
+                        const checked = l.querySelector('input').checked;
+                        l.classList.toggle('border-blue-500', checked);
+                        l.classList.toggle('bg-blue-50/50', checked);
+                        l.classList.toggle('border-gray-200', !checked);
+                        l.classList.toggle('bg-white', !checked);
+                    });
+                });
+            });
+        }
+        if (window.lucide) window.lucide.createIcons();
+        return;
+    }
+
+    await executeResolution(status, note, null);
+};
+
+window.closeResolveOptions = function() {
+    const overlay = document.getElementById('resolveOptionsOverlay');
+    if (overlay) {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+    }
+};
+
+window.confirmResolveSubmit = async function() {
+    const radios = document.getElementsByName('resTypeRadio');
+    let resolutionType = 'refund';
+    for (let r of radios) {
+        if (r.checked) {
+            resolutionType = r.value;
+            break;
+        }
+    }
+    closeResolveOptions();
+    await executeResolution(window.pendingResolveStatus, window.pendingResolveNote, resolutionType);
+};
+
+async function executeResolution(status, note, resolutionType) {
     if (status === 'Resolved' && currentTab === 'INV') {
         status = 'Approved'; // The API expects 'Approved' for inventory adjustments
     }
@@ -445,6 +499,11 @@ window.submitResolution = async function(status) {
         ? `${API_BASE_URL}/reconciliation/discrepancies/${currentActionId}`
         : `${API_BASE_URL}/reconciliation/adjustments/${currentActionId}`;
 
+    const bodyPayload = { status, resolution_note: note };
+    if (resolutionType) {
+        bodyPayload.resolution_type = resolutionType;
+    }
+
     try {
         const res = await fetch(endpoint, {
             method: 'PUT',
@@ -452,12 +511,12 @@ window.submitResolution = async function(status) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${Auth.getToken()}`
             },
-            body: JSON.stringify({ status, resolution_note: note })
+            body: JSON.stringify(bodyPayload)
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message);
 
-        showToast(status === 'Resolved' ? 'Successfully resolved.' : 'Report rejected.', 'success');
+        showToast(status === 'Rejected' ? 'Report rejected.' : 'Successfully resolved.', 'success');
         closeActionModal();
         loadData();
     } catch (e) {

@@ -40,7 +40,7 @@ exports.getPendingDiscrepancies = async (req, res) => {
 
 exports.resolveDiscrepancy = async (req, res) => {
     const { id } = req.params;
-    const { status, resolution_note } = req.body;
+    const { status, resolution_note, resolution_type } = req.body;
     
     if (!['Resolved', 'Rejected'].includes(status)) {
         return res.status(400).json({ success: false, message: 'Trạng thái không hợp lệ.' });
@@ -59,8 +59,62 @@ exports.resolveDiscrepancy = async (req, res) => {
         }
         const discrepancy = discRows[0];
 
-        // If Rejected, add the missing items back to inventory and update po_items
-        if (status === 'Rejected' && discrepancy.status === 'Pending') {
+        // If Resolved, handle refund vs replacement
+        if (status === 'Resolved' && discrepancy.status === 'Pending') {
+            const poItemId = discrepancy.po_item_id;
+            const [poItemRows] = await connection.query('SELECT * FROM po_items WHERE po_item_id = ?', [poItemId]);
+            if (poItemRows.length === 0) {
+                await connection.rollback();
+                return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm trong đơn hàng.' });
+            }
+            const poItem = poItemRows[0];
+            const unitCost = poItem.unit_cost;
+            const resType = resolution_type || 'refund'; // default to refund
+
+            if (resType === 'refund') {
+                const newOrderedQty = poItem.received_quantity; // subtract shortage
+                const newLineTotal = newOrderedQty * unitCost;
+
+                await connection.query(
+                    'UPDATE po_items SET ordered_quantity = ?, line_total = ? WHERE po_item_id = ?',
+                    [newOrderedQty, newLineTotal, poItemId]
+                );
+
+                await connection.query(
+                    'UPDATE purchase_orders SET total_value = (SELECT SUM(line_total) FROM po_items WHERE po_id = ?) WHERE po_id = ?',
+                    [discrepancy.po_id, discrepancy.po_id]
+                );
+
+                const compAmount = discrepancy.discrepancy_quantity * unitCost;
+                await connection.query(
+                    'UPDATE purchase_orders SET compensation_amount = compensation_amount + ? WHERE po_id = ?',
+                    [compAmount, discrepancy.po_id]
+                );
+
+                await connection.query(
+                    'UPDATE po_discrepancies SET status = ?, resolution_note = ?, resolved_by = ?, resolution_type = ?, compensation_amount = ? WHERE discrepancy_id = ?',
+                    [status, resolution_note || '', userId, 'refund', compAmount, id]
+                );
+            } else if (resType === 'replacement') {
+                // Update received_quantity to match ordered_quantity since we get replacement items
+                await connection.query(
+                    'UPDATE po_items SET received_quantity = ordered_quantity WHERE po_item_id = ?',
+                    [poItemId]
+                );
+
+                // Add replacement items to physical stock
+                await connection.query(
+                    'UPDATE products SET current_stock = current_stock + ? WHERE product_id = ?',
+                    [discrepancy.discrepancy_quantity, poItem.product_id]
+                );
+
+                await connection.query(
+                    'UPDATE po_discrepancies SET status = ?, resolution_note = ?, resolved_by = ?, resolution_type = ?, compensation_amount = 0 WHERE discrepancy_id = ?',
+                    [status, resolution_note || '', userId, 'replacement', id]
+                );
+            }
+        } else if (status === 'Rejected' && discrepancy.status === 'Pending') {
+            // If Rejected, add the missing items back to inventory and update po_items
             const missingQty = discrepancy.discrepancy_quantity;
             const poItemId = discrepancy.po_item_id;
 
@@ -73,12 +127,12 @@ exports.resolveDiscrepancy = async (req, res) => {
                 // Update received_quantity in po_items
                 await connection.query('UPDATE po_items SET received_quantity = received_quantity + ? WHERE po_item_id = ?', [missingQty, poItemId]);
             }
-        }
 
-        await connection.query(
-            'UPDATE po_discrepancies SET status = ?, resolution_note = ?, resolved_by = ? WHERE discrepancy_id = ?',
-            [status, resolution_note || '', userId, id]
-        );
+            await connection.query(
+                'UPDATE po_discrepancies SET status = ?, resolution_note = ?, resolved_by = ? WHERE discrepancy_id = ?',
+                [status, resolution_note || '', userId, id]
+            );
+        }
 
         // Kiểm tra xem đơn hàng (PO) còn discrepancy nào Pending không
         const poId = discrepancy.po_id;
@@ -90,7 +144,7 @@ exports.resolveDiscrepancy = async (req, res) => {
 
         await connection.commit();
 
-        await safeLogAction(userId, 'RESOLVE_DISCREPANCY', `Manager xử lý biên bản chênh lệch ID ${id} thành ${status}`, 'po_discrepancies', id, req.ip);
+        await safeLogAction(userId, 'RESOLVE_DISCREPANCY', `Manager xử lý biên bản chênh lệch ID ${id} thành ${status} (${resolution_type || ''})`, 'po_discrepancies', id, req.ip);
 
         if (discRows.length > 0) {
             await notificationService.safeCreateForUser({

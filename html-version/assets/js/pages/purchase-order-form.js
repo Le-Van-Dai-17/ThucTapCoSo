@@ -5,6 +5,7 @@ const params = new URLSearchParams(window.location.search);
 let supplierId = params.get('supplier_id');
 let supplier = null;
 let suppliers = [];
+let allProducts = [];
 let items = [];
 
 function unwrap(res) { return Array.isArray(res) ? res : (res?.data || []); }
@@ -20,7 +21,10 @@ async function loadForm() {
 
         const [supplierRes, productRes] = await Promise.all([API.suppliers.getAll(), API.products.getAll().catch(() => [])]);
         suppliers = unwrap(supplierRes);
+        allProducts = unwrap(productRes);
         
+        // initQuickSearch will be initialized dynamically in renderSupplierCard when no supplier is selected
+
         if (!supplierId) {
             supplier = null;
             renderSupplierCard();
@@ -31,50 +35,225 @@ async function loadForm() {
 
         supplier = suppliers.find(s => String(s.supplier_id || s.id) === String(supplierId));
         if (!supplier) throw new Error('Supplier not found');
-        const products = unwrap(productRes).filter(p => String(p.supplier_id || '') === String(supplierId));
-        items = products.slice(0, 8).map(product => {
+        const focusProductId = params.get('product_id');
+        const products = allProducts.filter(p => String(p.supplier_id || '') === String(supplierId));
+        items = products.map(product => {
             const current = Number(product.current_stock || 0);
             const reorder = Number(product.warning_stock_level || product.min_stock_level || 0);
             const suggested = Math.max(1, Math.ceil(Math.max(reorder * 1.4 - current, reorder || 10)));
-            return { product, current, reorder, suggested, ordered: suggested, note: '' };
+            
+            // If a specific product was searched, set other products' order quantity to 0
+            let defaultOrdered = suggested;
+            if (focusProductId && String(product.product_id || product.id) !== String(focusProductId)) {
+                defaultOrdered = 0;
+            }
+            
+            return { product, current, reorder, suggested, ordered: defaultOrdered, note: '' };
         });
+
+        // Sort items so the searched/focused product is at the top
+        if (focusProductId) {
+            items.sort((a, b) => {
+                const aMatch = String(a.product.product_id || a.product.id) === String(focusProductId);
+                const bMatch = String(b.product.product_id || b.product.id) === String(focusProductId);
+                if (aMatch && !bMatch) return -1;
+                if (!aMatch && bMatch) return 1;
+                return 0;
+            });
+        }
         document.getElementById('expectedDate').value = isoDatePlus(supplier.lead_time_days || 7);
         renderSupplierCard();
         renderItems();
+
+        // Highlight selected product if it is passed in query parameters
+        if (focusProductId) {
+            setTimeout(() => {
+                const row = document.getElementById(`product-row-${focusProductId}`);
+                if (row) {
+                    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    row.classList.add('bg-blue-50/70', 'border-l-4', 'border-[#2563EB]');
+                    const input = row.querySelector('.order-qty');
+                    if (input) {
+                        input.focus();
+                        input.select();
+                    }
+                }
+            }, 500);
+        }
     } catch (error) {
         showToast(`Cannot load purchase form: ${error.message}`, 'error');
     }
+}
+
+function initQuickSearch() {
+    const input = document.getElementById('quickSearchInput');
+    const content = document.getElementById('searchDropdownContent');
+    const resultsList = document.getElementById('searchResultsList');
+
+    if (!input || !content || !resultsList) return;
+
+    input.addEventListener('focus', () => {
+        content.classList.remove('hidden');
+        renderSearchResults(input.value.trim());
+    });
+
+    input.addEventListener('input', () => {
+        content.classList.remove('hidden');
+        renderSearchResults(input.value.trim());
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!input.contains(e.target) && !content.contains(e.target)) {
+            content.classList.add('hidden');
+        }
+    });
+}
+
+function renderSearchResults(query = '') {
+    const resultsList = document.getElementById('searchResultsList');
+    if (!resultsList) return;
+
+    const q = query.toLowerCase();
+    
+    // Filter matching products
+    const matchedProducts = allProducts.filter(p => 
+        (p.name || '').toLowerCase().includes(q) || 
+        (p.sku || '').toLowerCase().includes(q)
+    );
+
+    // Filter matching suppliers
+    const matchedSuppliers = suppliers.filter(s => 
+        (s.name || '').toLowerCase().includes(q)
+    );
+
+    const combinedResults = [];
+
+    // Format suppliers
+    matchedSuppliers.forEach(s => {
+        combinedResults.push({
+            type: 'supplier',
+            id: s.supplier_id || s.id,
+            name: s.name,
+            displayText: `[Supplier] ${s.name}`,
+            badgeClass: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
+            action: () => {
+                window.location.href = `purchase-order-form.html?supplier_id=${s.supplier_id || s.id}`;
+            }
+        });
+    });
+
+    // Format products
+    matchedProducts.forEach(p => {
+        const sup = suppliers.find(s => String(s.supplier_id || s.id) === String(p.supplier_id));
+        const supplierName = sup ? sup.name : 'Unknown';
+        combinedResults.push({
+            type: 'product',
+            id: p.product_id || p.id,
+            name: p.name,
+            displayText: `[Product] ${p.name} (SKU: ${p.sku || '--'}) - Supplier: ${supplierName}`,
+            badgeClass: 'bg-blue-50 text-blue-700 border border-blue-100',
+            action: () => {
+                window.location.href = `purchase-order-form.html?supplier_id=${p.supplier_id}&product_id=${p.product_id || p.id}`;
+            }
+        });
+    });
+
+    const topResults = combinedResults.slice(0, 5);
+
+    if (topResults.length === 0) {
+        resultsList.innerHTML = '<li class="px-3 py-2 text-gray-400 italic text-center text-xs">No matches found</li>';
+        return;
+    }
+
+    resultsList.innerHTML = topResults.map(item => `
+        <li class="px-3 py-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors flex items-center justify-between gap-3 text-xs">
+            <div class="flex-1 min-w-0">
+                <span class="inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold ${item.badgeClass} mb-1">${item.type.toUpperCase()}</span>
+                <p class="font-medium text-gray-900 truncate" title="${item.displayText}">${item.displayText}</p>
+            </div>
+        </li>
+    `).join('');
+
+    const liElements = resultsList.querySelectorAll('li');
+    liElements.forEach((li, idx) => {
+        li.addEventListener('click', () => {
+            topResults[idx].action();
+        });
+    });
 }
 
 function renderSupplierCard() {
     if (!supplier) {
         document.getElementById('supplierBreadcrumb').textContent = 'Select Supplier';
         document.getElementById('supplierBreadcrumb').href = '#';
-        const options = suppliers.map(s => `<option value="${s.supplier_id || s.id}">${s.name}</option>`).join('');
         document.getElementById('supplierCard').innerHTML = `
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div><h2 class="font-semibold text-lg text-[#2563EB]">Select Supplier</h2><p class="text-sm text-gray-500 mt-1">Please select a supplier to load their products for ordering.</p></div>
-                <select id="supplierSelect" class="px-4 py-3 border border-gray-200 rounded-lg bg-white min-w-[300px] shadow-sm font-medium">
-                    <option value="" disabled selected>-- Choose a Supplier --</option>
-                    ${options}
-                </select>
+                <div><h2 class="font-semibold text-lg text-[#2563EB]">Select Supplier</h2><p class="text-sm text-gray-500 mt-1">Please select a supplier or product to start ordering.</p></div>
+                
+                <!-- Quick search component integrated here -->
+                <div class="relative w-full max-w-md shrink-0">
+                    <div class="relative">
+                        <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"></i>
+                        <input type="text" id="quickSearchInput" placeholder="Search product or supplier..." 
+                            class="w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-[#2563EB] transition-all text-sm font-medium" />
+                    </div>
+                    
+                    <!-- Dropdown container -->
+                    <div id="searchDropdownContent" class="absolute right-0 z-30 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl hidden flex-col p-3 space-y-1">
+                        <!-- Dropdown list -->
+                        <ul id="searchResultsList" class="max-h-60 overflow-y-auto space-y-1">
+                            <li class="px-3 py-2 text-gray-400 italic text-center text-xs">Loading data...</li>
+                        </ul>
+                    </div>
+                </div>
             </div>`;
-        document.getElementById('supplierSelect').addEventListener('change', (e) => {
-            window.location.href = `purchase-order-form.html?supplier_id=${e.target.value}`;
-        });
+        initQuickSearch();
+        if (window.lucide) window.lucide.createIcons();
         return;
     }
 
     document.getElementById('supplierBreadcrumb').textContent = supplier.name || 'Supplier';
     document.getElementById('supplierBreadcrumb').href = `supplier-detail.html?id=${supplierId}`;
     document.getElementById('supplierCard').innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-6 items-center">
-            <div class="flex items-center gap-4"><div class="w-16 h-16 rounded-2xl bg-blue-50 text-[#2563EB] flex items-center justify-center"><i data-lucide="store" class="w-8 h-8"></i></div><div><p class="text-sm text-gray-500">Supplier</p><h2 class="font-semibold text-lg">${supplier.name}</h2><span class="inline-flex mt-2 px-2 py-1 rounded bg-blue-50 text-[#2563EB] text-xs font-semibold">AI-ready supplier</span></div></div>
-            <div><p class="text-sm text-gray-500">Contact</p><p class="font-semibold mt-1">${supplier.contact_name || supplier.contact_person || '--'}</p><p class="text-sm text-gray-500 mt-1">${supplier.phone || '--'}</p></div>
-            <div><p class="text-sm text-gray-500 flex items-center gap-2"><i data-lucide="clock" class="w-4 h-4 text-[#2563EB]"></i> Lead Time</p><p class="font-semibold text-lg mt-1">${supplier.lead_time_days || 0} days</p></div>
-            <div><p class="text-sm text-gray-500 flex items-center gap-2"><i data-lucide="map-pin" class="w-4 h-4 text-[#2563EB]"></i> Address</p><p class="font-semibold mt-1">${supplier.address || '--'}</p></div>
-            <div><p class="text-sm text-gray-500 flex items-center gap-2"><i data-lucide="credit-card" class="w-4 h-4 text-[#2563EB]"></i> Payment Terms</p><p class="font-semibold text-lg mt-1">Net 15</p></div>
+        <div class="space-y-6">
+            <!-- Header Supplier Info & Quick Search -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-gray-100">
+                <div class="flex items-center gap-4">
+                    <div class="w-16 h-16 rounded-2xl bg-blue-50 text-[#2563EB] flex items-center justify-center"><i data-lucide="store" class="w-8 h-8"></i></div>
+                    <div>
+                        <p class="text-sm text-gray-500">Supplier</p>
+                        <h2 class="font-semibold text-lg text-gray-900">${supplier.name}</h2>
+                        <span class="inline-flex mt-1 px-2 py-0.5 rounded bg-blue-50 text-[#2563EB] text-xs font-semibold">AI-ready supplier</span>
+                    </div>
+                </div>
+                
+                <!-- Quick search component inside detailed card -->
+                <div class="relative w-full max-w-md shrink-0">
+                    <div class="relative">
+                        <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"></i>
+                        <input type="text" id="quickSearchInput" placeholder="Search other product or supplier..." 
+                            class="w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-[#2563EB] transition-all text-sm font-medium" />
+                    </div>
+                    
+                    <!-- Dropdown container -->
+                    <div id="searchDropdownContent" class="absolute right-0 z-30 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl hidden flex-col p-3 space-y-1">
+                        <!-- Dropdown list -->
+                        <ul id="searchResultsList" class="max-h-60 overflow-y-auto space-y-1">
+                            <li class="px-3 py-2 text-gray-400 italic text-center text-xs">Loading data...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Details Row -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 pt-2">
+                <div><p class="text-sm text-gray-500">Contact</p><p class="font-semibold mt-1 text-gray-900">${supplier.contact_name || supplier.contact_person || '--'}</p><p class="text-sm text-gray-500 mt-1">${supplier.phone || '--'}</p></div>
+                <div><p class="text-sm text-gray-500 flex items-center gap-2"><i data-lucide="clock" class="w-4 h-4 text-[#2563EB]"></i> Lead Time</p><p class="font-semibold text-lg mt-1 text-gray-900">${supplier.lead_time_days || 0} days</p></div>
+                <div><p class="text-sm text-gray-500 flex items-center gap-2"><i data-lucide="map-pin" class="w-4 h-4 text-[#2563EB]"></i> Address</p><p class="font-semibold mt-1 text-gray-900">${supplier.address || '--'}</p></div>
+                <div><p class="text-sm text-gray-500 flex items-center gap-2"><i data-lucide="credit-card" class="w-4 h-4 text-[#2563EB]"></i> Payment Terms</p><p class="font-semibold text-lg mt-1 text-gray-900">Net 15</p></div>
+            </div>
         </div>`;
+    initQuickSearch();
     if (window.lucide) lucide.createIcons();
 }
 
@@ -93,7 +272,7 @@ function renderItems() {
     body.innerHTML = items.map((item, idx) => {
         const p = item.product;
         const total = Number(item.ordered || 0) * Number(p.cost_price || 0);
-        return `<tr><td class="px-5 py-4"><div class="font-semibold">${p.name}</div><div class="text-sm text-gray-500">${p.sku || ''}</div></td><td class="px-5 py-4 text-right">${item.current} ${p.unit || ''}</td><td class="px-5 py-4 text-right">${item.reorder} ${p.unit || ''}</td><td class="px-5 py-4 text-center"><span class="px-3 py-1.5 rounded-lg bg-blue-50 text-[#2563EB] font-semibold">${item.suggested}</span></td><td class="px-5 py-4 text-center"><input data-idx="${idx}" class="order-qty w-24 px-3 py-2 border border-gray-200 rounded-lg text-center" type="number" min="0" value="${item.ordered}"></td><td class="px-5 py-4 text-right">${money(p.cost_price || 0)}</td><td class="px-5 py-4 text-right font-semibold">${money(total)}</td><td class="px-5 py-4"><input data-idx="${idx}" class="item-note w-40 px-3 py-2 border border-gray-200 rounded-lg" placeholder="Add note..." value="${item.note || ''}"></td></tr>`;
+        return `<tr id="product-row-${p.product_id || p.id}" class="hover:bg-gray-50/50 transition-colors"><td class="px-5 py-4"><div class="font-semibold">${p.name}</div><div class="text-sm text-gray-500">${p.sku || ''}</div></td><td class="px-5 py-4 text-right">${item.current} ${p.unit || ''}</td><td class="px-5 py-4 text-right">${item.reorder} ${p.unit || ''}</td><td class="px-5 py-4 text-center"><span class="px-3 py-1.5 rounded-lg bg-blue-50 text-[#2563EB] font-semibold">${item.suggested}</span></td><td class="px-5 py-4 text-center"><input data-idx="${idx}" class="order-qty w-24 px-3 py-2 border border-gray-200 rounded-lg text-center font-bold focus:outline-none focus:border-[#2563EB]" type="number" min="0" value="${item.ordered}"></td><td class="px-5 py-4 text-right">${money(p.cost_price || 0)}</td><td class="px-5 py-4 text-right font-semibold">${money(total)}</td><td class="px-5 py-4"><input data-idx="${idx}" class="item-note w-40 px-3 py-2 border border-gray-200 rounded-lg" placeholder="Add note..." value="${item.note || ''}"></td></tr>`;
     }).join('');
     document.querySelectorAll('.order-qty').forEach(input => input.addEventListener('input', e => { items[Number(e.target.dataset.idx)].ordered = Number(e.target.value || 0); renderItems(); }));
     document.querySelectorAll('.item-note').forEach(input => input.addEventListener('input', e => { items[Number(e.target.dataset.idx)].note = e.target.value; }));

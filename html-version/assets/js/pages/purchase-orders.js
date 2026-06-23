@@ -271,6 +271,9 @@ window.openConfirmReceive = async function(id) {
                                             <i data-lucide="upload" class="w-3.5 h-3.5"></i> ${(item.evidence_files && item.evidence_files.length > 0) ? 'Add Image' : 'Upload Image (Req)'}
                                             <input type="file" accept="image/*" multiple class="hidden" onchange="handlePoEvidenceUpload(${idx}, this.files)">
                                         </label>
+                                        <button type="button" onclick="window.mockPoEvidenceImage(${idx})" class="text-emerald-600 hover:text-emerald-800 flex items-center gap-1 text-[11px] font-medium bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100 transition-colors">
+                                            Mock Image
+                                        </button>
                                         ${(item.evidence_previews || []).map((preview, pIdx) => `
                                             <div class="relative group">
                                                 <img src="${preview}" class="w-8 h-8 object-cover rounded cursor-pointer border border-gray-200" onclick="window.openImageViewer(this.src)" />
@@ -303,6 +306,11 @@ window.toggleReasonSelect = function(idx, orderedQty) {
     if (inputEl) {
         let val = parseInt(inputEl.value);
         if (isNaN(val)) val = 0;
+        if (val < 0) {
+            showToast(`Số lượng thực nhận không được âm`, 'error');
+            val = 0;
+            inputEl.value = 0;
+        }
         if (val > orderedQty) {
             showToast(`Received quantity cannot exceed ordered quantity (${orderedQty})`, 'error');
             val = orderedQty;
@@ -357,6 +365,17 @@ window.removePoEvidenceImage = function(idx, pIdx) {
     URL.revokeObjectURL(window.receiveItemsData[idx].evidence_previews[pIdx]);
     window.receiveItemsData[idx].evidence_previews.splice(pIdx, 1);
     window.receiveItemsData[idx].evidence_files.splice(pIdx, 1);
+    window.renderReceivePOModal();
+};
+
+window.mockPoEvidenceImage = function(idx) {
+    const mockFile = new File(["mock_data"], "evidence_mock.jpg", { type: "image/jpeg" });
+    if (!window.receiveItemsData[idx].evidence_files) {
+        window.receiveItemsData[idx].evidence_files = [];
+        window.receiveItemsData[idx].evidence_previews = [];
+    }
+    window.receiveItemsData[idx].evidence_files.push(mockFile);
+    window.receiveItemsData[idx].evidence_previews.push("https://via.placeholder.com/150");
     window.renderReceivePOModal();
 };
 
@@ -457,7 +476,7 @@ document.getElementById('btnProceedReceive')?.addEventListener('click', async ()
         if (res.success) {
             showToast(res.message || 'Purchase order received successfully', 'success');
             closeConfirmReceive();
-            loadData();
+            loadOrders();
         } else {
             showToast(res.message || 'Failed to receive purchase order', 'error');
         }
@@ -487,21 +506,38 @@ window.viewDetail = async function (id) {
     try {
         const result = await API.orders.getDetail(id);
         const details = result.data || [];
+        const discrepancies = result.discrepancies || [];
         
         const cfg = statusConfig[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-700' };
 
         const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
         let rows = details.map((d, i) => {
             const ordered = d.quantity || d.ordered_quantity || 0;
-            const received = d.received_quantity || 0;
+            let received = d.received_quantity || 0;
+            const disc = discrepancies.find(x => x.po_item_id === d.po_item_id);
+            
+            let receivedHtml = `${received}`;
+            let orderedHtml = `${ordered}`;
+            
+            if (disc && disc.status === 'Resolved') {
+                if (disc.resolution_type === 'refund') {
+                    orderedHtml = `<span class="text-red-500 font-semibold">${disc.expected_quantity}</span>`;
+                    receivedHtml = `<span class="text-[#10B981] font-semibold">${disc.actual_quantity}</span>`;
+                } else if (disc.resolution_type === 'replacement') {
+                    receivedHtml = `<span>${disc.actual_quantity}</span> <span class="text-orange-500 font-bold" title="Giao bù hàng">+ ${disc.discrepancy_quantity}</span>`;
+                }
+            } else if (disc && disc.status === 'Pending') {
+                receivedHtml = `<span>${disc.actual_quantity}</span> <span class="text-red-500 font-bold" title="Chờ đối soát">(-${disc.discrepancy_quantity})</span>`;
+            }
+
             const isShort = received < ordered;
             const textClass = isShort ? 'text-red-600' : 'text-[#10B981]';
             return `
             <tr class="border-b border-gray-100">
                 <td class="py-4 text-center text-gray-500">${i+1}</td>
                 <td class="py-4 text-gray-900 font-medium">${d.product_name || 'N/A'}</td>
-                <td class="py-4 text-center text-gray-700 font-semibold">${ordered}</td>
-                <td class="py-4 text-center ${textClass} font-semibold">${received}</td>
+                <td class="py-4 text-center text-gray-700 font-semibold">${orderedHtml}</td>
+                <td class="py-4 text-center ${textClass} font-semibold">${receivedHtml}</td>
                 ${isStaff ? '' : `
                 <td class="py-4 text-right text-gray-700">${formatCurrency(d.unit_price || d.unit_cost)}</td>
                 <td class="py-4 text-right font-bold text-gray-900">${formatCurrency(d.total_amount || d.line_total)}</td>
@@ -516,6 +552,15 @@ window.viewDetail = async function (id) {
                     <span class="font-bold">Receiving Note:</span> ${result.order.staff_note}
                 </div>
             `;
+        }
+
+        let totalDisplayHtml = '';
+        const orderTotal = Number(result.order.total_value || result.order.total_amount || 0);
+        const orderComp = Number(result.order.compensation_amount || 0);
+        if (orderComp > 0) {
+            totalDisplayHtml = `<span class="text-emerald-600 font-bold">${formatCurrency(orderTotal)}</span> <span class="text-red-500 font-semibold text-sm ml-2" title="Tiền đền bù">+ ${formatCurrency(orderComp)}</span>`;
+        } else {
+            totalDisplayHtml = `<span class="text-[#2563EB] font-bold">${formatCurrency(orderTotal)}</span>`;
         }
 
         content.innerHTML = `
@@ -551,7 +596,7 @@ window.viewDetail = async function (id) {
                 <tfoot>
                     <tr>
                         <td colspan="5" class="py-6 text-right font-semibold text-gray-500 uppercase tracking-wider text-xs">Total Amount:</td>
-                        <td class="py-6 text-right font-bold text-2xl text-[#2563EB]">${formatCurrency(order.total_amount)}</td>
+                        <td class="py-6 text-right font-bold text-2xl">${totalDisplayHtml}</td>
                     </tr>
                 </tfoot>
                 `}

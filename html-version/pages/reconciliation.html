@@ -240,7 +240,6 @@
                     </table>
                 </div>
             </div>
-
             <div class="p-6 border-t border-gray-100 shrink-0 flex justify-end gap-3 bg-gray-50">
                 <button onclick="closeStocktakeModal()" class="px-6 py-2.5 text-gray-600 font-medium hover:bg-gray-100 rounded-xl transition-colors">Cancel</button>
                 <button onclick="submitStocktake()" class="px-6 py-2.5 bg-blue-600 text-white font-medium hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-2">
@@ -248,30 +247,65 @@
                 </button>
             </div>
         </div>
+    </div>
 
+    <!-- Resolve Options Modal -->
+    <div id="resolveOptionsOverlay" class="fixed inset-0 bg-black/50 z-[100] hidden flex-col items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl modal-enter">
+            <div class="flex flex-col items-center text-center mb-6">
+                <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
+                    <i data-lucide="help-circle" class="w-6 h-6"></i>
+                </div>
+                <h3 class="text-lg font-bold text-gray-900 mb-2">Shortage Resolution Options</h3>
+                <p class="text-sm text-gray-500">A shortage has been reported for this order. Please select a resolution option:</p>
+            </div>
+            
+            <div class="space-y-3 mb-6">
+                <label class="flex items-start gap-3 p-3 border-2 border-blue-500 bg-blue-50/50 rounded-xl cursor-pointer hover:bg-blue-50 transition-colors">
+                    <input type="radio" name="resTypeRadio" value="refund" checked class="mt-1 text-blue-600 focus:ring-blue-500" />
+                    <div>
+                        <span class="font-semibold text-gray-900 block text-sm">Refund</span>
+                        <span class="text-xs text-gray-500 block mt-0.5">Deduct the shortage value from the PO total and record supplier compensation.</span>
+                    </div>
+                </label>
+                
+                <label class="flex items-start gap-3 p-3 border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                    <input type="radio" name="resTypeRadio" value="replacement" class="mt-1 text-blue-600 focus:ring-blue-500" />
+                    <div>
+                        <span class="font-semibold text-gray-900 block text-sm">Replacement</span>
+                        <span class="text-xs text-gray-500 block mt-0.5">Keep PO money unchanged; the supplier will deliver the replacement items later.</span>
+                    </div>
+                </label>
+            </div>
+            
+            <div class="flex gap-3">
+                <button onclick="closeResolveOptions()" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors">Cancel</button>
+                <button onclick="confirmResolveSubmit()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stocktake Confirm Modal -->
+    <div id="confirmStocktakeOverlay" class="fixed inset-0 bg-black/50 z-[100] hidden flex-col items-center justify-center p-4">
+        <div class="bg-white rounded-[16px] p-6 max-w-sm w-full shadow-xl modal-enter">
+            <div class="flex flex-col items-center text-center mb-6">
+                <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-4">
+                    <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                </div>
+                <h3 class="text-lg font-bold text-gray-900 mb-2">Confirm Submission</h3>
+                <p class="text-sm text-gray-500" id="confirmStocktakeMsg">Are you sure you want to submit?</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="closeConfirmStocktake()" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors">Cancel</button>
+                <button id="btnConfirmStocktakeSubmit" onclick="proceedStocktakeSubmit()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors">Submit Report</button>
+            </div>
+        </div>
     </div>
 
     <script src="../assets/js/api.js"></script>
     <script src="../assets/js/components/layout.js"></script>
-    <script src="../assets/js/pages/reconciliation.js"></script>
-<!-- Stocktake Confirm Modal -->
-<div id="confirmStocktakeOverlay" class="fixed inset-0 bg-black/50 z-[100] hidden flex-col items-center justify-center p-4">
-    <div class="bg-white rounded-[16px] p-6 max-w-sm w-full shadow-xl modal-enter">
-        <div class="flex flex-col items-center text-center mb-6">
-            <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-4">
-                <i data-lucide="alert-triangle" class="w-6 h-6"></i>
-            </div>
-            <h3 class="text-lg font-bold text-gray-900 mb-2">Confirm Submission</h3>
-            <p class="text-sm text-gray-500" id="confirmStocktakeMsg">Are you sure you want to submit?</p>
-        </div>
-        <div class="flex gap-3">
-            <button onclick="closeConfirmStocktake()" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors">Cancel</button>
-            <button id="btnConfirmStocktakeSubmit" onclick="proceedStocktakeSubmit()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors">Submit Report</button>
-        </div>
-    </div>
-</div>
+    <script src="../assets/js/pages/reconciliation.js?v=1.1"></script>
 </body>
 </html>
-
 
 
