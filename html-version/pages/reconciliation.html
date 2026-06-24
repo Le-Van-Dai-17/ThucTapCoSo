@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đối soát hao hụt - AI Inventory</title>
+    <title>Reconciliation - AI Inventory</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -47,11 +47,17 @@
             </div>
 
             <div class="flex-1 flex flex-col min-h-0">
-                <!-- Tabs -->
-                <div class="flex border-b border-gray-200 gap-6 mb-4 shrink-0">
+                <!-- Tabs & Actions -->
+                <div class="flex border-b border-gray-200 gap-6 mb-4 shrink-0 justify-between items-end">
+                    <div class="flex gap-6">
                         <button id="tabPO" class="pb-2 font-medium text-blue-600 border-b-2 border-blue-600" onclick="switchTab('PO')">PO Discrepancies</button>
                         <button id="tabInv" class="pb-2 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700" onclick="switchTab('INV')">Warehouse Shrinkage</button>
                     </div>
+                    <button id="btnNewStocktake" onclick="openStocktakeModal()" class="hidden mb-2 px-4 py-2 bg-[#2563EB] text-white rounded-lg hover:bg-[#1d4ed8] transition-colors font-medium text-sm flex items-center gap-2">
+                        <i data-lucide="clipboard-check" class="w-4 h-4"></i>
+                        New Stocktake
+                    </button>
+                </div>
 
                     <!-- PO Discrepancies Table -->
                     <div id="sectionPO" class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
@@ -63,9 +69,10 @@
                                         <th class="px-6 py-4">PO CODE</th>
                                         <th class="px-6 py-4">REPORTED BY</th>
                                         <th class="px-6 py-4">ORDERED / RECEIVED / DIFF</th>
-                                        <th class="px-6 py-4">REASON</th>
-                                        <th class="px-6 py-4">STATUS</th>
-                                        <th class="px-6 py-4 text-center">ACTIONS</th>
+                                        <th class="px-6 py-4 text-left">REASON</th>
+                                        <th class="px-6 py-4 text-left">EVIDENCE</th>
+                                        <th class="px-6 py-4 text-left">STATUS</th>
+                                        <th class="px-6 py-4 text-center">ACTION</th>
                                     </tr>
                                 </thead>
                                 <tbody id="poTableBody" class="divide-y divide-gray-100"></tbody>
@@ -73,7 +80,7 @@
                         </div>
                         <div id="emptyStatePO" class="hidden text-center py-12">
                             <i data-lucide="check-circle" class="w-12 h-12 text-gray-300 mx-auto mb-3"></i>
-                            <h3 class="text-lg font-medium text-gray-900">Không có chênh lệch nhập hàng</h3>
+                            <h3 class="text-lg font-medium text-gray-900">No purchase discrepancies</h3>
                         </div>
                     </div>
 
@@ -88,6 +95,7 @@
                                         <th class="px-6 py-4">REPORTED BY</th>
                                         <th class="px-6 py-4">SHRINKAGE QTY</th>
                                         <th class="px-6 py-4">REASON</th>
+                                        <th class="px-6 py-4">EVIDENCE</th>
                                         <th class="px-6 py-4">STATUS</th>
                                         <th class="px-6 py-4 text-center">ACTIONS</th>
                                     </tr>
@@ -97,7 +105,7 @@
                         </div>
                         <div id="emptyStateInv" class="hidden text-center py-12">
                             <i data-lucide="check-circle" class="w-12 h-12 text-gray-300 mx-auto mb-3"></i>
-                            <h3 class="text-lg font-medium text-gray-900">Không có báo cáo hao hụt kho</h3>
+                            <h3 class="text-lg font-medium text-gray-900">No inventory loss reports</h3>
                         </div>
                     </div>
                 </div>
@@ -133,15 +141,38 @@
                         <span class="text-gray-500 block mb-1">Report Reason</span>
                         <div id="modalReason" class="font-medium text-gray-900 text-red-600"></div>
                     </div>
+                    <div id="modalApprovedByContainer">
+                        <span class="text-gray-500 block mb-1">Approved By Manager</span>
+                        <div id="modalApprovedBy" class="font-medium text-gray-900"></div>
+                    </div>
+                    <div id="modalProductContainer" class="col-span-2">
+                        <span class="text-gray-500 block mb-1">Discrepancy/Shrinkage Product</span>
+                        <div id="modalProduct" class="font-semibold text-gray-900 text-base"></div>
+                    </div>
+                    <div id="modalQtyContainer" class="col-span-2">
+                        <span class="text-gray-500 block mb-1">Difference/Loss Qty</span>
+                        <div id="modalQty" class="font-medium text-gray-900"></div>
+                    </div>
                     <div class="col-span-2">
                         <span class="text-gray-500 block mb-1">Additional Note</span>
                         <div id="modalNote" class="font-medium text-gray-900 bg-white p-3 rounded-lg border border-gray-200 min-h-[40px]"></div>
+                    </div>
+                    <div id="modalImageContainer" class="col-span-2 hidden">
+                        <span class="text-gray-500 block mb-1">Attached Image</span>
+                        <div class="border border-gray-200 rounded-xl overflow-hidden bg-white p-3" id="modalImageContent">
+                        </div>
                     </div>
                 </div>
 
                 <!-- Products Table for PO -->
                 <div id="modalPoItemsContainer" class="mt-5 hidden">
-                    <h3 class="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wide">Purchase Order Items</h3>
+                    <div class="flex justify-between items-end mb-3">
+                        <h3 class="text-sm font-bold text-gray-900 uppercase tracking-wide">Purchase Order Items</h3>
+                        <div class="text-right">
+                            <span class="text-gray-500 text-xs font-semibold uppercase tracking-wider block">Supplier</span>
+                            <div id="modalPoSupplier" class="text-gray-900 font-medium text-sm"></div>
+                        </div>
+                    </div>
                     <div class="overflow-x-auto border border-gray-200 rounded-lg bg-white">
                         <table class="w-full text-left text-sm">
                             <thead class="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase">
@@ -150,6 +181,7 @@
                                     <th class="px-4 py-3 text-center">Ordered</th>
                                     <th class="px-4 py-3 text-center">Received</th>
                                     <th class="px-4 py-3 text-center">Diff</th>
+                                    <th class="px-4 py-3 text-center">Evidence</th>
                                 </tr>
                             </thead>
                             <tbody id="modalPoItemsBody" class="divide-y divide-gray-100"></tbody>
@@ -173,8 +205,73 @@
         </div>
     </div>
 
+    <!-- Stocktake Modal -->
+    <div id="stocktakeModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden flex-col items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-5xl flex flex-col max-h-[90vh] overflow-hidden modal-enter" id="stocktakeModalContent">
+            <div class="p-6 border-b border-gray-100 shrink-0 flex justify-between items-center bg-gray-50">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-900">New Inventory Stocktake</h2>
+                    <p class="text-sm text-gray-500 mt-1">Count physical items and report missing stock.</p>
+                </div>
+                <button onclick="closeStocktakeModal()" class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+
+            <div class="p-6 overflow-y-auto flex-1">
+                <div class="mb-4">
+                    <div class="relative">
+                        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
+                        <input type="text" id="stocktakeSearch" placeholder="Search by SKU or Name..." class="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500" oninput="renderStocktakeTable()">
+                    </div>
+                </div>
+                <div class="border border-gray-200 rounded-xl overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="bg-gray-50 text-xs font-semibold text-gray-500 uppercase">
+                                <th class="px-4 py-3">SKU</th>
+                                <th class="px-4 py-3">Product Name</th>
+                                <th class="px-4 py-3 text-center w-32">System Stock</th>
+                                <th class="px-4 py-3 text-center w-32">Actual Count</th>
+                                <th class="px-4 py-3 text-center w-24">Diff</th>
+                                <th class="px-4 py-3 text-left w-64">Reason (If changed)</th>
+                                <th class="px-4 py-3 text-center w-40">Evidence Image</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stocktakeTableBody" class="divide-y divide-gray-100 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="p-6 border-t border-gray-100 shrink-0 flex justify-end gap-3 bg-gray-50">
+                <button onclick="closeStocktakeModal()" class="px-6 py-2.5 text-gray-600 font-medium hover:bg-gray-100 rounded-xl transition-colors">Cancel</button>
+                <button onclick="submitStocktake()" class="px-6 py-2.5 bg-blue-600 text-white font-medium hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-2">
+                    <i data-lucide="save" class="w-4 h-4"></i> Submit Shrinkage
+                </button>
+            </div>
+        </div>
+
+    </div>
+
     <script src="../assets/js/api.js"></script>
     <script src="../assets/js/components/layout.js"></script>
     <script src="../assets/js/pages/reconciliation.js"></script>
+<!-- Stocktake Confirm Modal -->
+<div id="confirmStocktakeOverlay" class="fixed inset-0 bg-black/50 z-[100] hidden flex-col items-center justify-center p-4">
+    <div class="bg-white rounded-[16px] p-6 max-w-sm w-full shadow-xl modal-enter">
+        <div class="flex flex-col items-center text-center mb-6">
+            <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-4">
+                <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 mb-2">Confirm Submission</h3>
+            <p class="text-sm text-gray-500" id="confirmStocktakeMsg">Are you sure you want to submit?</p>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="closeConfirmStocktake()" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors">Cancel</button>
+            <button id="btnConfirmStocktakeSubmit" onclick="proceedStocktakeSubmit()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors">Submit Report</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>
+
+
+

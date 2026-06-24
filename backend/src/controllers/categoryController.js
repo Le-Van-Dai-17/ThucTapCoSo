@@ -77,6 +77,17 @@ exports.updateCategory = async (req, res) => {
             return res.status(409).json({ success: false, message: 'Category already exists.' });
         }
 
+        const [boundProducts] = await pool.query(
+            'SELECT product_id FROM products WHERE category_id = ? LIMIT 1',
+            [id]
+        );
+        if (boundProducts.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không thể chỉnh sửa danh mục này vì đang có sản phẩm thuộc danh mục.'
+            });
+        }
+
         const [result] = await pool.query(
             'UPDATE categories SET name = ?, description = ? WHERE category_id = ?',
             [name, description, id]

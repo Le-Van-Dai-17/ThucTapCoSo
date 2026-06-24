@@ -22,6 +22,7 @@ const mlopsController = require('../controllers/mlopsController');
 const inventoryController = require('../controllers/inventoryController');
 const reconciliationController = require('../controllers/reconciliationController');
 const notificationController = require('../controllers/notificationController');
+const uploadController = require('../controllers/uploadController');
 
 // Middleware
 const authMiddleware = require('../middleware/authMiddleware');
@@ -30,6 +31,8 @@ const authMiddleware = require('../middleware/authMiddleware');
 // 1. SYSTEM & AUTH API
 // ==========================================
 router.get('/status', apiController.getStatus);
+
+router.post('/upload/image', authMiddleware.verifyToken, uploadController.uploadImage);
 
 router.post('/auth/register', (req, res) => {
     res.status(410).json({
@@ -97,7 +100,7 @@ router.get('/purchases/recommendations', authMiddleware.verifyToken, authMiddlew
 router.post('/purchases/create-from-forecast', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), purchaseController.createPurchaseOrdersFromForecast);
 router.put('/purchases/approve/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), purchaseController.approvePurchase);
 router.put('/purchases/ship/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), purchaseController.shipPurchase);
-router.put('/purchases/receive/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), purchaseController.receiveOrder);
+router.put('/purchases/receive/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), upload.single('image'), purchaseController.receiveOrder);
 router.put('/purchases/update/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), purchaseController.updatePurchase);
 router.delete('/purchases/delete/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), purchaseController.deletePurchase);
 router.put('/purchases/cancel/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), purchaseController.cancelPurchase);
@@ -139,12 +142,12 @@ router.get('/dashboard/low-stock-forecast', authMiddleware.verifyToken, dashboar
 // 8.2 INVENTORY & RECONCILIATION API
 // ==========================================
 // Staff
-router.post('/inventory/adjust', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), inventoryController.submitAdjustment);
+router.post('/inventory/adjust', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), upload.single('image'), inventoryController.submitAdjustment);
 
 // Manager
-router.get('/reconciliation/discrepancies', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), reconciliationController.getPendingDiscrepancies);
+router.get('/reconciliation/discrepancies', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin', 'Staff'), reconciliationController.getPendingDiscrepancies);
 router.put('/reconciliation/discrepancies/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), reconciliationController.resolveDiscrepancy);
-router.get('/reconciliation/adjustments', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), reconciliationController.getPendingAdjustments);
+router.get('/reconciliation/adjustments', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin', 'Staff'), reconciliationController.getPendingAdjustments);
 router.put('/reconciliation/adjustments/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), reconciliationController.resolveAdjustment);
 
 // ==========================================

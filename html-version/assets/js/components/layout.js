@@ -41,13 +41,25 @@ const ROLE_PERMISSIONS = {
         'purchase-orders.html',
         'products.html',
         'sales-data.html',
-        'inventory-adjustment.html',
+        'reconciliation.html',
         'activity-log.html',
         'profile.html'
     ]
 };
 
 const NAV_ITEMS = [
+    {
+        href: 'dashboard.html',
+        label: 'Dashboard',
+        icon: 'bar-chart-3',
+        roles: ['Manager']
+    },
+    {
+        href: 'forecast.html',
+        label: 'Forecast',
+        icon: 'trending-up',
+        roles: ['Manager']
+    },
     {
         href: 'pos.html',
         label: 'Sales (POS)',
@@ -65,18 +77,6 @@ const NAV_ITEMS = [
         label: 'Products & Inventory',
         icon: 'box',
         roles: ['Manager', 'Staff']
-    },
-    {
-        href: 'sales-data.html',
-        label: 'Transaction History',
-        icon: 'line-chart',
-        roles: ['Manager', 'Staff']
-    },
-    {
-        href: 'dashboard.html',
-        label: 'Dashboard',
-        icon: 'bar-chart-3',
-        roles: ['Manager']
     },
     {
         href: 'categories.html',
@@ -103,22 +103,16 @@ const NAV_ITEMS = [
         roles: ['Manager']
     },
     {
-        href: 'inventory-adjustment.html',
-        label: 'Shrinkage Report',
-        icon: 'package-minus',
-        roles: ['Staff']
-    },
-    {
         href: 'reconciliation.html',
         label: 'Reconciliation',
         icon: 'clipboard-check',
-        roles: ['Manager']
+        roles: ['Manager', 'Staff']
     },
     {
-        href: 'forecast.html',
-        label: 'Forecast',
-        icon: 'trending-up',
-        roles: ['Manager']
+        href: 'sales-data.html',
+        label: 'Transaction History',
+        icon: 'line-chart',
+        roles: ['Manager', 'Staff']
     },
     {
         href: 'users.html',
@@ -221,7 +215,7 @@ const displayRole = currentUser ? capitalizeFirstLayout(currentUser.role || curr
     const allowedPages = ROLE_PERMISSIONS[displayRole] || [];
 
     if (!allowedPages.includes(currentPage)) {
-        showToast('Báº¡n khÃ´ng cÃ³ quyá»n truy cáº­p trang nÃ y. Vui lÃ²ng Ä‘Äƒng nháº­p láº¡i.', 'info');
+        showToast('You do not have permission to access this page. Please log in again.', 'info');
 
         if (typeof Auth !== 'undefined' && typeof Auth.clear === 'function') {
             Auth.clear();
@@ -281,7 +275,7 @@ const navHtml = NAV_ITEMS
 // ===============================
 
 const layoutHtml = `
-    <aside class="fixed left-0 top-0 h-screen w-[240px] bg-white border-r border-gray-200 shadow-sm z-30 flex flex-col">
+    <aside class="fixed left-0 top-0 bottom-0 w-[240px] bg-white border-r border-gray-200 shadow-sm z-30 flex flex-col">
         <div class="p-6">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 rounded-lg bg-[#2563EB] flex items-center justify-center">
@@ -466,6 +460,126 @@ window.showConfirmDialog = function(message, onConfirm) {
         close();
         if (typeof onConfirm === 'function') onConfirm();
     });
+};
+
+// Global Image Viewer
+window.openImageViewer = function(src) {
+    const existing = document.getElementById('_global_image_viewer');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = '_global_image_viewer';
+    overlay.className = 'fixed inset-0 bg-black/80 z-[10000] flex items-center justify-center p-4 opacity-0 transition-opacity duration-300';
+    
+    overlay.innerHTML = `
+        <div class="relative max-w-4xl max-h-[90vh] w-full flex items-center justify-center" onclick="event.stopPropagation()">
+            <img src="${src}" class="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl transform scale-95 transition-transform duration-300" />
+            <button id="_btnCloseImageViewer" class="absolute -top-4 -right-4 w-10 h-10 bg-white text-gray-900 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-100 transition-colors">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    // Animate in
+    requestAnimationFrame(() => {
+        overlay.classList.remove('opacity-0');
+        overlay.querySelector('img').classList.remove('scale-95');
+    });
+
+    const close = () => {
+        overlay.classList.add('opacity-0');
+        overlay.querySelector('img').classList.add('scale-95');
+        setTimeout(() => overlay.remove(), 300);
+    };
+
+    overlay.addEventListener('click', close);
+    document.getElementById('_btnCloseImageViewer').addEventListener('click', close);
+};
+
+// Global Image Gallery Viewer
+window.openGallery = function(urls) {
+    if (!urls || urls.length === 0) return;
+    if (urls.length === 1) return window.openImageViewer(urls[0]);
+
+    const existing = document.getElementById('_global_gallery_viewer');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = '_global_gallery_viewer';
+    overlay.className = 'fixed inset-0 bg-black/90 z-[10000] flex flex-col items-center justify-center p-4 opacity-0 transition-opacity duration-300';
+    
+    let currentIndex = 0;
+    
+    overlay.innerHTML = `
+        <button id="_btnGalleryClose" class="absolute top-6 right-6 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-colors z-50">
+            <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+        <div class="relative max-w-5xl max-h-[75vh] w-full flex flex-1 items-center justify-center mb-6" onclick="event.stopPropagation()">
+            <button id="_btnPrev" class="absolute left-0 w-12 h-12 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/80 transition-colors z-50">
+                <i data-lucide="chevron-left" class="w-8 h-8"></i>
+            </button>
+            <img id="_galleryMainImg" src="${urls[0]}" class="max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl transition-all duration-300" />
+            <button id="_btnNext" class="absolute right-0 w-12 h-12 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/80 transition-colors z-50">
+                <i data-lucide="chevron-right" class="w-8 h-8"></i>
+            </button>
+        </div>
+        <div class="flex gap-3 overflow-x-auto p-4 w-full max-w-5xl justify-center bg-black/50 rounded-xl" id="_galleryThumbnails">
+            ${urls.map((url, idx) => `
+                <img src="${url}" data-idx="${idx}" class="w-20 h-20 object-cover rounded-lg cursor-pointer border-2 ${idx === 0 ? 'border-blue-500 opacity-100' : 'border-transparent opacity-50 hover:opacity-100'} transition-all shrink-0" />
+            `).join('')}
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+    lucide.createIcons();
+
+    overlay.offsetHeight; // Force reflow
+    overlay.classList.remove('opacity-0');
+
+    const mainImg = document.getElementById('_galleryMainImg');
+    const thumbnails = overlay.querySelectorAll('#_galleryThumbnails img');
+    
+    const updateGallery = (idx) => {
+        currentIndex = idx;
+        mainImg.src = urls[currentIndex];
+        thumbnails.forEach((th, i) => {
+            if (i === currentIndex) {
+                th.classList.replace('border-transparent', 'border-blue-500');
+                th.classList.replace('opacity-50', 'opacity-100');
+            } else {
+                th.classList.replace('border-blue-500', 'border-transparent');
+                th.classList.replace('opacity-100', 'opacity-50');
+            }
+        });
+    };
+
+    overlay.querySelector('#_btnPrev').addEventListener('click', (e) => {
+        e.stopPropagation();
+        updateGallery(currentIndex === 0 ? urls.length - 1 : currentIndex - 1);
+    });
+
+    overlay.querySelector('#_btnNext').addEventListener('click', (e) => {
+        e.stopPropagation();
+        updateGallery(currentIndex === urls.length - 1 ? 0 : currentIndex + 1);
+    });
+
+    thumbnails.forEach(th => {
+        th.addEventListener('click', (e) => {
+            e.stopPropagation();
+            updateGallery(parseInt(th.dataset.idx));
+        });
+    });
+
+    const close = () => {
+        overlay.classList.add('opacity-0');
+        setTimeout(() => overlay.remove(), 300);
+    };
+
+    overlay.querySelector('#_btnGalleryClose').addEventListener('click', close);
+    overlay.addEventListener('click', close);
 };
 
 

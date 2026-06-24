@@ -46,15 +46,15 @@ exports.getAllSuppliers = async (req, res) => {
 // 2. Tạo mới nhà cung cấp
 exports.createSupplier = async (req, res) => {
     try {
-        const { name, contact_name, phone, email, address, lead_time_days } = req.body;
+        const { name, contact_name, phone, email, address, lead_time_days, tax_code, notes, min_order_value, payment_terms, ai_relevance } = req.body;
         if (!name || !String(name).trim()) {
             return res.status(400).json({ success: false, message: 'Tên nhà cung cấp không được bỏ trống' });
         }
         const leadTimeValue = normalizeLeadTimeDays(lead_time_days, 7);
 
         const [result] = await pool.query(
-            'INSERT INTO suppliers (name, contact_name, phone, email, address, lead_time_days) VALUES (?, ?, ?, ?, ?, ?)',
-            [name.trim(), contact_name || null, phone || null, email || null, address || null, leadTimeValue]
+            'INSERT INTO suppliers (name, contact_name, phone, email, address, lead_time_days, tax_code, notes, min_order_value, payment_terms, ai_relevance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [name.trim(), contact_name || null, phone || null, email || null, address || null, leadTimeValue, tax_code || null, notes || null, min_order_value || 0, payment_terms || null, ai_relevance || 'Medium']
         );
 
         await safeLogAction(getActorId(req), 'CREATE_SUPPLIER', `Thêm nhà cung cấp mới: ${name}`, 'suppliers', result.insertId, req.ip);
@@ -69,7 +69,7 @@ exports.createSupplier = async (req, res) => {
 exports.updateSupplier = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, contact_name, phone, email, address, lead_time_days } = req.body;
+        const { name, contact_name, phone, email, address, lead_time_days, tax_code, notes, min_order_value, payment_terms, ai_relevance } = req.body;
 
         if (!name || !String(name).trim()) {
             return res.status(400).json({ success: false, message: 'Tên nhà cung cấp không được bỏ trống' });
@@ -77,8 +77,8 @@ exports.updateSupplier = async (req, res) => {
         const leadTimeValue = normalizeLeadTimeDays(lead_time_days, null);
 
         const [result] = await pool.query(
-            `UPDATE suppliers SET name = ?, contact_name = ?, phone = ?, email = ?, address = ?, lead_time_days = COALESCE(?, lead_time_days) WHERE supplier_id = ?`,
-            [name.trim(), contact_name || null, phone || null, email || null, address || null, leadTimeValue, id]
+            `UPDATE suppliers SET name = ?, contact_name = ?, phone = ?, email = ?, address = ?, lead_time_days = COALESCE(?, lead_time_days), tax_code = ?, notes = ?, min_order_value = ?, payment_terms = ?, ai_relevance = ? WHERE supplier_id = ?`,
+            [name.trim(), contact_name || null, phone || null, email || null, address || null, leadTimeValue, tax_code || null, notes || null, min_order_value || 0, payment_terms || null, ai_relevance || 'Medium', id]
         );
 
         if (result.affectedRows === 0) {

@@ -53,7 +53,7 @@
                             <span class="text-xs font-medium text-[#10B981] bg-[#10B981]/10 px-2 py-1 rounded-lg">+12.5%</span>
                         </div>
                         <h3 class="text-sm font-medium text-gray-500 mb-1">Total Revenue</h3>
-                        <p id="kpi-revenue" class="text-2xl font-semibold text-gray-900">$0.0K</p>
+                        <p id="kpi-revenue" class="text-2xl font-semibold text-gray-900">0 ₫</p>
                         <p class="text-xs text-gray-500 mt-2">Last 30 days</p>
                     </div>
 
@@ -77,7 +77,7 @@
                             <span class="text-xs font-medium text-[#F59E0B] bg-[#F59E0B]/10 px-2 py-1 rounded-lg">-3.1%</span>
                         </div>
                         <h3 class="text-sm font-medium text-gray-500 mb-1">Inventory Value</h3>
-                        <p id="kpi-inventory-value" class="text-2xl font-semibold text-gray-900">$458K</p>
+                        <p id="kpi-inventory-value" class="text-2xl font-semibold text-gray-900">0 ₫</p>
                         <p class="text-xs text-gray-500 mt-2">Current stock</p>
                     </div>
 
@@ -251,7 +251,7 @@
             const token = localStorage.getItem('forecastai_token');
 
             if (!token) {
-                alert('Bạn chưa đăng nhập hoặc token đã hết hạn.');
+                alert('You are not logged in or your session has expired.');
                 return;
             }
 
@@ -263,7 +263,7 @@
             });
 
             if (!response.ok) {
-                alert('Xuất file thất bại. Vui lòng kiểm tra backend.');
+                alert('Export failed. Please check the backend.');
                 return;
             }
 

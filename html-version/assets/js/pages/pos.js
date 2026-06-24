@@ -7,6 +7,10 @@ let allProducts = [];
 let cart = []; // Array of { product_id, sku, name, unit_price, quantity, max_stock }
 let selectedCategory = 'All Categories';
 
+function formatCurrency(value) {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     initEventListeners();
     await loadProducts();
@@ -124,7 +128,7 @@ function renderProducts() {
             <div class="text-xs text-gray-500 mb-1">${p.sku || ''}</div>
             <div class="font-medium text-gray-900 mb-2 line-clamp-2 h-10">${p.name}</div>
             <div class="mt-auto flex items-end justify-between">
-                <div class="text-[#2563EB] font-bold">$${price.toFixed(2)}</div>
+                <div class="text-[#2563EB] font-bold">${formatCurrency(price)}</div>
                 <div class="text-xs ${isOutOfStock ? 'text-red-600 font-medium' : 'text-gray-500'}">
                     ${isOutOfStock ? 'Out of Stock' : `Stock: ${stock}`}
                 </div>
@@ -215,8 +219,8 @@ function renderCart() {
             <i data-lucide="shopping-bag" class="w-16 h-16 mb-3"></i>
             <p>Cart is empty</p>
         </div>`;
-        subEl.textContent = '$0.00';
-        totEl.textContent = '$0.00';
+        subEl.textContent = formatCurrency(0);
+        totEl.textContent = formatCurrency(0);
         btn.disabled = true;
         lucide.createIcons();
         return;
@@ -232,7 +236,7 @@ function renderCart() {
         <div class="flex items-center gap-3 py-3 border-b border-gray-100 last:border-0">
             <div class="flex-1 min-w-0">
                 <div class="text-sm font-medium text-gray-900 truncate">${item.name}</div>
-                <div class="text-xs text-gray-500">$${item.unit_price.toFixed(2)}</div>
+                <div class="text-xs text-gray-500">${formatCurrency(item.unit_price)}</div>
             </div>
             <div class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-1 shrink-0">
                 <button onclick="updateCartQuantity(${item.product_id}, -1)" class="w-6 h-6 flex items-center justify-center rounded text-gray-600 hover:bg-white hover:shadow-sm transition-colors">
@@ -243,13 +247,13 @@ function renderCart() {
                     <i data-lucide="plus" class="w-3 h-3"></i>
                 </button>
             </div>
-            <div class="text-sm font-bold text-gray-900 w-16 text-right shrink-0">$${lineTotal.toFixed(2)}</div>
+            <div class="text-sm font-bold text-gray-900 w-16 text-right shrink-0">${formatCurrency(lineTotal)}</div>
         </div>`;
     });
 
     container.innerHTML = html;
-    subEl.textContent = `$${total.toFixed(2)}`;
-    totEl.textContent = `$${total.toFixed(2)}`;
+    subEl.textContent = formatCurrency(total);
+    totEl.textContent = formatCurrency(total);
     btn.disabled = false;
     lucide.createIcons();
 }
@@ -289,7 +293,7 @@ async function handleCheckout() {
         }
     } catch (err) {
         console.error('[POS Checkout]', err);
-        showToast(err.message || 'Thanh toán thất bại!', 'error');
+        showToast(err.message || 'Payment failed!', 'error');
         btn.disabled = false;
         btn.innerHTML = '<i data-lucide="credit-card" class="w-5 h-5"></i> Checkout';
         lucide.createIcons();

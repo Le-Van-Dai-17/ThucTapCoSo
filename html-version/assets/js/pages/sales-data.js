@@ -25,6 +25,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 let allTransactions = [];
 
+function formatCurrency(value) {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
+}
+
 async function loadTransactions() {
     showLoading('salesTableBody');
     
@@ -55,26 +59,31 @@ async function loadTransactions() {
             date: new Date(s.transaction_date),
             total: Number(s.total_amount || 0),
             discount: Number(s.discount_amount || 0),
-            creator: s.staff_name || 'Hệ thống',
+            creator: s.staff_name || 'System',
             type: 'sell',
             typeName: 'Bán hàng',
             status: 'Completed',
-            supplier: null
+            supplier: null,
+            actor: s.staff_name || 'System'
         }));
 
-        const mappedPurchases = purchasesData.map(p => ({
-            id: p.id || p.po_id,
-            code: p.po_code,
-            date: new Date(p.order_date),
-            total: Number(p.total_value || p.total_amount || 0),
-            discount: 0,
-            creator: p.created_by_name || 'Hệ thống',
-            receiver: p.receiver_name || null,
-            type: 'buy',
-            typeName: 'Nhập hàng',
-            status: p.status || 'Draft',
-            supplier: p.supplier_name || 'N/A'
-        }));
+        const mappedPurchases = purchasesData.map(p => {
+            const isReceived = p.status === 'Received' || p.status === 'Discrepancy';
+            return {
+                id: p.id || p.po_id,
+                code: p.po_code,
+                date: new Date(isReceived && p.received_date ? p.received_date : p.order_date),
+                total: Number(p.total_value || p.total_amount || 0),
+                discount: 0,
+                creator: p.created_by_name || 'System',
+                receiver: p.receiver_name || null,
+                type: isReceived ? 'receive' : 'buy',
+                typeName: isReceived ? 'Nhập kho (PO)' : 'Tạo đơn (PO)',
+                status: p.status || 'Draft',
+                supplier: p.supplier_name || 'N/A',
+                actor: isReceived ? (p.receiver_name || p.created_by_name || 'System') : (p.created_by_name || 'System')
+            };
+        });
 
         // Combine and sort by date descending
         allTransactions = [...mappedSales, ...mappedPurchases].sort((a, b) => b.date - a.date);
@@ -86,7 +95,7 @@ async function loadTransactions() {
             <tr>
                 <td colspan="6" class="px-6 py-8 text-center text-red-500">
                     <i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
-                    Không thể tải lịch sử giao dịch: ${error.message}
+                    Failed to load transaction history: ${error.message}
                 </td>
             </tr>
         `;
@@ -132,8 +141,8 @@ function applyFiltersAndRender() {
     emptyState.classList.add('hidden');
     tbody.innerHTML = filtered.map(t => {
         const dateStr = t.date.toLocaleDateString('vi-VN', {
-            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-        });
+            year: 'numeric', month: '2-digit', day: '2-digit'
+        }) + ' ' + t.date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
         // Badge styling for transaction type
         const typeBadge = t.type === 'sell'
@@ -145,11 +154,11 @@ function applyFiltersAndRender() {
                 <td class="px-6 py-4 text-gray-500 text-sm whitespace-nowrap">${dateStr}</td>
                 <td class="px-6 py-4 text-gray-900 font-semibold text-sm whitespace-nowrap font-mono">${t.code}</td>
                 <td class="px-6 py-4 whitespace-nowrap">${typeBadge}</td>
-                <td class="px-6 py-4 text-gray-700 text-sm whitespace-nowrap">${t.type === 'buy' ? (t.receiver || t.creator) : t.creator}</td>
-                <td class="px-6 py-4 text-right text-gray-900 font-bold whitespace-nowrap">$${t.total.toFixed(2)}</td>
+                <td class="px-6 py-4 text-gray-700 text-sm whitespace-nowrap">${t.actor}</td>
+                <td class="px-6 py-4 text-right text-gray-900 font-bold whitespace-nowrap">${formatCurrency(t.total)}</td>
                 <td class="px-6 py-4 text-center whitespace-nowrap">
                     <button onclick="showTransactionDetails(${t.id}, '${t.type}')" class="px-4 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 mx-auto">
-                        <i data-lucide="eye" class="w-3.5 h-3.5 text-gray-400"></i> Chi tiết
+                        <i data-lucide="eye" class="w-3.5 h-3.5 text-gray-400"></i> Details
                     </button>
                 </td>
             </tr>
@@ -172,12 +181,12 @@ async function showTransactionDetails(id, type) {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 
-    modalTitle.textContent = type === 'sell' ? 'Chi tiết hóa đơn bán hàng' : 'Chi tiết đơn nhập hàng';
+    modalTitle.textContent = type === 'sell' ? 'Sales Details' : 'Purchase Order Details';
     modalTbody.innerHTML = `
         <tr>
             <td colspan="4" class="px-6 py-8 text-center text-gray-400">
                 <div class="w-6 h-6 border-2 border-gray-900 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                Đang tải chi tiết...
+                Loading details...
             </td>
         </tr>
     `;
@@ -185,13 +194,13 @@ async function showTransactionDetails(id, type) {
     // Find the general transaction info from local cache
     const txn = allTransactions.find(t => t.id === id && t.type === type);
     if (!txn) {
-        modalTbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-red-500">Không tìm thấy thông tin giao dịch.</td></tr>';
+        modalTbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-red-500">Transaction details not found.</td></tr>';
         return;
     }
 
     const dateStr = txn.date.toLocaleDateString('vi-VN', {
-        year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'
-    });
+        year: 'numeric', month: '2-digit', day: '2-digit'
+    }) + ' ' + txn.date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
     modalCode.textContent = txn.code;
 
@@ -199,20 +208,20 @@ async function showTransactionDetails(id, type) {
     if (type === 'sell') {
         modalInfo.innerHTML = `
             <div>
-                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Nhân viên bán hàng</p>
+                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Sales Associate</p>
                 <p class="text-sm font-semibold text-gray-800 mt-0.5">${txn.creator}</p>
             </div>
             <div>
-                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Thời gian giao dịch</p>
+                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Transaction Time</p>
                 <p class="text-sm font-semibold text-gray-800 mt-0.5">${dateStr}</p>
             </div>
             <div>
-                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Giảm giá hóa đơn</p>
-                <p class="text-sm font-semibold text-gray-800 mt-0.5">$${txn.discount.toFixed(2)}</p>
+                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Discount</p>
+                <p class="text-sm font-semibold text-gray-800 mt-0.5">${formatCurrency(txn.discount)}</p>
             </div>
             <div>
-                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Tổng cộng thanh toán</p>
-                <p class="text-sm font-bold text-emerald-600 mt-0.5">$${txn.total.toFixed(2)}</p>
+                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Total Paid</p>
+                <p class="text-sm font-bold text-emerald-600 mt-0.5">${formatCurrency(txn.total)}</p>
             </div>
         `;
     } else {
@@ -231,28 +240,28 @@ async function showTransactionDetails(id, type) {
 
         modalInfo.innerHTML = `
             <div>
-                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Nhà cung cấp (Supplier)</p>
+                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Supplier</p>
                 <p class="text-sm font-semibold text-gray-800 mt-0.5">${txn.supplier}</p>
             </div>
             <div>
-                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Nhân viên tạo đơn</p>
+                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Created By</p>
                 <p class="text-sm font-semibold text-gray-800 mt-0.5">${txn.creator}</p>
             </div>
             ${txn.receiver ? `
             <div>
-                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Nhân viên nhận hàng</p>
+                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Received By</p>
                 <p class="text-sm font-semibold text-gray-800 mt-0.5">${txn.receiver}</p>
             </div>
             ` : ''}
             <div>
-                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Thời gian đặt hàng</p>
+                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Order Time</p>
                 <p class="text-sm font-semibold text-gray-800 mt-0.5">${dateStr}</p>
             </div>
             <div>
-                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Trạng thái / Giá trị</p>
+                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Status / Value</p>
                 <div class="flex items-center gap-2 mt-1">
                     <span class="px-2 py-0.5 rounded text-xs font-bold border ${badgeClass}">${txn.status}</span>
-                    <span class="text-sm font-bold text-indigo-600">$${txn.total.toFixed(2)}</span>
+                    <span class="text-sm font-bold text-indigo-600">${formatCurrency(txn.total)}</span>
                 </div>
             </div>
         `;
@@ -275,13 +284,13 @@ async function showTransactionDetails(id, type) {
         if (staffNote) {
             modalInfo.innerHTML += `
                 <div class="col-span-1 md:col-span-2 bg-yellow-50 border border-yellow-200 text-yellow-800 p-3 rounded-lg text-xs mt-2">
-                    <span class="font-bold">Ghi chú nhận hàng:</span> ${staffNote}
+                    <span class="font-bold">Receiving note:</span> ${staffNote}
                 </div>
             `;
         }
 
         if (items.length === 0) {
-            modalTbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-gray-500">Giao dịch này không chứa sản phẩm nào.</td></tr>';
+            modalTbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-gray-500">No items found in this transaction.</td></tr>';
             return;
         }
 
@@ -293,12 +302,12 @@ async function showTransactionDetails(id, type) {
             return `
                 <tr class="hover:bg-gray-50/50 transition-colors">
                     <td class="px-6 py-4">
-                        <div class="text-sm font-semibold text-gray-900">${item.product_name || 'Không rõ tên'}</div>
+                        <div class="text-sm font-semibold text-gray-900">${item.product_name || 'Unknown Product'}</div>
                         <div class="text-xs text-gray-400 font-mono">SKU: ${item.sku || '--'}</div>
                     </td>
                     <td class="px-6 py-4 text-center text-sm font-semibold text-gray-800">${qty}</td>
-                    <td class="px-6 py-4 text-right text-sm text-gray-500">$${unitPrice.toFixed(2)}</td>
-                    <td class="px-6 py-4 text-right text-sm font-bold text-gray-900">$${total.toFixed(2)}</td>
+                    <td class="px-6 py-4 text-right text-sm text-gray-500">${formatCurrency(unitPrice)}</td>
+                    <td class="px-6 py-4 text-right text-sm font-bold text-gray-900">${formatCurrency(total)}</td>
                 </tr>
             `;
         }).join('');
@@ -307,7 +316,7 @@ async function showTransactionDetails(id, type) {
         modalTbody.innerHTML = `
             <tr>
                 <td colspan="4" class="px-6 py-8 text-center text-red-500">
-                    Không thể tải danh sách sản phẩm: ${error.message}
+                    Failed to load items list: ${error.message}
                 </td>
             </tr>
         `;

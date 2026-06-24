@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -48,8 +48,20 @@
                         <section class="grid grid-cols-1 lg:grid-cols-[260px_1fr] border-b border-gray-100">
                             <div class="p-6 bg-gray-50/70 flex gap-4"><span class="w-7 h-7 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-sm font-bold">3</span><div><h2 class="font-semibold">Address & Location</h2><p class="text-sm text-gray-500 mt-2">Specify the supplier's location details.</p></div></div>
                             <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <label><span class="text-sm font-medium">Province/City <b class="text-red-500">*</b></span><select id="province" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg bg-white"><option value="">Select province/city</option><option>TP.HCM</option><option>Ha Noi</option><option>Dong Nai</option><option>Binh Duong</option><option>Da Nang</option></select></label>
-                                <label><span class="text-sm font-medium">District</span><input id="district" placeholder="Enter district" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg"></label>
+                                <label class="relative block"><span class="text-sm font-medium">Province/City <b class="text-red-500">*</b></span>
+                                    <div class="relative mt-2">
+                                        <input type="text" id="province" autocomplete="off" placeholder="Enter or select province/city" class="w-full px-4 py-3 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-100">
+                                        <i data-lucide="chevron-down" class="absolute right-4 top-3.5 w-5 h-5 text-gray-400 pointer-events-none"></i>
+                                        <div id="provinceDropdown" class="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto hidden"></div>
+                                    </div>
+                                </label>
+                                <label class="relative block"><span class="text-sm font-medium">District</span>
+                                    <div class="relative mt-2">
+                                        <input type="text" id="district" autocomplete="off" placeholder="Enter or select district" class="w-full px-4 py-3 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-gray-50 disabled:cursor-not-allowed">
+                                        <i data-lucide="chevron-down" class="absolute right-4 top-3.5 w-5 h-5 text-gray-400 pointer-events-none"></i>
+                                        <div id="districtDropdown" class="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto hidden"></div>
+                                    </div>
+                                </label>
                                 <label class="md:col-span-2"><span class="text-sm font-medium">Detailed Address <b class="text-red-500">*</b></span><input id="address" required placeholder="Enter detailed address" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg"></label>
                             </div>
                         </section>
@@ -59,9 +71,10 @@
                             <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-5">
                                 <label><span class="text-sm font-medium">Lead Time (days) <b class="text-red-500">*</b></span><input id="leadTime" type="number" min="0" required placeholder="Enter lead time" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg"></label>
                                 <label><span class="text-sm font-medium">Minimum Order Value</span><input id="minOrder" type="number" min="0" placeholder="Enter minimum value" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg"></label>
-                                <label><span class="text-sm font-medium">Payment Terms</span><select id="paymentTerms" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg bg-white"><option value="">Select payment terms</option><option>Net 7</option><option>Net 15</option><option>Net 30</option><option>COD</option></select></label>
+                                <label><span class="text-sm font-medium">Payment Terms</span><select id="paymentTerms" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg bg-white"><option value="">Select payment terms</option><option>Net 7</option><option>Net 15</option><option>Net 30</option><option>COD</option><option>50% Advance</option></select></label>
                                 <label><span class="text-sm font-medium">Delivery Method</span><select id="deliveryMethod" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg bg-white"><option value="">Select delivery method</option><option>Supplier delivery</option><option>Self pickup</option><option>Third-party logistics</option></select></label>
                                 <label><span class="text-sm font-medium">Preferred Ordering Channel</span><select id="orderingChannel" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg bg-white"><option value="">Select ordering channel</option><option>Phone</option><option>Email</option><option>Portal</option><option>Zalo</option></select></label>
+                                <label><span class="text-sm font-medium">AI Relevance</span><select id="aiRelevance" class="mt-2 w-full px-4 py-3 border border-gray-200 rounded-lg bg-white"><option value="High">High</option><option value="Medium" selected>Medium</option><option value="Low">Low</option></select></label>
                             </div>
                         </section>
 
