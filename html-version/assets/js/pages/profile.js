@@ -30,7 +30,7 @@ window.toggleEditProfile = function() {
     document.getElementById('editProfileBtn').classList.add('hidden');
     document.getElementById('profileActions').classList.remove('hidden');
 
-    [fNameInput, userInp, mailInp].forEach(el => {
+    [fNameInput, mailInp].forEach(el => {
         el.removeAttribute('disabled');
         el.classList.remove('disabled-input');
         el.classList.add('bg-white');
@@ -43,7 +43,7 @@ window.cancelEditProfile = function() {
     document.getElementById('editProfileBtn').classList.remove('hidden');
     document.getElementById('profileActions').classList.add('hidden');
 
-    [fNameInput, userInp, mailInp].forEach(el => {
+    [fNameInput, mailInp].forEach(el => {
         el.setAttribute('disabled', 'true');
         el.classList.add('disabled-input');
         el.classList.remove('bg-white');
@@ -51,20 +51,49 @@ window.cancelEditProfile = function() {
 
     // Reset to backup values
     fNameInput.value = backupProfile.fullName;
-    userInp.value = backupProfile.username;
     mailInp.value = backupProfile.email;
 }
 
-window.handleProfileUpdate = function(e) {
+window.handleProfileUpdate = async function(e) {
     e.preventDefault();
-    backupProfile = {
-        fullName: fNameInput.value,
-        username: userInp.value,
-        email: mailInp.value
-    };
+    const saveBtn = document.querySelector('#profileActions button[type="submit"]');
+    const originalText = saveBtn.textContent;
     
-    cancelEditProfile(); // Disables edit mode visually
-    showToast("Profile updated successfully!", "success");
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving...";
+    
+    try {
+        const userId = currentUser.id || currentUser.user_id;
+        const payload = {
+            full_name: fNameInput.value.trim(),
+            email: mailInp.value.trim()
+        };
+        
+        await API.users.update(userId, payload);
+        
+        // Update local session
+        currentUser.full_name = payload.full_name;
+        currentUser.email = payload.email;
+        Auth.setUser(currentUser);
+        
+        // Update backup
+        backupProfile.fullName = payload.full_name;
+        backupProfile.email = payload.email;
+        
+        cancelEditProfile(); // Disables edit mode visually
+        showToast("Profile updated successfully!", "success");
+        
+        // Refresh display name in sidebar if present
+        const sidebarName = document.querySelector('aside .text-gray-900');
+        if (sidebarName) {
+            sidebarName.textContent = payload.full_name;
+        }
+    } catch (err) {
+        showToast(err.message || "Cannot update profile.", "error");
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = originalText;
+    }
 }
 
 window.togglePasswordVisibility = function(inputId, iconId) {

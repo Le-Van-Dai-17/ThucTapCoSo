@@ -52,7 +52,7 @@ router.put('/notifications/:id/read', authMiddleware.verifyToken, notificationCo
 // ==========================================
 router.get('/users/list', authMiddleware.verifyToken, authMiddleware.requireRole('Admin'), userController.getAllUsers);
 router.post('/users/create', authMiddleware.verifyToken, authMiddleware.requireRole('Admin'), userController.createUser);
-router.put('/users/update/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Admin'), userController.updateUser);
+router.put('/users/update/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Admin', 'Manager', 'Staff'), userController.updateUser);
 router.delete('/users/delete/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Admin'), userController.deleteUser);
 
 // ==========================================

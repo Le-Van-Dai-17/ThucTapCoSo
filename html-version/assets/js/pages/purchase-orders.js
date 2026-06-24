@@ -522,12 +522,12 @@ window.viewDetail = async function (id) {
             if (disc && disc.status === 'Resolved') {
                 if (disc.resolution_type === 'refund') {
                     orderedHtml = `<span class="text-red-500 font-semibold">${disc.expected_quantity}</span>`;
-                    receivedHtml = `<span class="text-[#10B981] font-semibold">${disc.actual_quantity}</span>`;
+                    receivedHtml = `<span class="text-[#10B981] font-semibold">${disc.actual_quantity}</span> <span class="text-red-500 font-bold" title="Hoàn hàng">+ ${disc.discrepancy_quantity}</span>`;
                 } else if (disc.resolution_type === 'replacement') {
-                    receivedHtml = `<span>${disc.actual_quantity}</span> <span class="text-orange-500 font-bold" title="Giao bù hàng">+ ${disc.discrepancy_quantity}</span>`;
+                    receivedHtml = `<span class="text-[#10B981] font-semibold">${disc.actual_quantity}</span> <span class="text-red-500 font-bold" title="Giao bù hàng">+ ${disc.discrepancy_quantity}</span>`;
                 }
             } else if (disc && disc.status === 'Pending') {
-                receivedHtml = `<span>${disc.actual_quantity}</span> <span class="text-red-500 font-bold" title="Chờ đối soát">(-${disc.discrepancy_quantity})</span>`;
+                receivedHtml = `<span class="text-[#10B981] font-semibold">${disc.actual_quantity}</span> <span class="text-red-500 font-bold" title="Chờ đối soát">(-${disc.discrepancy_quantity})</span>`;
             }
 
             const isShort = received < ordered;

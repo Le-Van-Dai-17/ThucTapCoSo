@@ -61,7 +61,7 @@ async function loadTransactions() {
             discount: Number(s.discount_amount || 0),
             creator: s.staff_name || 'System',
             type: 'sell',
-            typeName: 'Bán hàng',
+            typeName: 'Sales',
             status: 'Completed',
             supplier: null,
             actor: s.staff_name || 'System'
@@ -79,7 +79,7 @@ async function loadTransactions() {
                 creator: p.created_by_name || 'System',
                 receiver: p.receiver_name || null,
                 type: isReceived ? 'receive' : 'buy',
-                typeName: isReceived ? 'Nhập kho (PO)' : 'Tạo đơn (PO)',
+                typeName: isReceived ? 'PO Received' : 'PO Created',
                 status: p.status || 'Draft',
                 supplier: p.supplier_name || 'N/A',
                 actor: isReceived ? (p.receiver_name || p.created_by_name || 'System') : (p.created_by_name || 'System')
@@ -116,7 +116,11 @@ function applyFiltersAndRender() {
 
     // Filter by type
     if (typeFilter !== 'all') {
-        filtered = filtered.filter(t => t.type === typeFilter);
+        if (typeFilter === 'buy') {
+            filtered = filtered.filter(t => t.type === 'buy' || t.type === 'receive');
+        } else {
+            filtered = filtered.filter(t => t.type === typeFilter);
+        }
     }
 
     // Filter by start date
@@ -187,6 +191,11 @@ async function showTransactionDetails(id, type) {
     modal.classList.add('flex');
 
     modalTitle.textContent = type === 'sell' ? 'Sales Details' : 'Purchase Order Details';
+    const isReceive = (type === 'receive');
+    const qtyHeader = document.getElementById('detailModalQtyHeader');
+    if (qtyHeader) {
+        qtyHeader.textContent = isReceive ? 'Received / Ordered' : 'Quantity';
+    }
     modalTbody.innerHTML = `
         <tr>
             <td colspan="4" class="px-6 py-8 text-center text-gray-400">
@@ -276,6 +285,7 @@ async function showTransactionDetails(id, type) {
 
     try {
         let items = [];
+        let discrepancies = [];
         let staffNote = '';
         if (type === 'sell') {
             const res = await API.sales.getTransactionDetail(id);
@@ -283,6 +293,7 @@ async function showTransactionDetails(id, type) {
         } else {
             const res = await API.orders.getDetail(id);
             items = res.data || [];
+            discrepancies = res.discrepancies || [];
             if (res.order && res.order.staff_note) {
                 staffNote = res.order.staff_note;
             }
@@ -302,9 +313,33 @@ async function showTransactionDetails(id, type) {
         }
 
         modalTbody.innerHTML = items.map(item => {
-            const qty = Number(item.quantity || item.ordered_quantity || 0);
+            const orderedQty = Number(item.ordered_quantity || item.quantity || 0);
+            const receivedQty = Number(item.received_quantity !== undefined && item.received_quantity !== null ? item.received_quantity : orderedQty);
             const unitPrice = Number(item.unit_price || item.unit_cost || 0);
-            const total = Number(item.total_amount || item.line_total || (qty * unitPrice));
+            const total = Number(item.total_amount || item.line_total || (orderedQty * unitPrice));
+
+            let qtyDisplay = '';
+            if (isReceive) {
+                const disc = discrepancies.find(x => x.po_item_id === item.po_item_id);
+                if (disc) {
+                    if (disc.status === 'Resolved') {
+                        qtyDisplay = `<span class="font-semibold text-[#10B981]">${disc.actual_quantity}</span> <span class="text-red-500 font-bold" title="${disc.resolution_type === 'refund' ? 'Hoàn hàng' : 'Giao bù hàng'}">+ ${disc.discrepancy_quantity}</span>`;
+                    } else if (disc.status === 'Pending') {
+                        qtyDisplay = `<span class="font-semibold text-[#10B981]">${disc.actual_quantity}</span> <span class="text-red-500 font-bold" title="Chờ đối soát">(-${disc.discrepancy_quantity})</span>`;
+                    } else {
+                        qtyDisplay = `<span class="font-semibold text-[#10B981]">${receivedQty}</span>`;
+                    }
+                } else {
+                    const diff = orderedQty - receivedQty;
+                    if (diff > 0) {
+                        qtyDisplay = `<span class="font-semibold text-[#10B981]">${receivedQty}</span> <span class="text-red-500 font-semibold">+ ${diff}</span>`;
+                    } else {
+                        qtyDisplay = `<span class="font-semibold text-[#10B981]">${receivedQty}</span>`;
+                    }
+                }
+            } else {
+                qtyDisplay = `<span class="font-semibold text-gray-800">${orderedQty}</span>`;
+            }
 
             return `
                 <tr class="hover:bg-gray-50/50 transition-colors">
@@ -312,7 +347,7 @@ async function showTransactionDetails(id, type) {
                         <div class="text-sm font-semibold text-gray-900">${item.product_name || 'Unknown Product'}</div>
                         <div class="text-xs text-gray-400 font-mono">SKU: ${item.sku || '--'}</div>
                     </td>
-                    <td class="px-6 py-4 text-center text-sm font-semibold text-gray-800">${qty}</td>
+                    <td class="px-6 py-4 text-center text-sm">${qtyDisplay}</td>
                     <td class="px-6 py-4 text-right text-sm text-gray-500">${formatCurrency(unitPrice)}</td>
                     <td class="px-6 py-4 text-right text-sm font-bold text-gray-900">${formatCurrency(total)}</td>
                 </tr>
