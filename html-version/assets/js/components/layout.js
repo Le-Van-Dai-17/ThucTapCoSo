@@ -127,15 +127,15 @@ const NAV_ITEMS = [
         roles: ['Admin']
     },
     {
-        href: 'settings.html',
-        label: 'Settings',
-        icon: 'settings',
-        roles: ['Admin']
-    },
-    {
         href: 'model-performance.html',
         label: 'Model Performance',
         icon: 'brain-circuit',
+        roles: ['Admin']
+    },
+    {
+        href: 'settings.html',
+        label: 'Settings',
+        icon: 'settings',
         roles: ['Admin']
     }
 ];
