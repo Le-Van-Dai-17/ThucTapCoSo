@@ -81,22 +81,24 @@ window.togglePasswordVisibility = function(inputId, iconId) {
     lucide.createIcons();
 }
 
-window.handlePasswordChange = function(e) {
+window.handlePasswordChange = async function(e) {
     e.preventDefault();
+    const form = document.getElementById('passwordForm');
+    const currentP = document.getElementById('currentPassword').value;
     const newP = document.getElementById('newPassword').value;
     const confirmP = document.getElementById('confirmPassword').value;
 
-    if (newP !== confirmP) {
-        showToast("New passwords do not match!", "error");
-        return;
+    try {
+        await API.auth.changePassword({
+            currentPassword: currentP,
+            newPassword: newP,
+            confirmPassword: confirmP
+        });
+        form.reset();
+        showToast("Đổi mật khẩu thành công.", "success");
+    } catch (err) {
+        showToast(err.message || "Không thể đổi mật khẩu.", "error");
     }
-    if (newP.length < 8) {
-        showToast("Password must be at least 8 characters long!", "error");
-        return;
-    }
-
-    document.getElementById('passwordForm').reset();
-    showToast("Password changed successfully!", "success");
 }
 
 function showToast(message, type) {

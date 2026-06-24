@@ -97,6 +97,9 @@ const API = {
             try { await apiFetch('/auth/logout', { method: 'POST' }); } catch {}
             Auth.clear();
             window.location.href = 'login.html';
+        },
+        async changePassword(data) {
+            return apiFetch('/auth/change-password', { method: 'PUT', body: JSON.stringify(data) });
         }
     },
 

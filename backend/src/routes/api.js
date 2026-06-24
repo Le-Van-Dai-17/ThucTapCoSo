@@ -39,6 +39,7 @@ router.post('/auth/register', (req, res) => {
 });
 router.post('/auth/login', authController.login);
 router.post('/auth/logout', authMiddleware.verifyToken, authController.logout);
+router.put('/auth/change-password', authMiddleware.verifyToken, authController.changePassword);
 router.get('/notifications', authMiddleware.verifyToken, notificationController.getNotifications);
 router.put('/notifications/read-all', authMiddleware.verifyToken, notificationController.markAllRead);
 router.put('/notifications/:id/read', authMiddleware.verifyToken, notificationController.markRead);

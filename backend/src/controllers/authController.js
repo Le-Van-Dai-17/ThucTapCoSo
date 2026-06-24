@@ -3,6 +3,20 @@ const jwt = require('jsonwebtoken');
 const { pool } = require('../db'); 
 const { safeLogAction } = require('../utils/controllerUtils');
 
+const validateNewPassword = (password) => {
+    const value = String(password || '');
+    if (value.length < 8 || value.length > 72) {
+        return 'Mật khẩu mới phải dài từ 8 đến 72 ký tự.';
+    }
+    if (/\s/.test(value)) {
+        return 'Mật khẩu mới không được chứa khoảng trắng.';
+    }
+    if (!/[a-z]/.test(value) || !/[A-Z]/.test(value) || !/[0-9]/.test(value)) {
+        return 'Mật khẩu mới phải có chữ hoa, chữ thường và số.';
+    }
+    return null;
+};
+
 exports.register = async (req, res) => {
     const connection = await pool.getConnection();
     let transactionStarted = false;
@@ -183,5 +197,60 @@ exports.logout = async (req, res) => {
     } catch (error) {
         console.error('Lỗi khi đăng xuất:', error);
         res.status(500).json({ success: false, message: 'Lỗi server' });
+    }
+};
+
+
+exports.changePassword = async (req, res) => {
+    try {
+        const userId = req.user?.user_id || req.user?.id;
+        const { currentPassword, newPassword, confirmPassword } = req.body;
+
+        if (!userId) {
+            return res.status(401).json({ success: false, message: 'Không xác định được người dùng đang đăng nhập.' });
+        }
+
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            return res.status(400).json({ success: false, message: 'Vui lòng nhập đầy đủ mật khẩu hiện tại, mật khẩu mới và xác nhận mật khẩu.' });
+        }
+
+        const [credentials] = await pool.query(
+            'SELECT password_hash FROM user_credentials WHERE user_id = ? LIMIT 1',
+            [userId]
+        );
+
+        if (credentials.length === 0) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy thông tin đăng nhập của tài khoản.' });
+        }
+
+        const isCurrentPasswordValid = await bcrypt.compare(currentPassword, credentials[0].password_hash);
+        if (!isCurrentPasswordValid) {
+            return res.status(400).json({ success: false, message: 'Mật khẩu hiện tại không đúng.' });
+        }
+
+        if (String(newPassword) !== String(confirmPassword)) {
+            return res.status(400).json({ success: false, message: 'Mật khẩu mới và xác nhận mật khẩu không khớp.' });
+        }
+
+        const passwordFormatError = validateNewPassword(newPassword);
+        if (passwordFormatError) {
+            return res.status(400).json({ success: false, message: passwordFormatError });
+        }
+
+        if (String(currentPassword) === String(newPassword)) {
+            return res.status(400).json({ success: false, message: 'Mật khẩu mới không được trùng với mật khẩu hiện tại.' });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await pool.query(
+            'UPDATE user_credentials SET password_hash = ?, password_updated_at = CURRENT_TIMESTAMP, failed_login_attempts = 0, locked_until = NULL WHERE user_id = ?',
+            [hashedPassword, userId]
+        );
+
+        await safeLogAction(userId, 'CHANGE_PASSWORD', `User changed password: ${req.user?.username || userId}`, 'users', userId, req.ip);
+        res.status(200).json({ success: true, message: 'Đổi mật khẩu thành công.' });
+    } catch (error) {
+        console.error('Lỗi khi đổi mật khẩu:', error);
+        res.status(500).json({ success: false, message: 'Lỗi server khi đổi mật khẩu.' });
     }
 };
