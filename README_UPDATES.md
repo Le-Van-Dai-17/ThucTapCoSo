@@ -106,4 +106,12 @@ Tài liệu này tổng hợp toàn bộ các tính năng, cải tiến và phâ
   * Thay đổi cột hiển thị số thứ tự (RUN) từ việc hiển thị ID tự tăng của database (`run.run_id` - vốn bị ngược lớn về nhỏ khi sắp xếp mới nhất lên đầu) sang hiển thị số thứ tự hàng dạng số đếm tăng dần (`1, 2, 3, ...`).
   * Việc này giúp đảm bảo nguyên tắc hiển thị giao diện: hoạt động gần nhất luôn ở đầu bảng (dễ theo dõi) và số thứ tự hiển thị luôn được đánh số tăng dần từ nhỏ đến lớn.
 
+---
+
+## 11. Lọc Bớt Trạng Thái Đơn Nhập Hàng Trên Giao Diện Dashboard (Dashboard PO Status Filtering - 25/06/2026)
+* **Loại bỏ các trạng thái không sử dụng**:
+  * Xóa các trạng thái đơn nhập hàng không còn dùng đến ở thẻ tóm tắt "Purchase Order Status" trên màn hình Dashboard chính: **Draft**, **Shipped**, và **Completed**.
+  * Chỉ giữ lại hiển thị các trạng thái PO thực tế đang hoạt động trong quy trình: **Pending** (Chờ duyệt), **Approved** (Đã duyệt), và **Received** (Đã nhận hàng).
+
+
 

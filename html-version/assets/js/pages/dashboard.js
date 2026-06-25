@@ -520,12 +520,9 @@ function renderPurchaseStatus(purchases) {
         return acc;
     }, {});
     const statuses = [
-        ['draft', 'Draft', 'file-text', 'bg-blue-50 text-blue-600'],
         ['pending', 'Pending', 'line-chart', 'bg-violet-50 text-violet-600'],
         ['approved', 'Approved', 'check-circle', 'bg-emerald-50 text-emerald-600'],
-        ['shipped', 'Shipped', 'truck', 'bg-cyan-50 text-cyan-600'],
-        ['received', 'Received', 'package-check', 'bg-green-50 text-green-600'],
-        ['completed', 'Completed', 'package-check', 'bg-green-50 text-green-600']
+        ['received', 'Received', 'package-check', 'bg-green-50 text-green-600']
     ];
     const el = document.getElementById('poStatusList');
     if (!el) return;
