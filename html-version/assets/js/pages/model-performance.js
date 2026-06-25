@@ -1,4 +1,4 @@
-﻿lucide.createIcons();
+lucide.createIcons();
 if (typeof Auth !== 'undefined') {
     Auth.requireAuth();
     if (!Auth.hasRole('admin')) {
@@ -92,11 +92,11 @@ function renderRuns(runs = []) {
         return;
     }
 
-    trainingRunsBody.innerHTML = runs.map(run => {
+    trainingRunsBody.innerHTML = runs.map((run, idx) => {
         const statusKind = run.run_status === 'Failed' ? 'red' : run.run_status === 'Running' ? 'yellow' : 'green';
         return `
             <tr class="hover:bg-gray-50">
-                <td class="px-6 py-4"><div class="font-semibold text-gray-900">#${run.run_id} ${badge(run.run_status, statusKind)}</div><div class="text-xs text-gray-500 mt-1">${dateText(run.started_at)}</div></td>
+                <td class="px-6 py-4"><div class="font-semibold text-gray-900">#${idx + 1} ${badge(run.run_status, statusKind)}</div><div class="text-xs text-gray-500 mt-1">${dateText(run.started_at)}</div></td>
                 <td class="px-6 py-4 text-center">${run.trigger_type || '--'}</td>
                 <td class="px-6 py-4 text-center">${run.validation_period ? String(run.validation_period).slice(0, 10) : '--'}</td>
                 <td class="px-6 py-4 text-center">${metric(run.baseline_mape, '%')}</td>

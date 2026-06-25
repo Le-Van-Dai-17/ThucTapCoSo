@@ -99,3 +99,11 @@ Tài liệu này tổng hợp toàn bộ các tính năng, cải tiến và phâ
 * **Khắc phục lỗi lưu cấu hình**:
   * Đồng bộ hóa dữ liệu trạng thái Frontend trong `settings.js` bằng cách gộp cấu hình hiện có với dữ liệu từ biểu mẫu biểu diễn trước khi kiểm tra (validation) và cập nhật, giúp các tuỳ chọn không bị trống hoặc mất mát dữ liệu khi lưu.
 
+---
+
+## 10. Điều Chỉnh Số Thứ Tự (STT) Trong Bảng Training Runs (Training Runs Sequence Numbering - 25/06/2026)
+* **Số thứ tự tăng dần từ trên xuống dưới**:
+  * Thay đổi cột hiển thị số thứ tự (RUN) từ việc hiển thị ID tự tăng của database (`run.run_id` - vốn bị ngược lớn về nhỏ khi sắp xếp mới nhất lên đầu) sang hiển thị số thứ tự hàng dạng số đếm tăng dần (`1, 2, 3, ...`).
+  * Việc này giúp đảm bảo nguyên tắc hiển thị giao diện: hoạt động gần nhất luôn ở đầu bảng (dễ theo dõi) và số thứ tự hiển thị luôn được đánh số tăng dần từ nhỏ đến lớn.
+
+
