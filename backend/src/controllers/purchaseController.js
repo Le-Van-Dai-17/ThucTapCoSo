@@ -92,7 +92,14 @@ exports.createPurchase = async (req, res) => {
     const supplierId = await getSupplierId(connection, supplier_id, supplier_name);
     const poCode = po_code || order_number || generatePoCode();
     const createdBy = getActorId(req);
-    const orderStatus = normalizeStatus(status || 'Draft');
+    
+    const settingsHelper = require('../utils/settingsHelper');
+    const requireApproval = await settingsHelper.getSettingValue('requireApproval', true);
+    
+    let orderStatus = normalizeStatus(status || 'Draft');
+    if (!requireApproval && status === 'Pending') {
+      orderStatus = 'Approved';
+    }
 
     const [result] = await connection.query(
       `INSERT INTO purchase_orders (po_code, supplier_id, created_by, status, expected_delivery_date, total_value) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -104,14 +111,27 @@ exports.createPurchase = async (req, res) => {
     await connection.commit();
 
     await safeLogAction(createdBy, 'CREATE_PURCHASE_ORDER', `Tạo đơn nhập hàng ${poCode}`, 'purchase_orders', poId, req.ip);
-    await notificationService.safeCreateForRoles(['Manager', 'Admin'], {
-      title: 'New purchase order',
-      message: `Purchase order ${poCode} was created and is waiting for review.`,
-      type: 'info',
-      entityType: 'purchase_orders',
-      entityId: poId,
-      link: 'purchase-orders.html'
-    });
+    
+    if (orderStatus === 'Approved') {
+      await notificationService.safeCreateForRoles(['Staff', 'Manager', 'Admin'], {
+        title: 'Purchase order approved',
+        message: `Purchase order ${poCode} has been auto-approved per system settings.`,
+        type: 'success',
+        entityType: 'purchase_orders',
+        entityId: poId,
+        link: 'purchase-orders.html'
+      });
+    } else {
+      await notificationService.safeCreateForRoles(['Manager', 'Admin'], {
+        title: 'New purchase order',
+        message: `Purchase order ${poCode} was created and is waiting for review.`,
+        type: 'info',
+        entityType: 'purchase_orders',
+        entityId: poId,
+        link: 'purchase-orders.html'
+      });
+    }
+    
     res.status(201).json({ success: true, message: 'Tạo đơn nhập hàng thành công', data: { id: poId, po_id: poId, po_code: poCode, total_value: totalValue } });
   } catch (error) {
     await connection.rollback();

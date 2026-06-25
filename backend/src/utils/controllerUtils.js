@@ -44,6 +44,11 @@ const safeLogAction = async (userId, action, description, entityType, entityId, 
     try {
         if (!userId) return;
         const { pool } = require('../db');
+        const settingsHelper = require('./settingsHelper');
+        const enableAudit = await settingsHelper.getSettingValue('enableAuditLog', true);
+        if (!enableAudit) {
+            return;
+        }
         await pool.query(
             `INSERT INTO activity_logs (user_id, action, description, entity_type, entity_id, ip_address) VALUES (?, ?, ?, ?, ?, ?)`,
             [userId, action, description || null, entityType || null, entityId || null, ipAddress || null]

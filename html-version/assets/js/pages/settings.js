@@ -182,7 +182,11 @@ window.resetToDefaults = async function () {
 window.handleSaveSettings = async function (event) {
     event.preventDefault();
 
-    const settings = collectSettingsFromForm();
+    const formSettings = collectSettingsFromForm();
+    const settings = {
+        ...state.settings,
+        ...formSettings
+    };
     const validationError = validateSettings(settings);
 
     if (validationError) {
@@ -191,7 +195,7 @@ window.handleSaveSettings = async function (event) {
     }
 
     try {
-        const result = await API.settings.update(settings);
+        const result = await API.settings.update(formSettings);
         state.settings = settings;
         showToast(result.message || 'Settings saved successfully!');
     } catch (error) {

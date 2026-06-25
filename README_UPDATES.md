@@ -86,3 +86,16 @@ Tài liệu này tổng hợp toàn bộ các tính năng, cải tiến và phâ
   * Khi truy cập trang tạo đơn PO bằng đường dẫn có sản phẩm cụ thể (ví dụ từ liên kết tìm kiếm sản phẩm), sản phẩm được chọn sẽ tự động được ưu tiên đưa lên hàng đầu tiên trong bảng danh mục sản phẩm của nhà cung cấp. Các sản phẩm còn lại (với số lượng đặt mặc định là `0`) sẽ xếp phía dưới để tối ưu hóa thao tác người dùng.
 * **Ẩn thanh tìm kiếm chung của Header**:
   * Ẩn thanh tìm kiếm chung trên header để tránh nhầm lẫn với thanh tìm kiếm nhà cung cấp/sản phẩm chuyên biệt bên dưới.
+
+---
+
+## 9. Tích Hợp Các Cài Đặt Hệ Thống Thực Tế (System Settings Backend Integration - 25/06/2026)
+* **Yêu cầu Quản lý phê duyệt (Require Manager Approval)**:
+  * Kết nối cài đặt này với quy trình tạo/gửi đơn hàng PO. Khi tắt yêu cầu duyệt, mọi đơn PO nhân viên gửi đi sẽ tự động chuyển sang trạng thái phê duyệt (`Approved`) thay vì ở trạng thái chờ duyệt (`Pending`). Hệ thống cũng cập nhật thông báo tự động phê duyệt cho các tài khoản liên quan.
+* **Sử dụng dự báo AI (Use AI Predictions)**:
+  * Khi tắt tuỳ chọn này, hệ thống dự báo nhu cầu hàng tháng sẽ tự động bỏ qua mô hình máy học (ML) của Python và chuyển đổi dự phòng (fallback) sang tính toán trung bình số lượng bán trong 3 tháng gần nhất làm gợi ý số lượng nhập hàng.
+* **Bật ghi nhật ký hoạt động (Enable Activity Logging)**:
+  * Kết nối tập trung vào hàm `safeLogAction` trong `controllerUtils.js`. Khi tắt nhật ký, hệ thống sẽ dừng ghi lại lịch sử thao tác của các tài khoản vào bảng `activity_logs` trên toàn bộ các controller ở Backend.
+* **Khắc phục lỗi lưu cấu hình**:
+  * Đồng bộ hóa dữ liệu trạng thái Frontend trong `settings.js` bằng cách gộp cấu hình hiện có với dữ liệu từ biểu mẫu biểu diễn trước khi kiểm tra (validation) và cập nhật, giúp các tuỳ chọn không bị trống hoặc mất mát dữ liệu khi lưu.
+

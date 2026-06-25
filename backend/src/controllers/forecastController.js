@@ -1,4 +1,4 @@
-﻿const { pool } = require('../db');
+const { pool } = require('../db');
 const { getActorId, safeLogAction } = require('../utils/controllerUtils');
 const { predictDemandBatch } = require('../services/mlForecastService');
 const notificationService = require('../services/notificationService');
@@ -273,6 +273,13 @@ const buildFallbackPredictionMap = (products, lagMap) => {
 };
 
 const predictProductsWithAI = async (products, lagMap, targetPeriod) => {
+    const settingsHelper = require('../utils/settingsHelper');
+    const useML = await settingsHelper.getSettingValue('useMLPrediction', true);
+    if (!useML) {
+        console.log('AI prediction is disabled in system settings. Falling back to 3-month average.');
+        return buildFallbackPredictionMap(products, lagMap);
+    }
+
     const aiInputs = buildAiInputs(products, lagMap, targetPeriod);
 
     try {
@@ -287,7 +294,7 @@ const predictProductsWithAI = async (products, lagMap, targetPeriod) => {
             );
         });
 
-        // Náº¿u thiáº¿u prediction cho sáº£n pháº©m nÃ o thÃ¬ fallback riÃªng sáº£n pháº©m Ä‘Ã³
+        // Nếu thiếu prediction cho sản phẩm nào thì fallback riêng sản phẩm đó
         const fallbackMap = buildFallbackPredictionMap(products, lagMap);
 
         products.forEach(product => {
@@ -298,7 +305,7 @@ const predictProductsWithAI = async (products, lagMap, targetPeriod) => {
 
         return predictionMap;
     } catch (error) {
-        console.error('Lá»—i gá»i AI model, fallback sang trung bÃ¬nh 3 thÃ¡ng:', error.message);
+        console.error('Lỗi gọi AI model, fallback sang trung bình 3 tháng:', error.message);
         return buildFallbackPredictionMap(products, lagMap);
     }
 };
