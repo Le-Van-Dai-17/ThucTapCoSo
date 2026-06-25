@@ -96,7 +96,7 @@ exports.createPurchase = async (req, res) => {
     const settingsHelper = require('../utils/settingsHelper');
     const requireApproval = await settingsHelper.getSettingValue('requireApproval', true);
     
-    let orderStatus = normalizeStatus(status || 'Draft');
+    let orderStatus = normalizeStatus(status || 'Pending');
     if (!requireApproval && status === 'Pending') {
       orderStatus = 'Approved';
     }
@@ -153,7 +153,7 @@ exports.getPurchases = async (req, res) => {
     let params = [];
 
     if (userRole === 'staff') {
-      conditions.push("LOWER(po.status) IN ('approved', 'shipped', 'completed', 'received')");
+      conditions.push("LOWER(po.status) IN ('approved', 'received', 'discrepancy')");
     }
 
     if (ownOnly && userId) {

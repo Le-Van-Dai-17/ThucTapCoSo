@@ -8,6 +8,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam === 'INV') {
+        currentTab = 'INV';
+    }
+
     // Hide global header search to avoid duplicate search bars
     const globalSearch = document.querySelector('header input[placeholder*="Search"]');
     if (globalSearch) {
@@ -131,6 +137,30 @@ async function loadData() {
         const data = await res.json();
         allRecords = data.data || [];
         renderTable();
+
+        // Auto-open discrepancy/adjustment if ID parameters are present
+        const urlParams = new URLSearchParams(window.location.search);
+        const viewDiscrepancyId = urlParams.get('viewDiscrepancyId');
+        const viewAdjustmentId = urlParams.get('viewAdjustmentId');
+        const tabParam = urlParams.get('tab');
+        
+        if (currentTab === 'PO' && viewDiscrepancyId) {
+            // Remove parameter from URL to prevent reopening
+            const newUrl = window.location.pathname + (tabParam ? `?tab=${tabParam}` : '');
+            window.history.replaceState({}, document.title, newUrl);
+            
+            setTimeout(() => {
+                openActionModal(parseInt(viewDiscrepancyId), 'PO');
+            }, 300);
+        } else if (currentTab === 'INV' && viewAdjustmentId) {
+            // Remove parameter from URL
+            const newUrl = window.location.pathname + `?tab=INV`;
+            window.history.replaceState({}, document.title, newUrl);
+            
+            setTimeout(() => {
+                openActionModal(parseInt(viewAdjustmentId), 'INV');
+            }, 300);
+        }
     } catch (error) {
         showToast('Cannot load data.', 'error');
         allRecords = [];
@@ -298,6 +328,17 @@ window.openActionModal = async function(id, type) {
         document.getElementById('modalReportDate').textContent = new Date(record.created_at).toLocaleString('vi-VN');
         document.getElementById('modalReportedBy').textContent = record.reported_by_name || 'N/A';
         document.getElementById('modalReason').textContent = record.reason || 'No specific reason provided';
+        
+        const resolvedByContainer = document.getElementById('modalResolvedByContainer');
+        if (resolvedByContainer) {
+            if (record.status !== 'Pending') {
+                resolvedByContainer.classList.remove('hidden');
+                const resTypeSuffix = record.resolution_type ? ` (${record.resolution_type})` : '';
+                document.getElementById('modalResolvedBy').textContent = `${record.resolved_by_name || 'System / Manager'}${resTypeSuffix}`;
+            } else {
+                resolvedByContainer.classList.add('hidden');
+            }
+        }
     }
     
     // Additional Note is not supported by the DB schema, so we hide it or leave empty

@@ -213,7 +213,9 @@ function normalizeLog(log) {
         rawAction,
         tableAffected,
         timestamp: new Date(createdAt),
-        ipAddress: log.ip_address || 'N/A'
+        ipAddress: log.ip_address || 'N/A',
+        entityType: log.entity_type || null,
+        entityId: log.entity_id || null
     };
 }
 
@@ -530,6 +532,35 @@ function renderData() {
         const actionBadgeClasses = getActionBadgeClasses(activity.rawAction + ' ' + activity.action);
         const badgeColor = getTableBadgeColor(activity.tableAffected);
 
+        let linkHtml = '';
+        if (activity.entityType && activity.entityId) {
+            if (activity.entityType === 'purchase_orders') {
+                linkHtml = `
+                    <div class="mt-1.5">
+                        <a href="purchase-orders.html?viewPoId=${activity.entityId}" class="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 font-semibold hover:underline bg-blue-50/50 hover:bg-blue-50 px-2 py-0.5 rounded border border-blue-100 transition-colors">
+                            <i data-lucide="external-link" class="w-3 h-3"></i> View PO #${activity.entityId}
+                        </a>
+                    </div>
+                `;
+            } else if (activity.entityType === 'po_discrepancies') {
+                linkHtml = `
+                    <div class="mt-1.5">
+                        <a href="reconciliation.html?tab=PO&viewDiscrepancyId=${activity.entityId}" class="inline-flex items-center gap-1 text-[11px] text-amber-700 hover:text-amber-800 font-semibold hover:underline bg-amber-50/50 hover:bg-amber-50 px-2 py-0.5 rounded border border-amber-100 transition-colors">
+                            <i data-lucide="external-link" class="w-3 h-3"></i> View Discrepancy #${activity.entityId}
+                        </a>
+                    </div>
+                `;
+            } else if (activity.entityType === 'inventory_adjustments') {
+                linkHtml = `
+                    <div class="mt-1.5">
+                        <a href="reconciliation.html?tab=INV&viewAdjustmentId=${activity.entityId}" class="inline-flex items-center gap-1 text-[11px] text-indigo-700 hover:text-indigo-800 font-semibold hover:underline bg-indigo-50/50 hover:bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 transition-colors">
+                            <i data-lucide="external-link" class="w-3 h-3"></i> View Adjustment #${activity.entityId}
+                        </a>
+                    </div>
+                `;
+            }
+        }
+
         tr.innerHTML = `
             <td class="px-6 py-4">
                 <div class="flex items-center gap-3">
@@ -556,6 +587,7 @@ function renderData() {
                 <div class="text-[11px] text-gray-500 mt-1.5 font-mono">
                     ${escapeHtml(activity.rawAction)}
                 </div>
+                ${linkHtml}
             </td>
 
             <td class="px-6 py-4">
@@ -595,6 +627,10 @@ function renderData() {
 
     if (lastUpdatedEl) {
         lastUpdatedEl.textContent = 'Last updated: ' + formatTime(new Date());
+    }
+    
+    if (window.lucide) {
+        window.lucide.createIcons();
     }
 }
 

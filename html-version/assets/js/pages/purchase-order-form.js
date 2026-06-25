@@ -307,14 +307,13 @@ async function submitPurchase(status) {
     };
     try {
         await API.orders.create(payload);
-        showToast(status === 'Draft' ? 'Draft purchase order saved.' : 'Purchase order submitted for approval.', 'success');
+        showToast('Purchase order submitted for approval.', 'success');
         window.location.href = 'purchase-orders.html';
     } catch (error) {
         showToast(`Cannot create purchase order: ${error.message}`, 'error');
     }
 }
 
-document.getElementById('saveDraftTopBtn').addEventListener('click', () => submitPurchase('Draft'));
 document.getElementById('submitTopBtn').addEventListener('click', () => submitPurchase('Pending'));
 document.getElementById('submitSideBtn').addEventListener('click', () => submitPurchase('Pending'));
 document.getElementById('previewBtn').addEventListener('click', () => {

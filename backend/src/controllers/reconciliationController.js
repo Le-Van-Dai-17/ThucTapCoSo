@@ -12,7 +12,8 @@ exports.getPendingDiscrepancies = async (req, res) => {
                    pi.product_id, p.name as product_name, p.sku,
                    po.po_code, po.supplier_id, s.name as supplier_name,
                    u.full_name as reported_by_name,
-                   approver.full_name as approved_by_name
+                   approver.full_name as approved_by_name,
+                   resolver.full_name as resolved_by_name
             FROM po_discrepancies d
             JOIN po_items pi ON d.po_item_id = pi.po_item_id
             JOIN products p ON pi.product_id = p.product_id
@@ -20,6 +21,7 @@ exports.getPendingDiscrepancies = async (req, res) => {
             JOIN suppliers s ON po.supplier_id = s.supplier_id
             JOIN users u ON d.reported_by = u.user_id
             LEFT JOIN users approver ON po.approved_by = approver.user_id
+            LEFT JOIN users resolver ON d.resolved_by = resolver.user_id
         `;
 
         const params = [];
@@ -173,11 +175,13 @@ exports.getPendingAdjustments = async (req, res) => {
         const userId = getActorId(req);
 
         let query = `
-            SELECT a.*, p.name as product_name, p.sku, u.full_name as reported_by_name, s.name as supplier_name
+            SELECT a.*, p.name as product_name, p.sku, u.full_name as reported_by_name, s.name as supplier_name,
+                   resolver.full_name as resolved_by_name
             FROM inventory_adjustments a
             JOIN products p ON a.product_id = p.product_id
             LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
             JOIN users u ON a.reported_by = u.user_id
+            LEFT JOIN users resolver ON a.resolved_by = resolver.user_id
         `;
 
         const params = [];

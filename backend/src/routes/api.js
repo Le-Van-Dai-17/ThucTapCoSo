@@ -153,7 +153,7 @@ router.put('/reconciliation/adjustments/:id', authMiddleware.verifyToken, authMi
 // ==========================================
 // 9. ACTIVITY LOG API — Chỉ dành cho Admin [BE-01]
 // ==========================================
-router.get('/activity-logs/list', authMiddleware.verifyToken, authMiddleware.requireRole('Admin', 'Staff'), activityLogController.getLogs);
+router.get('/activity-logs/list', authMiddleware.verifyToken, authMiddleware.requireRole('Admin', 'Manager', 'Staff'), activityLogController.getLogs);
 
 // ==========================================
 // 10. SETTINGS API — Chỉ dành cho Admin [BE-01]

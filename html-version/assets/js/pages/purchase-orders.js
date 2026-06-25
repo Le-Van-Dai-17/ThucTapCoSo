@@ -7,12 +7,9 @@ let currentPOIdToDelete = null;
 let editingOrderId = null;
 
 const statusConfig = {
-    draft:     { label: "Draft",     color: "bg-gray-100 text-gray-700" },
     pending:   { label: "Pending",   color: "bg-orange-100 text-orange-700" },
     approved:  { label: "Approved",  color: "bg-blue-100 text-blue-700" },
-    shipped:   { label: "Shipped",   color: "bg-purple-100 text-purple-700" },
     received:  { label: "Received",  color: "bg-green-100 text-green-700" },
-    completed: { label: "Received",  color: "bg-green-100 text-green-700" },
     cancelled: { label: "Cancelled", color: "bg-red-100 text-red-700" },
     discrepancy: { label: "Discrepancy", color: "bg-amber-100 text-amber-800 border border-amber-300 font-bold" },
 };
@@ -49,12 +46,12 @@ async function loadOrders() {
         const result = await API.orders.getAll();
         allOrders    = (result.data || result).map(o => ({
             ...o,
-            status: String(o.status_key || o.status || '').toLowerCase(),
+            status: String(o.status || '').toLowerCase(),
             total_amount: parseFloat(o.total_amount || 0)
         }));
         
         if (isStaff) {
-            allOrders = allOrders.filter(o => ['approved', 'shipped', 'completed', 'received', 'discrepancy'].includes(o.status));
+            allOrders = allOrders.filter(o => ['approved', 'received', 'discrepancy'].includes(o.status));
         }
     } catch (err) {
         console.warn('Backend error:', err.message);
@@ -64,6 +61,15 @@ async function loadOrders() {
     populateSupplierFilter();
     renderStats();
     renderTable();
+    
+    // Auto-open PO detail if viewPoId is present in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewPoId = urlParams.get('viewPoId');
+    if (viewPoId) {
+        setTimeout(() => {
+            viewDetail(parseInt(viewPoId));
+        }, 300);
+    }
 }
 
 let urlSupplierLoaded = false;
@@ -554,6 +560,43 @@ window.viewDetail = async function (id) {
             `;
         }
 
+        let discrepanciesHtml = '';
+        if (discrepancies.length > 0) {
+            discrepanciesHtml = `
+                <div class="col-span-2 bg-amber-50 border border-amber-200 text-amber-900 p-5 rounded-2xl space-y-3">
+                    <div class="flex items-center justify-between border-b border-amber-200 pb-2">
+                        <h4 class="font-bold flex items-center gap-2 text-amber-800">
+                            <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600"></i>
+                            Discrepancy & Reconciliation Report
+                        </h4>
+                        <a href="reconciliation.html?tab=PO&viewDiscrepancyId=${discrepancies[0].discrepancy_id}" 
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all">
+                            <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Go to Reconciliation
+                        </a>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-xs font-medium text-amber-900/80">
+                        <div>
+                            <span class="text-amber-700/60 block uppercase font-bold text-[10px] tracking-wider mb-0.5">Status</span>
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                discrepancies[0].status === 'Pending' ? 'bg-amber-100 text-amber-800' :
+                                discrepancies[0].status === 'Rejected' ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'
+                            }">${discrepancies[0].status}</span>
+                        </div>
+                        <div>
+                            <span class="text-amber-700/60 block uppercase font-bold text-[10px] tracking-wider mb-0.5">Reason for Difference</span>
+                            <span class="font-semibold">${discrepancies[0].reason}</span>
+                        </div>
+                        ${discrepancies[0].resolution_note ? `
+                        <div class="col-span-2 bg-white/60 p-3 rounded-lg border border-amber-100">
+                            <span class="text-amber-700/60 block uppercase font-bold text-[10px] tracking-wider mb-1">Resolution Details</span>
+                            <span class="font-semibold text-gray-800">${discrepancies[0].resolution_note}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
         let totalDisplayHtml = '';
         const orderTotal = Number(result.order.total_value || result.order.total_amount || 0);
         const orderComp = Number(result.order.compensation_amount || 0);
@@ -576,6 +619,7 @@ window.viewDetail = async function (id) {
                     <span class="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold ${cfg.color}">${cfg.label}</span>
                 </div>
                 ${staffNoteHtml}
+                ${discrepanciesHtml}
             </div>
             
             <table class="w-full text-sm">
