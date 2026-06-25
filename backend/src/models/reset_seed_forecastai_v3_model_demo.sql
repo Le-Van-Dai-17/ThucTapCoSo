@@ -1,4 +1,4 @@
-﻿-- =====================================================
+-- =====================================================
 -- ForecastAI V3 - RESET SEED DATA COMPATIBLE WITH MODEL
 -- Import sau khi Ä‘Ã£ import backend/src/models/database_v3.sql
 -- KhÃ´ng táº¡o báº£ng má»›i, khÃ´ng sá»­a cáº¥u trÃºc DB
@@ -2047,6 +2047,12 @@ INSERT INTO activity_logs (user_id, action, entity_type, entity_id, description,
 (2, 'CREATE_PURCHASE_ORDER', 'purchase_orders', 1, 'Manager táº¡o Ä‘Æ¡n nháº­p hÃ ng PO-202606-001 tá»« forecast', '127.0.0.1', '2026-05-30 10:00:00'),
 (2, 'APPROVE_PURCHASE_ORDER', 'purchase_orders', 2, 'Manager duyá»‡t Ä‘Æ¡n nháº­p hÃ ng PO-202606-002', '127.0.0.1', '2026-05-30 10:35:00'),
 (3, 'RECEIVE_PURCHASE_ORDER', 'purchase_orders', 3, 'Staff xÃ¡c nháº­n nháº­n hÃ ng PO-202605-003; cÃ³ má»™t dÃ²ng nháº­n thiáº¿u so vá»›i Ä‘áº·t', '127.0.0.1', '2026-05-24 16:00:00');
+
+INSERT INTO po_discrepancies (discrepancy_id, po_item_id, po_id, expected_quantity, actual_quantity, discrepancy_quantity, reason, evidence_url, status, reported_by, resolved_by, resolution_note, resolution_type, created_at, updated_at) VALUES
+(1, 8, 3, 95, 92, 3, 'Missing', '["/uploads/evidence_demo.jpg"]', 'Resolved', 3, 2, 'Confirmed with supplier, replacement items delivered on May 26.', 'replacement', '2026-05-24 16:00:00', '2026-05-26 10:00:00');
+
+INSERT INTO activity_logs (user_id, action, entity_type, entity_id, description, ip_address, created_at) VALUES
+(2, 'RESOLVE_DISCREPANCY', 'po_discrepancies', 1, 'Manager Nguyễn Văn An xử lý biên bản chênh lệch ID 1 thành Resolved (replacement)', '127.0.0.1', '2026-05-26 10:00:00');
 
 -- Kiá»ƒm tra nhanh sau import:
 -- SELECT sku, name, current_stock FROM products ORDER BY product_id;
