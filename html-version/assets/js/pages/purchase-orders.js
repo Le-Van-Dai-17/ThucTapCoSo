@@ -31,10 +31,8 @@ let currentPage = 1;
 // LOAD DATA
 // ============================================================
 async function loadOrders() {
-    const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
+    const isStaff = typeof Auth !== 'undefined' && Auth.hasRole('staff');
     if (isStaff) {
-        const btnCreate = document.getElementById('btnCreateNewPO');
-        if (btnCreate) btnCreate.style.display = 'none';
         const btnExport = document.getElementById('btnExportReport');
         if (btnExport) btnExport.style.display = 'none';
         const thVal = document.getElementById('thTotalValue');
@@ -93,7 +91,7 @@ function populateSupplierFilter() {
 
 function renderStats() {
     if (!statsCardsContainer) return;
-    const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
+    const isStaff = typeof Auth !== 'undefined' && Auth.hasRole('staff');
     const total = allOrders.length;
     const pending = allOrders.filter(o => o.status === 'pending').length;
     const received = allOrders.filter(o => o.status === 'received').length;
@@ -155,7 +153,7 @@ function renderTable() {
         const canCancel = ['draft', 'pending'].includes(order.status);
         const canApprove = order.status === 'pending';
         const canComplete = ['approved'].includes(order.status);
-        const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
+        const isStaff = typeof Auth !== 'undefined' && Auth.hasRole('staff');
         const tr = document.createElement('tr');
         tr.className = order.status === 'discrepancy'
             ? 'bg-amber-50/50 hover:bg-amber-100/50 transition-colors border-l-4 border-amber-500 font-medium'
@@ -277,9 +275,6 @@ window.openConfirmReceive = async function(id) {
                                             <i data-lucide="upload" class="w-3.5 h-3.5"></i> ${(item.evidence_files && item.evidence_files.length > 0) ? 'Add Image' : 'Upload Image (Req)'}
                                             <input type="file" accept="image/*" multiple class="hidden" onchange="handlePoEvidenceUpload(${idx}, this.files)">
                                         </label>
-                                        <button type="button" onclick="window.mockPoEvidenceImage(${idx})" class="text-emerald-600 hover:text-emerald-800 flex items-center gap-1 text-[11px] font-medium bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100 transition-colors">
-                                            Mock Image
-                                        </button>
                                         ${(item.evidence_previews || []).map((preview, pIdx) => `
                                             <div class="relative group">
                                                 <img src="${preview}" class="w-8 h-8 object-cover rounded cursor-pointer border border-gray-200" onclick="window.openImageViewer(this.src)" />
@@ -374,16 +369,6 @@ window.removePoEvidenceImage = function(idx, pIdx) {
     window.renderReceivePOModal();
 };
 
-window.mockPoEvidenceImage = function(idx) {
-    const mockFile = new File(["mock_data"], "evidence_mock.jpg", { type: "image/jpeg" });
-    if (!window.receiveItemsData[idx].evidence_files) {
-        window.receiveItemsData[idx].evidence_files = [];
-        window.receiveItemsData[idx].evidence_previews = [];
-    }
-    window.receiveItemsData[idx].evidence_files.push(mockFile);
-    window.receiveItemsData[idx].evidence_previews.push("https://via.placeholder.com/150");
-    window.renderReceivePOModal();
-};
 
 window.closeConfirmReceive = function() {
     hideModal('confirmReceiveOverlay', 'confirmReceiveModal');
@@ -516,7 +501,7 @@ window.viewDetail = async function (id) {
         
         const cfg = statusConfig[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-700' };
 
-        const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
+        const isStaff = typeof Auth !== 'undefined' && Auth.hasRole('staff');
         let rows = details.map((d, i) => {
             const ordered = d.quantity || d.ordered_quantity || 0;
             let received = d.received_quantity || 0;
@@ -528,7 +513,7 @@ window.viewDetail = async function (id) {
             if (disc && disc.status === 'Resolved') {
                 if (disc.resolution_type === 'refund') {
                     orderedHtml = `<span class="text-red-500 font-semibold">${disc.expected_quantity}</span>`;
-                    receivedHtml = `<span class="text-[#10B981] font-semibold">${disc.actual_quantity}</span> <span class="text-red-500 font-bold" title="Hoàn hàng">+ ${disc.discrepancy_quantity}</span>`;
+                    receivedHtml = `<span class="text-red-500 font-semibold">${disc.actual_quantity}</span>`;
                 } else if (disc.resolution_type === 'replacement') {
                     receivedHtml = `<span class="text-[#10B981] font-semibold">${disc.actual_quantity}</span> <span class="text-red-500 font-bold" title="Giao bù hàng">+ ${disc.discrepancy_quantity}</span>`;
                 }
@@ -614,9 +599,23 @@ window.viewDetail = async function (id) {
                     <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">Order Date</div>
                     <div class="text-sm font-medium text-gray-900">${formatDate(order.created_at || order.order_date)}</div>
                 </div>
-                <div class="bg-gray-50 p-6 rounded-2xl border border-gray-100 flex flex-col items-end justify-center">
+                <div class="bg-gray-50 p-6 rounded-2xl border border-gray-100 flex flex-col justify-center">
                     <div class="text-xs text-gray-500 uppercase tracking-wider mb-2">Order Status</div>
-                    <span class="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold ${cfg.color}">${cfg.label}</span>
+                    <span class="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold ${cfg.color} w-fit">${cfg.label}</span>
+                    ${['received', 'discrepancy'].includes(order.status) ? `
+                    <div class="mt-4 pt-4 border-t border-gray-200">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <span class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Received Date</span>
+                                <span class="text-sm font-semibold text-gray-900">${formatDate(result.order.received_date)}</span>
+                            </div>
+                            <div>
+                                <span class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Received By</span>
+                                <span class="text-sm font-semibold text-gray-900">${result.order.receiver_name || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
                 </div>
                 ${staffNoteHtml}
                 ${discrepanciesHtml}

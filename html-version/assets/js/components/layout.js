@@ -39,6 +39,7 @@ const ROLE_PERMISSIONS = {
     Staff: [
         'pos.html',
         'purchase-orders.html',
+        'purchase-order-form.html',
         'products.html',
         'sales-data.html',
         'reconciliation.html',

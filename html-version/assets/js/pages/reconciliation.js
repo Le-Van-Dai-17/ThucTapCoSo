@@ -177,7 +177,10 @@ function renderEvidence(evidence_url) {
         urls = [evidence_url];
     }
     if (urls.length === 0) return '<span class="text-gray-400 text-xs italic">N/A</span>';
-    const fullUrls = urls.map(u => API_BASE_URL.replace('/api', '') + u);
+    const fullUrls = urls.map(u => {
+        const path = String(u || '').startsWith('/') ? u : '/' + u;
+        return API_BASE_URL.replace('/api', '') + path;
+    });
     const escapedUrls = JSON.stringify(fullUrls).replace(/"/g, '&quot;');
     
     return `<button onclick="event.stopPropagation(); window.openGallery(${escapedUrls})" class="flex items-center gap-1.5 px-3 py-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-800 rounded-lg transition-colors font-medium text-sm border border-blue-200">
@@ -191,7 +194,10 @@ function renderThumbnails(evidence_url) {
     try { urls = typeof evidence_url === 'string' && evidence_url.startsWith('[') ? JSON.parse(evidence_url) : [evidence_url]; } catch (e) { urls = [evidence_url]; }
     if (urls.length === 0) return '<span class="text-gray-400 text-xs italic">N/A</span>';
     
-    const fullUrls = urls.map(u => API_BASE_URL.replace('/api', '') + u);
+    const fullUrls = urls.map(u => {
+        const path = String(u || '').startsWith('/') ? u : '/' + u;
+        return API_BASE_URL.replace('/api', '') + path;
+    });
     const escapedUrls = JSON.stringify(fullUrls).replace(/"/g, '&quot;');
     
     return `<div class="flex flex-wrap gap-2">` + fullUrls.map((url) => `
@@ -398,17 +404,21 @@ window.openActionModal = async function(id, type) {
             // The API returns the array of items directly in data.data
             if (data.success && Array.isArray(data.data)) {
                 poItemsBody.innerHTML = data.data.map(item => {
-                    const isDiff = item.received_quantity < item.quantity;
+                    const isCurrentDiscrepancy = item.product_id === record.product_id;
+                    const displayOrdered = isCurrentDiscrepancy ? record.expected_quantity : item.quantity;
+                    const displayReceived = isCurrentDiscrepancy ? record.actual_quantity : item.received_quantity;
+                    const isDiff = displayReceived < displayOrdered;
+                    const diffQty = displayOrdered - displayReceived;
                     return `
-                        <tr class="${item.product_id === record.product_id ? 'bg-red-50/50' : ''}">
+                        <tr class="${isCurrentDiscrepancy ? 'bg-red-50/50' : ''}">
                             <td class="px-4 py-3">
                                 <div class="font-medium text-gray-900">${item.product_name}</div>
                                 <div class="text-xs text-gray-500">${item.sku}</div>
                             </td>
-                            <td class="px-4 py-3 text-center">${item.quantity}</td>
-                            <td class="px-4 py-3 text-center ${isDiff ? 'text-red-600 font-bold' : 'text-gray-900'}">${item.received_quantity}</td>
-                            <td class="px-4 py-3 text-center ${isDiff ? 'text-red-600 font-bold' : 'text-gray-400'}">${isDiff ? item.quantity - item.received_quantity : 0}</td>
-                            <td class="px-4 py-3 flex justify-center">${(item.product_id === record.product_id && record.evidence_url) ? renderEvidence(record.evidence_url) : (isDiff ? '<span class="text-gray-400 text-xs italic">Other Discrepancy</span>' : '-')}</td>
+                            <td class="px-4 py-3 text-center">${displayOrdered}</td>
+                            <td class="px-4 py-3 text-center ${isDiff ? 'text-red-600 font-bold' : 'text-gray-900'}">${displayReceived}</td>
+                            <td class="px-4 py-3 text-center ${isDiff ? 'text-red-600 font-bold' : 'text-gray-400'}">${isDiff ? diffQty : 0}</td>
+                            <td class="px-4 py-3 flex justify-center">${(isCurrentDiscrepancy && record.evidence_url) ? renderEvidence(record.evidence_url) : (isDiff ? '<span class="text-gray-400 text-xs italic">Other Discrepancy</span>' : '-')}</td>
                         </tr>
                     `;
                 }).join('');

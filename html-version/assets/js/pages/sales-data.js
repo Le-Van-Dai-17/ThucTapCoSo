@@ -323,7 +323,11 @@ async function showTransactionDetails(id, type) {
                 const disc = discrepancies.find(x => x.po_item_id === item.po_item_id);
                 if (disc) {
                     if (disc.status === 'Resolved') {
-                        qtyDisplay = `<span class="font-semibold text-[#10B981]">${disc.actual_quantity}</span> <span class="text-red-500 font-bold" title="${disc.resolution_type === 'refund' ? 'Hoàn hàng' : 'Giao bù hàng'}">+ ${disc.discrepancy_quantity}</span>`;
+                        if (disc.resolution_type === 'refund') {
+                            qtyDisplay = `<span class="font-semibold text-red-500">${disc.actual_quantity}</span>`;
+                        } else {
+                            qtyDisplay = `<span class="font-semibold text-[#10B981]">${disc.actual_quantity}</span> <span class="text-red-500 font-bold" title="Giao bù hàng">+ ${disc.discrepancy_quantity}</span>`;
+                        }
                     } else if (disc.status === 'Pending') {
                         qtyDisplay = `<span class="font-semibold text-[#10B981]">${disc.actual_quantity}</span> <span class="text-red-500 font-bold" title="Chờ đối soát">(-${disc.discrepancy_quantity})</span>`;
                     } else {

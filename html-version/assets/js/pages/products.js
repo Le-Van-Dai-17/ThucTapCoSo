@@ -21,7 +21,7 @@ const statsCards     = document.getElementById('statsCards');
 // ============================================================
 async function loadProducts() {
     showLoading('tableBody');
-    const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
+    const isStaff = typeof Auth !== 'undefined' && Auth.hasRole('staff');
     if (isStaff) {
         const btnAdd = document.getElementById('btnAddProduct');
         if (btnAdd) btnAdd.style.display = 'none';
@@ -109,7 +109,7 @@ function renderTable() {
             <p class="text-sm text-gray-500 mt-1">Try adjusting your search or filter</p>
         </div></td></tr>`;
     } else {
-        const isStaff = typeof displayRole !== 'undefined' && displayRole === 'Staff';
+        const isStaff = typeof Auth !== 'undefined' && Auth.hasRole('staff');
         filtered.forEach(p => {
             const stockHtml   = getStockHtml(p.current_stock, p.warning_stock_level || p.min_stock_level || p.min_stock, p.max_stock_level);
             const statusClass = p.status === 'active' ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-gray-100 text-gray-500';

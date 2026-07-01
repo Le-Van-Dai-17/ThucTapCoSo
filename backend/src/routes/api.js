@@ -95,7 +95,7 @@ router.post(
 // ==========================================
 router.get('/purchases/list', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), purchaseController.getPurchases);
 router.get('/purchases/detail/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), purchaseController.getPurchasesDetail);
-router.post('/purchases/create', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), purchaseController.createPurchase);
+router.post('/purchases/create', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin', 'Staff'), purchaseController.createPurchase);
 router.get('/purchases/recommendations', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), purchaseController.getPurchaseRecommendations);
 router.post('/purchases/create-from-forecast', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), purchaseController.createPurchaseOrdersFromForecast);
 router.put('/purchases/approve/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), purchaseController.approvePurchase);

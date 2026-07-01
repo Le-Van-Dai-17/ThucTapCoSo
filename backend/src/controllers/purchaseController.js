@@ -153,7 +153,7 @@ exports.getPurchases = async (req, res) => {
     let params = [];
 
     if (userRole === 'staff') {
-      conditions.push("LOWER(po.status) IN ('approved', 'received', 'discrepancy')");
+      conditions.push("LOWER(po.status) IN ('approved', 'shipped', 'completed', 'received', 'discrepancy')");
     }
 
     if (ownOnly && userId) {
