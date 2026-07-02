@@ -115,23 +115,7 @@ const API = {
         async getAll()     { return apiFetch('/sales/list'); },
         async getTransactions() { return apiFetch('/sales/transactions'); },
         async getTransactionDetail(id) { return apiFetch(`/sales/transactions/${id}`); },
-        async create(data) { return apiFetch('/sales/create', { method: 'POST', body: JSON.stringify(data) }); },
-        // THÊM CHỨC NĂNG IMPORT FILE THẬT:
-        async importCSV(file) {
-            const formData = new FormData();
-            formData.append('file', file); // Đút file vào FormData để truyền đi
-
-            // Gọi apiFetch nhưng không dùng JSON.stringify, trình duyệt tự xử lý Header multipart/form-data
-            const res = await fetch(`${API_BASE_URL}/sales/import`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${Auth.getToken()}` // Giữ bảo mật Token của Thanh
-                },
-                body: formData
-            });
-            return res.json();
-        }   
-    
+        async create(data) { return apiFetch('/sales/create', { method: 'POST', body: JSON.stringify(data) }); }
     },
 
     orders: {

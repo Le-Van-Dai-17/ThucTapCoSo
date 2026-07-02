@@ -86,12 +86,6 @@ const NAV_ITEMS = [
         roles: ['Manager']
     },
     {
-        href: 'import.html',
-        label: 'Import Data',
-        icon: 'upload',
-        roles: ['Manager']
-    },
-    {
         href: 'reports.html',
         label: 'Reports',
         icon: 'file-text',

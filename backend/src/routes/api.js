@@ -82,13 +82,7 @@ router.get('/sales/transactions', authMiddleware.verifyToken, authMiddleware.req
 router.get('/sales/transactions/:id', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), salesController.getSalesTransactionDetail);
 router.post('/sales/create', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Admin'), salesController.createSale);
 router.post('/sales/pos-checkout', authMiddleware.verifyToken, authMiddleware.requireRole('Manager', 'Staff', 'Admin'), salesController.posCheckout);
-router.post(
-    '/sales/import',
-    authMiddleware.verifyToken,
-    authMiddleware.requireRole('Manager', 'Admin'), // Hạ quyền Admin xuống theo đúng BA v13
-    upload.single('file'),
-    salesController.importSalesCSV
-);
+
 
 // ==========================================
 // 6. PURCHASE ORDERS & INVENTORY API — Phân quyền chuẩn cho Manager & Staff [BE-01]
