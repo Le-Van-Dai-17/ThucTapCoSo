@@ -5,10 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Configure role-based elements
-    const btnImportData = document.getElementById('btnImportData');
-    if (btnImportData && Auth.hasRole('manager', 'admin')) {
-        btnImportData.classList.remove('hidden');
-    }
+
 
     // Initialize layout icons
     if (typeof lucide !== 'undefined') {
