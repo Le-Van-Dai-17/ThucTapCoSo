@@ -307,17 +307,8 @@ async function showTransactionDetails(id, type) {
 
             if (txn.compensation > 0) {
                 const refundAmount = txn.compensation;
-                const hasResolvedRefund = discrepancies.some(d => d.status === 'Resolved' && d.resolution_type === 'refund');
-                let originalTotal = txn.total;
-                let resolvedTotal = txn.total;
-                
-                if (hasResolvedRefund) {
-                    originalTotal = txn.total + refundAmount;
-                    resolvedTotal = txn.total;
-                } else {
-                    originalTotal = txn.total;
-                    resolvedTotal = txn.total - refundAmount;
-                }
+                const originalTotal = txn.total;
+                const resolvedTotal = txn.total - refundAmount;
 
                 const statusColors = {
                     draft: 'bg-gray-100 text-gray-800 border-gray-200',
