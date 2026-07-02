@@ -175,6 +175,7 @@ CREATE TABLE purchase_orders (
     expected_delivery_date DATE,
     received_date DATETIME NULL,
     total_value DECIMAL(15,2) DEFAULT 0,
+    compensation_amount DECIMAL(15,2) DEFAULT 0,
     staff_note TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -248,6 +249,8 @@ CREATE TABLE po_discrepancies (
     reported_by INT NOT NULL,
     resolved_by INT NULL,
     resolution_note TEXT,
+    resolution_type VARCHAR(50) NULL,
+    compensation_amount DECIMAL(15,2) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_po_discrepancies_item FOREIGN KEY (po_item_id) REFERENCES po_items(po_item_id) ON DELETE CASCADE,
@@ -275,16 +278,16 @@ CREATE TABLE inventory_adjustments (
 );
 
 INSERT INTO roles (role_name, description) VALUES
-('Admin', 'Quáº£n trï¿½?hï¿½?thá»‘ng, quáº£n lÃ½ ngÆ°á»i dÃ¹ng vÃ  phÃ¢n quyá»n'),
-('Manager', 'Quáº£n lÃ½ kho, dï¿½?liá»‡u bÃ¡n hÃ ng, dï¿½?bÃ¡o vÃ  Ä‘Æ¡n nháº­p hÃ ng'),
-('Staff', 'NhÃ¢n viÃªn kho, xÃ¡c nháº­n nháº­p hÃ ng vÃ  cáº­p nháº­t tá»“n kho');
+('Admin', 'Quản trị hệ thống, quản lý người dùng và phân quyền'),
+('Manager', 'Quản lý kho, dữ liệu bán hàng, dự báo và đơn nhập hàng'),
+('Staff', 'Nhân viên kho, xác nhận nhập hàng và cập nhật tồn kho');
 
 INSERT INTO users (full_name, email, phone, role_id, is_active) VALUES
 ('System Admin', 'admin@forecastai.local', '0900000001', 1, TRUE),
 ('Store Manager', 'manager@forecastai.local', '0900000002', 2, TRUE),
 ('Warehouse Staff', 'staff@forecastai.local', '0900000003', 3, TRUE);
 
--- bcrypt hash cá»§a password: 123456
+-- bcrypt hash của password: 123456
 INSERT INTO user_credentials (user_id, username, password_hash) VALUES
 (1, 'admin', '$2a$10$HhgoTX.GFAa7NVo.8JGYsuqif2NP0orznY7BnIiQMNTYm65/XQCiW'),
 (2, 'manager', '$2a$10$HhgoTX.GFAa7NVo.8JGYsuqif2NP0orznY7BnIiQMNTYm65/XQCiW'),
@@ -312,11 +315,11 @@ VALUES
 
 
 INSERT INTO activity_logs (user_id, action, entity_type, entity_id, description, ip_address, created_at) VALUES
-(1, 'CREATE_USER', 'users', 2, 'Admin táº¡o tÃ i khoáº£n Manager', '127.0.0.1', '2026-05-21 08:00:00'),
-(2, 'IMPORT_SALES_DATA', 'sales_transactions', NULL, 'Manager import dï¿½?liá»‡u bÃ¡n hÃ ng thÃ¡ng 01-05/2026', '127.0.0.1', '2026-05-22 08:30:00'),
-(2, 'RUN_FORECAST', 'demand_forecasts', NULL, 'Manager cháº¡y dï¿½?bÃ¡o nhu cáº§u nháº­p hÃ ng thÃ¡ng 06/2026', '127.0.0.1', '2026-05-22 09:00:00'),
-(2, 'CREATE_PURCHASE_ORDER', 'purchase_orders', 1, 'Manager táº¡o Ä‘Æ¡n nháº­p hÃ ng PO-202605-001 tï¿½?káº¿t quï¿½?dï¿½?bÃ¡o', '127.0.0.1', '2026-05-22 10:00:00'),
-(3, 'RECEIVE_PURCHASE_ORDER', 'purchase_orders', 2, 'Staff xÃ¡c nháº­n Ä‘Ã£ nháº­n Ä‘Æ¡n nháº­p hÃ ng PO-202605-002', '127.0.0.1', '2026-05-20 16:00:00');
+(1, 'CREATE_USER', 'users', 2, 'Admin tạo tài khoản Manager', '127.0.0.1', '2026-05-21 08:00:00'),
+(2, 'IMPORT_SALES_DATA', 'sales_transactions', NULL, 'Manager import dữ liệu bán hàng tháng 01-05/2026', '127.0.0.1', '2026-05-22 08:30:00'),
+(2, 'RUN_FORECAST', 'demand_forecasts', NULL, 'Manager chạy dự báo nhu cầu nhập hàng tháng 06/2026', '127.0.0.1', '2026-05-22 09:00:00'),
+(2, 'CREATE_PURCHASE_ORDER', 'purchase_orders', 1, 'Manager tạo đơn nhập hàng PO-202605-001 t�?kết qu�?dự báo', '127.0.0.1', '2026-05-22 10:00:00'),
+(3, 'RECEIVE_PURCHASE_ORDER', 'purchase_orders', 2, 'Staff xác nhận đã nhận đơn nhập hàng PO-202605-002', '127.0.0.1', '2026-05-20 16:00:00');
 
 
 
@@ -367,15 +370,15 @@ ON DUPLICATE KEY UPDATE
 
 
 
--- XÃ³a dï¿½?liá»‡u AI cÅ© Ä‘ï¿½?cháº¡y láº¡i seed khÃ´ng bï¿½?trÃ¹ng
+-- Xóa dữ liệu AI cũ để chạy lại seed không bị trùng
 DELETE sd FROM sale_details sd JOIN sales_transactions st ON sd.transaction_id = st.transaction_id WHERE st.transaction_code LIKE 'AI_M5_%';
 DELETE FROM sales_transactions WHERE transaction_code LIKE 'AI_M5_%';
 
--- Danh má»¥c vÃ  nhÃ  cung cáº¥p cho dï¿½?liá»‡u M5
-INSERT IGNORE INTO categories (name, description) VALUES ('FOODS', 'Danh má»¥c FOODS tï¿½?dï¿½?liá»‡u M5 Forecasting');
+-- Danh mục và nhà cung cấp cho dữ liệu M5
+INSERT IGNORE INTO categories (name, description) VALUES ('FOODS', 'Danh mục FOODS t�?dữ liệu M5 Forecasting');
 INSERT INTO suppliers (name, contact_name, phone, email, address, lead_time_days) SELECT 'M5 Walmart Supplier', 'System', '0000000000', 'm5-supplier@example.com', 'Generated from M5 Forecasting dataset', 7 WHERE NOT EXISTS (SELECT 1 FROM suppliers WHERE name = 'M5 Walmart Supplier');
 
--- Sáº£n pháº©m AI. Quan trá»ng: products.sku giá»‘ng product_code lÃºc train model
+-- Sản phẩm AI. Quan trọng: products.sku giống product_code lúc train model
 INSERT INTO products (sku, name, category_id, supplier_id, unit, cost_price, selling_price, current_stock, min_stock_level, max_stock_level, is_discontinued) SELECT 'FOODS_1_001', 'M5 Product FOODS_1_001', c.category_id, s.supplier_id, 'piece', 7000, 10000, 57, 16, 500, FALSE FROM categories c JOIN suppliers s ON s.name = 'M5 Walmart Supplier' WHERE c.name = 'FOODS' ON DUPLICATE KEY UPDATE name = VALUES(name), category_id = VALUES(category_id), supplier_id = VALUES(supplier_id), unit = VALUES(unit), cost_price = VALUES(cost_price), selling_price = VALUES(selling_price), current_stock = VALUES(current_stock), min_stock_level = VALUES(min_stock_level), max_stock_level = VALUES(max_stock_level), is_discontinued = VALUES(is_discontinued);
 INSERT INTO products (sku, name, category_id, supplier_id, unit, cost_price, selling_price, current_stock, min_stock_level, max_stock_level, is_discontinued) SELECT 'FOODS_1_002', 'M5 Product FOODS_1_002', c.category_id, s.supplier_id, 'piece', 7000, 10000, 64, 17, 500, FALSE FROM categories c JOIN suppliers s ON s.name = 'M5 Walmart Supplier' WHERE c.name = 'FOODS' ON DUPLICATE KEY UPDATE name = VALUES(name), category_id = VALUES(category_id), supplier_id = VALUES(supplier_id), unit = VALUES(unit), cost_price = VALUES(cost_price), selling_price = VALUES(selling_price), current_stock = VALUES(current_stock), min_stock_level = VALUES(min_stock_level), max_stock_level = VALUES(max_stock_level), is_discontinued = VALUES(is_discontinued);
 INSERT INTO products (sku, name, category_id, supplier_id, unit, cost_price, selling_price, current_stock, min_stock_level, max_stock_level, is_discontinued) SELECT 'FOODS_1_003', 'M5 Product FOODS_1_003', c.category_id, s.supplier_id, 'piece', 7000, 10000, 71, 18, 500, FALSE FROM categories c JOIN suppliers s ON s.name = 'M5 Walmart Supplier' WHERE c.name = 'FOODS' ON DUPLICATE KEY UPDATE name = VALUES(name), category_id = VALUES(category_id), supplier_id = VALUES(supplier_id), unit = VALUES(unit), cost_price = VALUES(cost_price), selling_price = VALUES(selling_price), current_stock = VALUES(current_stock), min_stock_level = VALUES(min_stock_level), max_stock_level = VALUES(max_stock_level), is_discontinued = VALUES(is_discontinued);
@@ -527,7 +530,7 @@ INSERT INTO products (sku, name, category_id, supplier_id, unit, cost_price, sel
 INSERT INTO products (sku, name, category_id, supplier_id, unit, cost_price, selling_price, current_stock, min_stock_level, max_stock_level, is_discontinued) SELECT 'FOODS_1_149', 'M5 Product FOODS_1_149', c.category_id, s.supplier_id, 'piece', 7000, 10000, 133, 24, 500, FALSE FROM categories c JOIN suppliers s ON s.name = 'M5 Walmart Supplier' WHERE c.name = 'FOODS' ON DUPLICATE KEY UPDATE name = VALUES(name), category_id = VALUES(category_id), supplier_id = VALUES(supplier_id), unit = VALUES(unit), cost_price = VALUES(cost_price), selling_price = VALUES(selling_price), current_stock = VALUES(current_stock), min_stock_level = VALUES(min_stock_level), max_stock_level = VALUES(max_stock_level), is_discontinued = VALUES(is_discontinued);
 INSERT INTO products (sku, name, category_id, supplier_id, unit, cost_price, selling_price, current_stock, min_stock_level, max_stock_level, is_discontinued) SELECT 'FOODS_1_150', 'M5 Product FOODS_1_150', c.category_id, s.supplier_id, 'piece', 7000, 10000, 140, 15, 500, FALSE FROM categories c JOIN suppliers s ON s.name = 'M5 Walmart Supplier' WHERE c.name = 'FOODS' ON DUPLICATE KEY UPDATE name = VALUES(name), category_id = VALUES(category_id), supplier_id = VALUES(supplier_id), unit = VALUES(unit), cost_price = VALUES(cost_price), selling_price = VALUES(selling_price), current_stock = VALUES(current_stock), min_stock_level = VALUES(min_stock_level), max_stock_level = VALUES(max_stock_level), is_discontinued = VALUES(is_discontinued);
 
--- ÄÄƒng kÃ½ model Ä‘Ã£ train báº±ng Pipeline + RandomForest
+-- Đăng ký model đã train bằng Pipeline + RandomForest
 UPDATE ml_models SET is_deployed = FALSE;
 INSERT INTO ml_models (version_tag, model_path, algorithm_type, hyperparameters, is_deployed, created_by)
 VALUES (
@@ -550,7 +553,7 @@ ON DUPLICATE KEY UPDATE
     hyperparameters = VALUES(hyperparameters),
     is_deployed = TRUE;
 
--- Dï¿½?liá»‡u bÃ¡n hÃ ng thÃ¡ng 01-05/2026 Ä‘ï¿½?backend tÃ­nh lag cho dï¿½?bÃ¡o thÃ¡ng 06/2026
+-- D�?liệu bán hàng tháng 01-05/2026 để backend tính lag cho dự báo tháng 06/2026
 INSERT INTO sales_transactions (transaction_code, transaction_date, total_amount, discount_amount, created_by) VALUES ('AI_M5_FOODS_1_001_2026_01', '2026-01-01 00:00:00', 120000, 0, 2) ON DUPLICATE KEY UPDATE transaction_date = VALUES(transaction_date), total_amount = VALUES(total_amount), discount_amount = VALUES(discount_amount), created_by = VALUES(created_by);
 INSERT INTO sale_details (transaction_id, product_id, quantity, unit_price, line_total) SELECT st.transaction_id, p.product_id, 12, 10000, 120000 FROM sales_transactions st JOIN products p ON p.sku = 'FOODS_1_001' WHERE st.transaction_code = 'AI_M5_FOODS_1_001_2026_01';
 INSERT INTO sales_transactions (transaction_code, transaction_date, total_amount, discount_amount, created_by) VALUES ('AI_M5_FOODS_1_002_2026_01', '2026-01-01 00:00:00', 180000, 0, 2) ON DUPLICATE KEY UPDATE transaction_date = VALUES(transaction_date), total_amount = VALUES(total_amount), discount_amount = VALUES(discount_amount), created_by = VALUES(created_by);

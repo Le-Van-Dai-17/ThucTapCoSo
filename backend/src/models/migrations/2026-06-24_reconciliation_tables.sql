@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS po_discrepancies (
     reported_by INT NOT NULL,
     resolved_by INT NULL,
     resolution_note TEXT,
+    resolution_type VARCHAR(50) NULL,
+    compensation_amount DECIMAL(15,2) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_po_discrepancies_item FOREIGN KEY (po_item_id) REFERENCES po_items(po_item_id) ON DELETE CASCADE,
