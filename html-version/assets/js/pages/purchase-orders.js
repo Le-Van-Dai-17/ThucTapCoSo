@@ -368,8 +368,6 @@ window.removePoEvidenceImage = function(idx, pIdx) {
     window.receiveItemsData[idx].evidence_files.splice(pIdx, 1);
     window.renderReceivePOModal();
 };
-
-
 window.closeConfirmReceive = function() {
     hideModal('confirmReceiveOverlay', 'confirmReceiveModal');
     currentPOIdToReceive = null;
