@@ -74,19 +74,6 @@ exports.resolveDiscrepancy = async (req, res) => {
             const resType = resolution_type || 'refund'; // default to refund
 
             if (resType === 'refund') {
-                const newOrderedQty = poItem.received_quantity; // subtract shortage
-                const newLineTotal = newOrderedQty * unitCost;
-
-                await connection.query(
-                    'UPDATE po_items SET ordered_quantity = ?, line_total = ? WHERE po_item_id = ?',
-                    [newOrderedQty, newLineTotal, poItemId]
-                );
-
-                await connection.query(
-                    'UPDATE purchase_orders SET total_value = (SELECT SUM(line_total) FROM po_items WHERE po_id = ?) WHERE po_id = ?',
-                    [discrepancy.po_id, discrepancy.po_id]
-                );
-
                 const compAmount = discrepancy.discrepancy_quantity * unitCost;
                 await connection.query(
                     'UPDATE purchase_orders SET compensation_amount = compensation_amount + ? WHERE po_id = ?',

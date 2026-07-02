@@ -157,10 +157,10 @@ function applyFiltersAndRender() {
                 <td class="px-6 py-4 text-gray-900 font-semibold text-sm whitespace-nowrap font-mono">${t.code}</td>
                 <td class="px-6 py-4 whitespace-nowrap">${typeBadge}</td>
                 <td class="px-6 py-4 text-gray-700 text-sm whitespace-nowrap">${t.actor}</td>
-                <td class="px-6 py-4 text-right text-gray-900 font-bold whitespace-nowrap">
+                <td class="px-6 py-4 text-right whitespace-nowrap">
                     ${(t.type === 'receive' && t.compensation > 0) 
-                        ? `<span class="text-emerald-600 font-bold">${formatCurrency(t.total)}</span> <span class="text-red-500 font-semibold text-xs block">+ ${formatCurrency(t.compensation)}</span>` 
-                        : formatCurrency(t.total)}
+                        ? `<span class="text-gray-900 font-bold">${formatCurrency(t.total - t.compensation)}</span> <span class="text-emerald-600 font-semibold text-xs block">+ ${formatCurrency(t.compensation)}</span>` 
+                        : `<span class="text-gray-900 font-bold">${formatCurrency(t.total)}</span>`}
                 </td>
                 <td class="px-6 py-4 text-center whitespace-nowrap">
                     <button onclick="showTransactionDetails(${t.id}, '${t.type}')" class="px-4 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 mx-auto">
@@ -273,10 +273,20 @@ async function showTransactionDetails(id, type) {
                 <div class="flex items-center gap-2 mt-1">
                     <span class="px-2 py-0.5 rounded text-xs font-bold border ${badgeClass}">${txn.status}</span>
                     ${(txn.type === 'receive' && txn.compensation > 0)
-                        ? `<span class="text-sm font-bold text-emerald-600">${formatCurrency(txn.total)}</span> <span class="text-red-500 font-semibold text-xs">+ ${formatCurrency(txn.compensation)}</span>`
+                        ? `<span class="text-sm font-semibold text-gray-500 line-through">${formatCurrency(txn.total)}</span>`
                         : `<span class="text-sm font-bold text-indigo-600">${formatCurrency(txn.total)}</span>`}
                 </div>
             </div>
+            ${(txn.type === 'receive' && txn.compensation > 0) ? `
+            <div>
+                <p class="text-xs font-medium text-emerald-600 uppercase tracking-wider">Refund Amount</p>
+                <p class="text-sm font-bold text-emerald-600 mt-0.5">+ ${formatCurrency(txn.compensation)}</p>
+            </div>
+            <div class="col-span-1 md:col-span-2 border-t border-gray-200 pt-3 mt-1">
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total After Resolved</p>
+                <p class="text-lg font-bold text-gray-900 mt-0.5">${formatCurrency(txn.total - txn.compensation)}</p>
+            </div>
+            ` : ''}
         `;
     }
 
@@ -293,6 +303,69 @@ async function showTransactionDetails(id, type) {
             discrepancies = res.discrepancies || [];
             if (res.order && res.order.staff_note) {
                 staffNote = res.order.staff_note;
+            }
+
+            if (txn.compensation > 0) {
+                const refundAmount = txn.compensation;
+                const hasResolvedRefund = discrepancies.some(d => d.status === 'Resolved' && d.resolution_type === 'refund');
+                let originalTotal = txn.total;
+                let resolvedTotal = txn.total;
+                
+                if (hasResolvedRefund) {
+                    originalTotal = txn.total + refundAmount;
+                    resolvedTotal = txn.total;
+                } else {
+                    originalTotal = txn.total;
+                    resolvedTotal = txn.total - refundAmount;
+                }
+
+                const statusColors = {
+                    draft: 'bg-gray-100 text-gray-800 border-gray-200',
+                    pending: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+                    approved: 'bg-blue-50 text-blue-700 border-blue-200',
+                    shipped: 'bg-purple-50 text-purple-700 border-purple-200',
+                    completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                    received: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                    cancelled: 'bg-red-50 text-red-700 border-red-200'
+                };
+                const stKey = String(txn.status).toLowerCase();
+                const badgeClass = statusColors[stKey] || 'bg-gray-100 text-gray-800 border-gray-200';
+
+                modalInfo.innerHTML = `
+                    <div>
+                        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Supplier</p>
+                        <p class="text-sm font-semibold text-gray-800 mt-0.5">${txn.supplier}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Created By</p>
+                        <p class="text-sm font-semibold text-gray-800 mt-0.5">${txn.creator}</p>
+                    </div>
+                    ${txn.receiver ? `
+                    <div>
+                        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Received By</p>
+                        <p class="text-sm font-semibold text-gray-800 mt-0.5">${txn.receiver}</p>
+                    </div>
+                    ` : ''}
+                    <div>
+                        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Order Time</p>
+                        <p class="text-sm font-semibold text-gray-800 mt-0.5">${dateStr}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Status / Value</p>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="px-2 py-0.5 rounded text-xs font-bold border ${badgeClass}">${txn.status}</span>
+                            <span class="text-sm font-semibold text-gray-500 line-through">${formatCurrency(originalTotal)}</span>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-emerald-600 uppercase tracking-wider">Refund Amount</p>
+                        <p class="text-sm font-bold text-emerald-600 mt-0.5">+ ${formatCurrency(refundAmount)}</p>
+                    </div>
+                    <div class="col-span-1 md:col-span-2 border-t border-gray-200 pt-3 mt-1">
+                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total After Resolved</p>
+                        <p class="text-lg font-bold text-gray-900 mt-0.5">${formatCurrency(resolvedTotal)}</p>
+                    </div>
+                `;
             }
         }
 
@@ -316,12 +389,17 @@ async function showTransactionDetails(id, type) {
             const total = Number(item.total_amount || item.line_total || (orderedQty * unitPrice));
 
             let qtyDisplay = '';
+            let totalDisplay = formatCurrency(total);
+
             if (isReceive) {
                 const disc = discrepancies.find(x => x.po_item_id === item.po_item_id);
                 if (disc) {
                     if (disc.status === 'Resolved') {
                         if (disc.resolution_type === 'refund') {
-                            qtyDisplay = `<span class="font-semibold text-red-500">${disc.actual_quantity}</span>`;
+                            qtyDisplay = `<span class="font-semibold text-[#10B981]">${disc.actual_quantity}</span> <span class="text-red-500 font-semibold">/ ${disc.expected_quantity}</span>`;
+                            const originalItemTotal = disc.expected_quantity * unitPrice;
+                            const resolvedTotal = disc.actual_quantity * unitPrice;
+                            totalDisplay = `<span class="text-gray-400 line-through mr-1">${formatCurrency(originalItemTotal)}</span> <span class="text-gray-900 font-bold">${formatCurrency(resolvedTotal)}</span>`;
                         } else {
                             qtyDisplay = `<span class="font-semibold text-[#10B981]">${disc.actual_quantity}</span> <span class="text-red-500 font-bold" title="Giao bù hàng">+ ${disc.discrepancy_quantity}</span>`;
                         }
@@ -350,7 +428,7 @@ async function showTransactionDetails(id, type) {
                     </td>
                     <td class="px-6 py-4 text-center text-sm">${qtyDisplay}</td>
                     <td class="px-6 py-4 text-right text-sm text-gray-500">${formatCurrency(unitPrice)}</td>
-                    <td class="px-6 py-4 text-right text-sm font-bold text-gray-900">${formatCurrency(total)}</td>
+                    <td class="px-6 py-4 text-right text-sm font-bold text-gray-900">${totalDisplay}</td>
                 </tr>
             `;
         }).join('');

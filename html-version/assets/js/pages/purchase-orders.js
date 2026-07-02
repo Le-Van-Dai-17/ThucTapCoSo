@@ -33,8 +33,6 @@ let currentPage = 1;
 async function loadOrders() {
     const isStaff = typeof Auth !== 'undefined' && Auth.hasRole('staff');
     if (isStaff) {
-        const btnExport = document.getElementById('btnExportReport');
-        if (btnExport) btnExport.style.display = 'none';
         const thVal = document.getElementById('thTotalValue');
         if (thVal) thVal.style.display = 'none';
     }
